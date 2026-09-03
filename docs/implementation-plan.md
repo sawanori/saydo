@@ -262,6 +262,20 @@ SAYDO/
 - 分野の判定: Tier A は `@Generable enum TaskDomain` で分類。Tier B はキーワード辞書。
 - **初回インサイトは 3 件目で出す**（R9）: 週次を待たず、`AvoidanceItem` が 3 件たまった時点で「3 回のうち 2 回が『人への返信』」のような 1 行を Timeline 上部に出す。同じ計算を `InsightCalculator` の件数版として実装する。
 
+### 7.7 行動時刻アラーム（AlarmKit、Commitment ごとの opt-in。task_023）
+
+要望: 「おこしてME」のようにアプリを開くまでアラートが消せず、本人の声で大音量で鳴り、音量を下げても最大に戻る。iOS で実現できる範囲は次のとおり（Apple 公式ドキュメントで確認済みの事実と、スパイク S-E で確認する事項を分けて書く）。
+
+| 要望 | iOS 26 での可否 | 方式 |
+|---|---|---|
+| 消音・集中モードでも鳴る、ロック画面に全画面表示 | **可**（公式: AlarmKit のアラームは Focus と消音を上書きする） | `AlarmManager.AlarmConfiguration.alarm(schedule:attributes:stopIntent:secondaryIntent:sound:)` |
+| アプリを開くまで消せない | **部分的に可**。停止ボタンは AlarmKit の仕様上必ず表示される。代替として 1 分間隔 × 5 件の連鎖アラームを登録し、停止しても次が鳴り、Open（`secondaryButtonBehavior = .custom`）でアプリを開いた時に残りを取り消す | `AlarmPlan`（純関数）+ `AlarmScheduler` + `AlarmIntents` |
+| 本人の声で鳴る | **スパイクで確認**。`AlertConfiguration.AlertSound.named` がアプリバンドル外（本人の録音）を再生できるかは公式文書に明記がない。不可なら固定チャイム + Open 直後に本人の宣言音声を再生 | S-E |
+| 音量を最大に戻す | **不可**。バックグラウンドから音量を変える API は無い。端末のアラーム音量（設定 > サウンドと触覚）に従う。フォアグラウンドでの MPVolumeView 操作は審査リスクがあり v1 では行わない | 設定画面で案内 |
+| アプリを強制終了していても鳴る | **スパイクで確認**（AlarmKit はシステムがアラームを管理するため鳴る想定） | S-E |
+
+設計原則との整合: これは AI や通知が「やれ」と言う機能ではなく、朝の本人が「この約束はアラームで鳴らす」と自分で選ぶ自己拘束の装置である（§20「朝の自分が、今日の自分を動かす」）。既定はオフ、Commitment ごとに選ぶ。アラーム ON の日は同じ時刻の行動時刻通知を出さない（二重に鳴らさない）。権限は `NSAlarmKitUsageDescription` を Info に置き、初回 opt-in 時に許可を求める。Critical Alerts エンタイトルメントは申請しない（非スコープ）。
+
 ## 8. UI Plan
 
 | 画面 | 役割 | 状態 |

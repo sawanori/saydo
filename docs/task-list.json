@@ -1280,6 +1280,69 @@
         "scripts/lint-principles.sh"
       ],
       "risk_level": "medium"
+    },
+    {
+      "task_id": "task_023",
+      "title": "行動時刻アラーム（AlarmKit、Commitment ごとの opt-in）",
+      "goal": "宣言した行動時刻に、時計アプリと同等のアラーム（消音・集中モードを突破し、ロック画面に全画面表示）を鳴らし、アプリを開くまで鳴り続ける体験を iOS が許す範囲で実現する",
+      "scope": [
+        "スパイク S-E（先行、実機必須）: AlarmKit の `AlarmManager.shared.requestAuthorization()`、`AlarmManager.AlarmConfiguration.alarm(schedule:attributes:stopIntent:secondaryIntent:sound:)`、`AlertConfiguration.AlertSound.named` がアプリバンドル外の音声（Library/Sounds など。本人の宣言音声を IMA4 .caf に変換したもの）を再生できるか、`secondaryButtonBehavior = .custom`（Open）でアプリが SessionView に直行できるか、アプリを強制終了した状態でも鳴るか、連鎖アラーム（1 分間隔 × 5 件）で「停止しても次が鳴り、アプリを開いたら残りを取り消す」が成立するか、音量は端末のアラーム音量（設定 > サウンドと触覚）に従うか、を docs/spikes/alarm-spike.md に記録する",
+        "SaydoCore/Notifications/AlarmPlan.swift（純関数）: plannedAt から連鎖アラームの発火時刻列（1 分間隔 × 5、設定で 3 / 5 / 10 分間隔）と識別子を生成。既存の action-yyyyMMdd 通知との併用ルール（アラーム ON の日は通知を出さない）",
+        "App/Alarms/AlarmScheduler.swift: AlarmKit への登録・取り消し、権限状態の取得。App/Alarms/AlarmIntents.swift: Open（secondaryIntent、LiveActivityIntent）でアプリを開き NoonFlow N0 に直行するとともに残りの連鎖アラームを全て取り消す。停止ボタンは AlarmKit 仕様上必ず存在するため、連鎖で「開くまで鳴り続ける」を代替する",
+        "M4 の宣言後に「この約束、アラームで鳴らす？」（既定オフ、Commitment ごとの opt-in。Commitment に `alarmEnabled` を追加）。設定に「アラームの間隔」と「アラーム音量は iOS の設定 > サウンドと触覚に従う」の案内",
+        "アラーム音: スパイクで本人の宣言音声が使えれば宣言音声（30 秒以内、IMA4 .caf）。使えない場合は固定のチャイムにし、Open でアプリを開いた瞬間に本人の宣言音声を再生する",
+        "権限: Info に `NSAlarmKitUsageDescription`。許可ダイアログはオンボーディングではなく初回に opt-in した時に出す",
+        "文言は DialogueCopy / NotificationCopy に置き、Guardrails を通す（責めない。「逃げるな」等は禁止）"
+      ],
+      "non_scope": [
+        "バックグラウンドから音量を最大に戻す処理（iOS に API が無い。フォアグラウンドでの MPVolumeView 操作は審査リスクがあるため v1 では行わず、設定画面で案内する）",
+        "Critical Alerts エンタイトルメント（Apple の個別承認が必要。v1 では申請しない）",
+        "バックグラウンド音声セッションでアプリを常駐させてアラームを鳴らす方式（電池と審査の懸念）",
+        "iOS 26 未満への対応"
+      ],
+      "files_to_read": [
+        "docs/implementation-plan.md",
+        "docs/task-list.json",
+        "App/Notifications/NotificationScheduler.swift",
+        "Packages/SaydoCore/Sources/SaydoCore/Notifications/NotificationPlan.swift",
+        "docs/spikes/alarm-spike.md"
+      ],
+      "files_to_create": [
+        "Spikes/AlarmSpike/AlarmSpikeApp.swift",
+        "Spikes/AlarmSpike/AlarmSpikeView.swift",
+        "docs/spikes/alarm-spike.md",
+        "Packages/SaydoCore/Sources/SaydoCore/Notifications/AlarmPlan.swift",
+        "Packages/SaydoCore/Tests/SaydoCoreTests/AlarmPlanTests.swift",
+        "App/Alarms/AlarmScheduler.swift",
+        "App/Alarms/AlarmIntents.swift"
+      ],
+      "files_to_modify": [
+        "project.yml",
+        "App/Data/Models/Commitment.swift",
+        "App/Features/Session/SessionViewModel.swift",
+        "App/Features/Settings/SettingsView.swift",
+        "Packages/SaydoCore/Sources/SaydoCore/Dialogue/DialogueCopy.swift"
+      ],
+      "dependencies": [
+        "task_010"
+      ],
+      "implementation_steps": [
+        "スパイク: project.yml に AlarmSpike ターゲットを追加し、上記 6 項目を実機で確認して docs/spikes/alarm-spike.md に Go / No-Go を記録する（人間の実機作業を含む）",
+        "AlarmPlan を純関数で実装しテスト（間隔、件数、通知との排他）",
+        "AlarmScheduler と AlarmIntents を実装し、M4 の opt-in 分岐と N0 直行を配線",
+        "実機で「消音 + 集中モードで鳴る」「停止しても次が鳴る」「Open で残りが消える」を確認して記録"
+      ],
+      "done_definition": [
+        "docs/spikes/alarm-spike.md に 6 項目の実測結果と Go / No-Go がある",
+        "アラーム ON の Commitment で、実機の消音 + 集中モード時に行動時刻にアラームが鳴り、停止しても 1 分後に次が鳴り、Open でアプリが N0 に直行して残りのアラームが取り消される",
+        "既定はオフで、Commitment ごとに選べる",
+        "scripts/test-core.sh が緑（AlarmPlanTests を含む）"
+      ],
+      "verify_commands": [
+        "scripts/test-core.sh",
+        "scripts/build-ios.sh"
+      ],
+      "risk_level": "high"
     }
   ]
 }

@@ -328,6 +328,30 @@
       "expected_result": "pending 一覧に 60 分後の通知が 1 件だけ増え、Commitment.outcome が変化しない。同日 3 回目の選択では再登録が行われない",
       "manual_or_automated": "automated",
       "verification_method": "Packages/SaydoCore/Tests/SaydoCoreTests/NotificationPlanTests.swift の再登録テスト（task_009、scripts/test-core.sh）と、実機の pending 一覧のデバッグ表示"
+    },
+    {
+      "id": "check_042",
+      "target": "行動時刻アラーム（opt-in）",
+      "rule": "アラーム ON の Commitment では、実機を消音 + 集中モードにしていても行動時刻にロック画面へ全画面のアラームが表示されて鳴る。停止ボタンを押しても設定間隔で次のアラームが鳴り、Open でアプリを開くと NoonFlow N0 に直行し残りのアラームが取り消される",
+      "expected_result": "消音・集中モードでも鳴る。連鎖 5 件のうち停止した分だけが止まり、Open 後に pending のアラームが 0 件",
+      "manual_or_automated": "manual",
+      "verification_method": "実機で行動時刻を 2 分後に設定し、消音スイッチ ON + 集中モード ON で確認。AlarmScheduler のデバッグ出力で残件数を確認"
+    },
+    {
+      "id": "check_043",
+      "target": "アラーム音",
+      "rule": "スパイクで本人の宣言音声が AlarmKit の音として使える場合は宣言音声（30 秒以内）が鳴る。使えない場合は固定のチャイムが鳴り、Open でアプリを開いた瞬間に本人の宣言音声が再生される",
+      "expected_result": "docs/spikes/alarm-spike.md の結論と実装が一致し、いずれの場合も本人の声が行動時刻に聞こえる",
+      "manual_or_automated": "manual",
+      "verification_method": "実機で確認し、alarm-spike.md の結論と照合"
+    },
+    {
+      "id": "check_044",
+      "target": "アラームの既定と音量の案内",
+      "rule": "アラームは既定オフで Commitment ごとに選ぶ。音量を上げる処理は行わず、設定画面に「アラーム音量は iOS の設定 > サウンドと触覚に従う」と案内する",
+      "expected_result": "新規 Commitment の alarmEnabled が false。設定画面に案内文があり、コードに MPVolumeView による音量操作が無い",
+      "manual_or_automated": "automated",
+      "verification_method": "Tests/SaydoTests の Commitment 既定値テストと grep -rn MPVolumeView App が 0 件"
     }
   ]
 }
