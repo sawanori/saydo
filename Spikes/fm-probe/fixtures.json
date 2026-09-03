@@ -1,0 +1,146 @@
+{
+  "version": 1,
+  "note": "SAYDO スパイク S-A 用フィクスチャ。企画書 §6〜§12 の例（クライアントへの返信 / 確定申告 / 見積書）を含み、TaskDomain 7 分野（人への返信 / お金 / 大きなタスク / 営業 / 書類 / 健康 / その他）を網羅する。expectedDomain は自動判定の参考値であり、正解の断定ではない。",
+  "fixtures": [
+    {
+      "id": "F01",
+      "avoidance": "クライアントへの返信",
+      "reasonAnswer": "怒られそうで怖いです。",
+      "expectedDomain": "personReply",
+      "source": "企画書 §6 STEP1・STEP2"
+    },
+    {
+      "id": "F02",
+      "avoidance": "上司へのSlackの返信",
+      "reasonAnswer": "気まずいです。返事が遅れてしまって。",
+      "expectedDomain": "personReply",
+      "source": "企画書 §11 逃げやすいこと 1 位"
+    },
+    {
+      "id": "F03",
+      "avoidance": "取引先へのお詫びメール",
+      "reasonAnswer": "何て書けばいいか分からないです。",
+      "expectedDomain": "personReply",
+      "source": "企画書 §11"
+    },
+    {
+      "id": "F04",
+      "avoidance": "確定申告",
+      "reasonAnswer": "量が多そうで、どこから手をつけるか分からないです。",
+      "expectedDomain": "money",
+      "source": "企画書 §12-1"
+    },
+    {
+      "id": "F05",
+      "avoidance": "クレジットカードの明細のチェック",
+      "reasonAnswer": "数字を見るのが嫌です。",
+      "expectedDomain": "money",
+      "source": "企画書 §12-1 の選択肢「数字を見るのが嫌」"
+    },
+    {
+      "id": "F06",
+      "avoidance": "経費精算",
+      "reasonAnswer": "面倒です。レシートを探すところからなので。",
+      "expectedDomain": "money",
+      "source": "企画書 §11 逃げやすいこと 2 位"
+    },
+    {
+      "id": "F07",
+      "avoidance": "新サービスの企画書づくり",
+      "reasonAnswer": "完璧に作りたくて、手が止まります。",
+      "expectedDomain": "bigTask",
+      "source": "企画書 §11 逃げる理由「完璧主義 27%」"
+    },
+    {
+      "id": "F08",
+      "avoidance": "サイトのリニューアル作業",
+      "reasonAnswer": "量が多くて、終わる気がしないです。",
+      "expectedDomain": "bigTask",
+      "source": "企画書 §11 逃げやすいこと 3 位"
+    },
+    {
+      "id": "F09",
+      "avoidance": "引っ越しの荷造り",
+      "reasonAnswer": "何から始めればいいか分からないです。",
+      "expectedDomain": "bigTask",
+      "source": "企画書 §12-1 の選択肢「何をすればいいかわからない」"
+    },
+    {
+      "id": "F10",
+      "avoidance": "新規のお客さんへの営業電話",
+      "reasonAnswer": "断られるのが怖いです。",
+      "expectedDomain": "sales",
+      "source": "企画書 §11 逃げやすいこと 4 位"
+    },
+    {
+      "id": "F11",
+      "avoidance": "見積書",
+      "reasonAnswer": "金額を決めるのが不安です。",
+      "expectedDomain": "sales",
+      "source": "企画書 §10 Voice Timeline「今日は見積書から逃げたい。」"
+    },
+    {
+      "id": "F12",
+      "avoidance": "展示会で名刺交換した人へのフォロー連絡",
+      "reasonAnswer": "今さら連絡するのは気まずいです。",
+      "expectedDomain": "sales",
+      "source": "企画書 §11 逃げる理由「気まずさ 38%」"
+    },
+    {
+      "id": "F13",
+      "avoidance": "契約書のリーガルチェック",
+      "reasonAnswer": "期限が近くて怖いです。",
+      "expectedDomain": "paperwork",
+      "source": "企画書 §12-1 の選択肢「期限が怖い」"
+    },
+    {
+      "id": "F14",
+      "avoidance": "保険の住所変更の手続き",
+      "reasonAnswer": "面倒です。",
+      "expectedDomain": "paperwork",
+      "source": "企画書 §11 逃げやすいこと 5 位「書類作成」"
+    },
+    {
+      "id": "F15",
+      "avoidance": "業務委託の請求書を出すこと",
+      "reasonAnswer": "期限が怖いです。もう過ぎているので。",
+      "expectedDomain": "paperwork",
+      "source": "企画書 §11 逃げやすいこと 5 位"
+    },
+    {
+      "id": "F16",
+      "avoidance": "歯医者の予約",
+      "reasonAnswer": "怖いです。長く行ってないので怒られそうで。",
+      "expectedDomain": "health",
+      "source": "実装計画 §7.6 TaskDomain「健康」"
+    },
+    {
+      "id": "F17",
+      "avoidance": "健康診断の再検査",
+      "reasonAnswer": "結果を知るのが不安です。",
+      "expectedDomain": "health",
+      "source": "実装計画 §7.6 TaskDomain「健康」"
+    },
+    {
+      "id": "F18",
+      "avoidance": "ジムに行くこと",
+      "reasonAnswer": "面倒です。",
+      "expectedDomain": "health",
+      "source": "実装計画 §7.6 TaskDomain「健康」"
+    },
+    {
+      "id": "F19",
+      "avoidance": "部屋の片づけ",
+      "reasonAnswer": "量が多くて、どこからやるか分からないです。",
+      "expectedDomain": "other",
+      "source": "実装計画 §7.6 TaskDomain「その他」"
+    },
+    {
+      "id": "F20",
+      "avoidance": "免許の更新に行くこと",
+      "reasonAnswer": "面倒です。待ち時間が長いので。",
+      "expectedDomain": "other",
+      "source": "実装計画 §7.6 TaskDomain「その他」"
+    }
+  ]
+}
