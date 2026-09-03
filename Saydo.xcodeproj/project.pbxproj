@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		0996D0599F07B4E86D5D7A17 /* SpeechSpikeApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A0DC2E68CB9B454BE17CF24 /* SpeechSpikeApp.swift */; };
+		1D5FECC5C523941C640CAC10 /* SaydoCore in Frameworks */ = {isa = PBXBuildFile; productRef = 90C70F990D09CD358D213D6B /* SaydoCore */; };
 		34374DAAD57A5D2F7E706713 /* SaydoApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8591BEF749566902EDCF86D /* SaydoApp.swift */; };
 		68641D4B358BB1A607B3C19D /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE6BCDF8265F010D0A7CAD96 /* main.swift */; };
 		9E0EE15D63D2B1A2AA36E162 /* SmokeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 504282F97F17B31D2A436177 /* SmokeTests.swift */; };
@@ -33,8 +34,20 @@
 		BC2F662ACCB8616B725AE1AE /* Saydo.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Saydo.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		C8591BEF749566902EDCF86D /* SaydoApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SaydoApp.swift; sourceTree = "<group>"; };
 		CBDA5ED2582CBFA9C6EF5A6E /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		E7DC9A1418DE12A21166D8B4 /* SaydoCore */ = {isa = PBXFileReference; lastKnownFileType = folder; name = SaydoCore; path = Packages/SaydoCore; sourceTree = SOURCE_ROOT; };
 		F64D860DB6976952B2B71167 /* SpeechSpike.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = SpeechSpike.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		A47510F67B7E0674FD3965F0 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1D5FECC5C523941C640CAC10 /* SaydoCore in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
 		00930696BE0CDADEC9438A53 /* fm-probe */ = {
@@ -49,6 +62,7 @@
 			isa = PBXGroup;
 			children = (
 				3F6E6809A65298D53F268A6A /* App */,
+				44A95AB2738FA11FC1FC31DD /* Packages */,
 				8775C5FF6927F61EB740D7D2 /* Spikes */,
 				21C1EEFDC3E4AEEE08915C0B /* Tests */,
 				4ED3FC5A9B25175043676701 /* Products */,
@@ -78,6 +92,14 @@
 				CBDA5ED2582CBFA9C6EF5A6E /* Assets.xcassets */,
 			);
 			path = Resources;
+			sourceTree = "<group>";
+		};
+		44A95AB2738FA11FC1FC31DD /* Packages */ = {
+			isa = PBXGroup;
+			children = (
+				E7DC9A1418DE12A21166D8B4 /* SaydoCore */,
+			);
+			path = Packages;
 			sourceTree = "<group>";
 		};
 		4ED3FC5A9B25175043676701 /* Products */ = {
@@ -160,6 +182,7 @@
 			buildPhases = (
 				E437245D655298423C7898CD /* Sources */,
 				64B90BCDFE406BDC6D2BB7D9 /* Resources */,
+				A47510F67B7E0674FD3965F0 /* Frameworks */,
 			);
 			buildRules = (
 			);
@@ -167,6 +190,7 @@
 			);
 			name = Saydo;
 			packageProductDependencies = (
+				90C70F990D09CD358D213D6B /* SaydoCore */,
 			);
 			productName = Saydo;
 			productReference = BC2F662ACCB8616B725AE1AE /* Saydo.app */;
@@ -215,6 +239,9 @@
 			);
 			mainGroup = 0FB72F1971E5F13E417CB7B5;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				40C819ECC38AF9744BB87EFD /* XCLocalSwiftPackageReference "Packages/SaydoCore" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 4ED3FC5A9B25175043676701 /* Products */;
 			projectDirPath = "";
@@ -611,6 +638,20 @@
 			defaultConfigurationName = Debug;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		40C819ECC38AF9744BB87EFD /* XCLocalSwiftPackageReference "Packages/SaydoCore" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/SaydoCore;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		90C70F990D09CD358D213D6B /* SaydoCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = SaydoCore;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 71808D0A0FF5B822CB7B3BB6 /* Project object */;
 }

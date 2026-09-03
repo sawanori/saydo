@@ -148,3 +148,68 @@ lint 自体が機能することは、禁止パターンを全部含む一時フ
    - 空ける候補: 古い iOS 18.5 シミュレータランタイム（約 7 GB。`xcrun simctl runtime list -v` で確認 → 不要なら `xcrun simctl runtime delete <build>`）、`~/Library/Developer/Xcode/DerivedData`、`~/Library/Developer/Xcode/iOS DeviceSupport`。
    - **エージェントは削除を実行しない**（不可逆・他プロジェクトへの影響があるため）。
 2. 導入後に `scripts/build-ios.sh` / `scripts/build-ios.sh SpeechSpike` / `scripts/test-ios.sh` を実行し、この節を更新する。
+
+---
+
+## task_002 — SaydoCore パッケージ骨格とドメイン型
+
+- 日時: 2026-09-04
+- 状態: done（`scripts/test-core.sh` 緑。`scripts/build-ios.sh` は task_001 と同じ環境要因で未達）
+- ブランチ: `task/001-bootstrap`
+
+### 証拠
+
+| コマンド | exit code | ログ |
+|---|---|---|
+| `swift build --package-path Packages/SaydoCore` | 0（`Build complete! (2.75s)`） | — |
+| `xcodegen generate`（packages 追加後） | 0 | — |
+| `scripts/test-core.sh` | **0**（15 tests, 0 failures） | `docs/logs/task_002-1.txt` |
+| `scripts/build-ios.sh` | **70**（task_001 と同じ destination の問題。task_002 の差分とは無関係） | `docs/logs/task_002-2.txt` |
+
+`scripts/test-core.sh`（テスト部分の末尾と lint の結論。日本語リテラルの WARN 一覧は全文ログ参照）:
+
+```
+Test Suite 'DomainTests' passed at 2026-09-04 05:48:16.543.
+	 Executed 15 tests, with 0 failures (0 unexpected) in 0.003 (0.004) seconds
+Test Suite 'SaydoCorePackageTests.xctest' passed at 2026-09-04 05:48:16.543.
+	 Executed 15 tests, with 0 failures (0 unexpected) in 0.003 (0.004) seconds
+Test Suite 'All tests' passed at 2026-09-04 05:48:16.543.
+	 Executed 15 tests, with 0 failures (0 unexpected) in 0.003 (0.006) seconds
+lint-principles: OK
+EXIT=0
+```
+
+`Saydo.xcodeproj` へのパッケージ登録（生成結果の確認）:
+
+```
+243:				40C819ECC38AF9744BB87EFD /* XCLocalSwiftPackageReference "Packages/SaydoCore" */,
+643:		40C819ECC38AF9744BB87EFD /* XCLocalSwiftPackageReference "Packages/SaydoCore" */ = {
+645:			relativePath = Packages/SaydoCore;
+651:			isa = XCSwiftPackageProductDependency;
+```
+
+### 確定したドメイン型（後続タスクはこの名前とプロパティを変えない）
+
+| 型 | 種別 | 内容 |
+|---|---|---|
+| `SessionType` | enum(String) | morning / noon / night / adhoc。displayName = 朝 / 昼 / 夜 / 手動 |
+| `FlowStep` | enum(String) | morningAvoidance(M0) … morningDeclaration(M4) / noonPlayback(N0) … noonShrink(N3) / nightProgress(E0) / nightTomorrow(E1) / finished(END)。`code`・`displayName`・`sessionType`・`steps(for:)` を持つ。adhoc は空配列（入口判定は FlowMachine の担当） |
+| `ReasonCategory` | enum(String) | awkward / perfectionism / tedious / anxious / tooMuch / unclearStart / deadlineFear（7 種） |
+| `TaskDomain` | enum(String) | reply / money / bigTask / sales / paperwork / health / other（7 種） |
+| `CommitmentOutcome` | enum(String) | pending / done / partial / notYet。`isProgress` は done と partial が true（§22-7） |
+| `MicroAction` | struct | `text` / `estimatedMinutes`(既定 5) / `shrinkCount`(既定 0)、`isFiveMinutesOrLess`、`shrunk(to:estimatedMinutes:)` |
+| `ReasonClassification` | struct | `category` / `followUp`（文字数と疑問形の強制は Guardrails 側） |
+| `DialogueContext` | struct | `sessionType` / `step` / `avoidance` / `reason?` / `domain?` / `microAction?` / `blocker?` / `carryover?` / `outcome`。会話履歴は持たない |
+| `WeeklyStats` | struct | `weekStart` / `domainCounts` / `reasonRatios` のみ（fix-decisions P2.2）。`totalCount`・`topDomains(limit:)`・`topReasons(limit:)` |
+
+すべて `Sendable, Codable, Hashable`。enum は `CaseIterable`。
+
+### 未解決
+
+- `scripts/lint-principles.sh` は Domain の `displayName` を「Copy 以外の日本語リテラル」として WARN で列挙する（29 件）。これは設計どおり（task_002 の仕様が enum に日本語表示名を持たせている）で、exit code には影響しない。**この WARN を消すために displayName を移動しないこと。**
+- `Packages/SaydoAI` は未作成（task_014）。
+- iOS 側のビルド・テストは task_001 の「人間の確認待ち」が解消するまで通らない。
+
+### 人間の確認待ち
+
+- task_001 と同じ（iOS 26.x シミュレータランタイムの導入）。追加はなし。

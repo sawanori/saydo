@@ -8,6 +8,10 @@ options:
     iOS: "26.0"
     macOS: "26.0"
 
+packages:
+  SaydoCore:
+    path: Packages/SaydoCore
+
 settings:
   base:
     SWIFT_VERSION: "6.0"
@@ -25,6 +29,9 @@ targets:
       - path: App
         excludes:
           - "Resources/Info.plist"
+    dependencies:
+      - package: SaydoCore
+        product: SaydoCore
     settings:
       base:
         PRODUCT_NAME: Saydo
