@@ -52,9 +52,23 @@ enum SaydoModelContainer {
 /// 通知識別子（`morning-yyyyMMdd`、fix-decisions P4.5）は区切り文字が異なるので、
 /// 生成は task_009 の `NotificationScheduler` が `compact` で行う。
 enum DayKey {
+    /// 渡された暦の時間帯だけを引き継いだ西暦の暦。
+    ///
+    /// `Calendar.current` は端末が和暦設定だと `.year` に元号年を返す
+    /// （2026-09-04 → 0008-09-04）。キーは端末設定で変わってはいけないので、
+    /// 年月日の取り出しと組み立ては必ず西暦で行う。日の境界は利用者の設定に従うため、
+    /// タイムゾーンは渡された暦のものをそのまま使う。
+    private static func gregorian(_ calendar: Calendar) -> Calendar {
+        if calendar.identifier == .gregorian { return calendar }
+        var gregorian = Calendar(identifier: .gregorian)
+        gregorian.timeZone = calendar.timeZone
+        gregorian.locale = calendar.locale
+        return gregorian
+    }
+
     /// その日の `yyyy-MM-dd`。
     static func make(from date: Date, calendar: Calendar = .current) -> String {
-        let parts = calendar.dateComponents([.year, .month, .day], from: date)
+        let parts = gregorian(calendar).dateComponents([.year, .month, .day], from: date)
         return String(format: "%04d-%02d-%02d", parts.year ?? 0, parts.month ?? 0, parts.day ?? 0)
     }
 
@@ -70,6 +84,6 @@ enum DayKey {
               let year = Int(parts[0]), let month = Int(parts[1]), let day = Int(parts[2]) else {
             return nil
         }
-        return calendar.date(from: DateComponents(year: year, month: month, day: day))
+        return gregorian(calendar).date(from: DateComponents(year: year, month: month, day: day))
     }
 }
