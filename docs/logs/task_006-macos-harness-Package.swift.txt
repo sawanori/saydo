@@ -1,0 +1,18 @@
+// swift-tools-version: 6.2
+import PackageDescription
+
+// task_006 の検証専用ハーネス（コミットしない）。
+// iOS プラットフォームが未導入で xcodebuild が使えないため、
+// App/Data と Tests/SaydoTests を macOS で実際に走らせて確かめる。
+let package = Package(
+    name: "SaydoHarness",
+    platforms: [.macOS(.v26)],
+    targets: [
+        .target(name: "SaydoCore", path: "Sources/SaydoCore",
+                swiftSettings: [.swiftLanguageMode(.v6)]),
+        .target(name: "Saydo", dependencies: ["SaydoCore"], path: "Sources/Saydo",
+                swiftSettings: [.swiftLanguageMode(.v6)]),
+        .testTarget(name: "SaydoTests", dependencies: ["Saydo", "SaydoCore"], path: "Tests/SaydoTests",
+                    swiftSettings: [.swiftLanguageMode(.v6)])
+    ]
+)

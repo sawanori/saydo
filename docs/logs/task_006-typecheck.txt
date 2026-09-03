@@ -1,0 +1,6 @@
+=== 1) SaydoCore module (iOS 26 simulator, Swift 6, strict concurrency) ===
+CORE_EXIT=0
+=== 2) App sources -> Saydo module (testability on) ===
+APP_EXIT=0
+=== 3) Tests/SaydoTests typecheck (iOS 26 simulator) ===
+TESTS_EXIT=0
