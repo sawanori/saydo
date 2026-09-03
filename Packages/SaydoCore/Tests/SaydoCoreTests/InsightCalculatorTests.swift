@@ -273,14 +273,13 @@ final class InsightCalculatorTests: XCTestCase {
 
     // MARK: - 責めない
 
-    func testNoInsightTextContainsForbiddenPhrase() {
+    func testNoInsightTextViolatesGuardrails() {
         for text in InsightCopy.allTexts {
-            for phrase in NotificationCopyTests.forbiddenPhrases {
-                XCTAssertFalse(
-                    text.contains(phrase),
-                    "週次分析の文言に禁止句が入っている: 「\(text)」 に 「\(phrase)」"
-                )
-            }
+            XCTAssertEqual(
+                Guardrails.check(text, form: .statement),
+                [],
+                "週次分析の文言が Guardrails に違反している: 「\(text)」"
+            )
         }
     }
 }

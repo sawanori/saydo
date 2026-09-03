@@ -5,25 +5,10 @@ import XCTest
 
 /// `NotificationCopy` の文言テスト。
 ///
-/// 禁止句リストは実装計画 §7.5 の初期値をこのファイルに直接持つ。
-/// `Guardrails`（task_005）は別ブランチで実装中のため、そこへの依存を作らない。
-/// task_005 が入ったら `Guardrails` 側のリストと突き合わせて重複を解消する。
+/// 禁止句は `Guardrails`（task_005）が唯一の定義。ここにリストを複製しない。
+/// 通知文言は平叙文・質問が混ざるので、形式規則を課さない `.statement` で検査する
+/// （`Guardrails.check` の禁止句・断定形・N 日連続・URL・日本語必須はこの種別でも効く）。
 final class NotificationCopyTests: XCTestCase {
-
-    /// 実装計画 §7.5 の禁止語リスト（初期値）。同じテストターゲットの他のテストからも使う。
-    static let forbiddenPhrases = [
-        "未達成",
-        "連続",
-        "サボ",
-        "怠",
-        "ダメ",
-        "なぜやらない",
-        "失敗",
-        "遅い",
-        "甘え",
-        "言い訳",
-        "また逃げ"
-    ]
 
     private let calendar: Calendar = {
         var calendar = Calendar(identifier: .gregorian)
@@ -45,14 +30,13 @@ final class NotificationCopyTests: XCTestCase {
 
     // MARK: - 責めない
 
-    func testNoNotificationTextContainsForbiddenPhrase() {
+    func testNoNotificationTextViolatesGuardrails() {
         for text in NotificationCopy.allTexts {
-            for phrase in Self.forbiddenPhrases {
-                XCTAssertFalse(
-                    text.contains(phrase),
-                    "通知文言に禁止句が入っている: 「\(text)」 に 「\(phrase)」"
-                )
-            }
+            XCTAssertEqual(
+                Guardrails.check(text, form: .statement),
+                [],
+                "通知文言が Guardrails に違反している: 「\(text)」"
+            )
         }
     }
 
