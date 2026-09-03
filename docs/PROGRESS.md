@@ -261,3 +261,146 @@ Spikes/SpeechSpike/SpikeAudio.swift:101:/// （`@unchecked Sendable` も `noniso
 2. **ディスク容量の確保**（task_001 から継続）。9 GB 以上空けて `xcodebuild -downloadPlatform iOS`。
    導入後は `scripts/build-ios.sh` が自動的に scheme + generic destination の経路に戻る。
 3. main へのマージ後に `xcodegen generate` を実行して `Saydo.xcodeproj` を更新する。
+
+---
+
+## task_007 — 音声スタック（録音 + SpeechAnalyzer + 無音停止 + TTS + 再生 + 波形）
+
+- 日時: 2026-09-04
+- 状態: needs-device（型検査は緑。リンク・実行・実機動作は未検証）
+- ブランチ: `task/007-audio`
+- 分岐元: `task/004-speech-spike`（d2f6495）
+
+`Spikes/SpeechSpike/SpikeAudio.swift` の 1 画面スパイクを、`App/Audio/` の再利用可能な
+サービス 7 本へ昇格させた。すべて `@MainActor`、すべて protocol で抽象化してあり、
+task_008 の `SessionViewModel` がモックを注入できる。
+
+| ファイル | 型 | protocol |
+|---|---|---|
+| `App/Audio/AudioSessionController.swift` | `AudioSessionController` | `AudioSessionControlling` |
+| `App/Audio/VoiceCapture.swift` | `VoiceCapture` | `VoiceCapturing` |
+| `App/Audio/SilenceDetector.swift` | `SilenceDetector`（純ロジック・struct） | なし（値型） |
+| `App/Audio/TranscriptionService.swift` | `TranscriptionService` | `Transcribing` |
+| `App/Audio/SpeechSynthesisService.swift` | `SpeechSynthesisService` | `Synthesizing` |
+| `App/Audio/VoicePlayer.swift` | `VoicePlayer` | `Playing` |
+| `App/Audio/WaveformSampler.swift` | `WaveformSampler` | なし（`@Observable` の表示状態） |
+
+### 証拠
+
+全文ログ: `docs/logs/task_007-1.txt`
+
+| コマンド | exit code |
+|---|---|
+| `swiftc -typecheck -swift-version 6 -strict-concurrency=complete -sdk "$SDK" -target arm64-apple-ios26.0-simulator App/Audio/*.swift` | **0** |
+| 同上 + `-enable-upcoming-feature ExistentialAny -enforce-exclusivity=checked`（Saydo ターゲットと同じフラグ） | **0** |
+| `swiftc -emit-module -module-name Saydo -enable-testing ... App/SaydoApp.swift App/Audio/*.swift` | **0** |
+| `swiftc -typecheck ... -I <mod> -I "$PLAT/Developer/usr/lib" -F "$PLAT/Developer/Library/Frameworks" Tests/SaydoTests/SilenceDetectorTests.swift` | **0** |
+| `scripts/lint-principles.sh` | **0** |
+| `scripts/test-ios.sh` | **2**（環境要因） |
+| `scripts/build-ios.sh` | **65**（環境要因。Swift のコンパイルに到達しない） |
+
+`grep -c "warning:"`（上の swiftc 4 本の出力）: **0**
+
+末尾 30 行（`docs/logs/task_007-1.txt` の 6)〜8) 節）:
+
+```
+==================================================================
+6) 警告件数
+$ grep -c "warning:" <2)〜5) の出力>
+0
+
+==================================================================
+7) scripts/lint-principles.sh
+lint-principles: 対象 8 ファイル（App/ と Packages/*/Sources。Tests と Spikes は除外）
+lint-principles: OK
+EXIT=0
+
+==================================================================
+8) scripts/test-ios.sh（環境要因で未達）
+test-ios: iOS 26.x の利用可能なシミュレータが見つからない。
+  導入コマンド: xcodebuild -downloadPlatform iOS（約 8.4 GB の空きが必要）
+  現在のランタイム一覧:
+== Runtimes ==
+iOS 18.5 (18.5 - 22F77) - com.apple.CoreSimulator.SimRuntime.iOS-18-5
+EXIT=2
+```
+
+#### whole-module でしか出ない診断を 1 件踏んで直した
+
+`swiftc -typecheck` はファイル単位なので通ってしまうが、`-emit-module`（whole-module）だと
+
+```
+App/Audio/VoiceCapture.swift:125:16: error: sending 'buffer.some' risks causing data races
+note: task-isolated 'buffer.some' is passed as a 'sending' parameter
+```
+
+が出た。原因と回避は `docs/spikes/speech-spike.md` §1「詰まった 1 点と回避」と同じで、
+入力バッファを `[[Float]]`（Sendable）経由で複製してから `Mutex<AVAudioPCMBuffer?>` に入れる。
+スパイクの `InputBufferSource(copying:)` をそのまま `VoiceCapture.swift` へ移した。
+**次タスクで新しく `AVAudioPCMBuffer` を跨がせる場合も同じ罠を踏むので、
+検証は `-typecheck` だけでなく `-emit-module` も掛けること。**
+
+#### xcodebuild は本タスクのコードを一切検証していない
+
+`scripts/build-ios.sh` の exit 65 は actool（アセットカタログ）の失敗で、
+**Swift のコンパイルには到達していない**。一時的に `xcodegen generate` して
+App/Audio の 7 ファイルをターゲットへ入れた状態で測っても
+`SwiftCompile` 0 件 / `EmitSwiftModule` 0 件 / `.o` 0 個だった。
+確認後 `git checkout -- Saydo.xcodeproj` で戻し、`build/` は削除した。
+
+### done_definition との対応
+
+| done_definition | 判定 | 証拠 |
+|---|---|---|
+| `scripts/test-ios.sh` が緑（SilenceDetectorTests を含む） | **未達（環境要因）** | exit 2。iOS 26.x ランタイム未導入。テストは書いたが**一度も実行していない** |
+| 実機で「話す → 無音で停止 → 文字起こし → 再生」が動く手動確認記録 | **未達** | 実機作業。手順は task_004 の `docs/spikes/speech-spike.md` §4 と同じ |
+| 音声認識権限のダイアログが出ない（マイクのみ） | **未検証** | `SFSpeechRecognizer` の呼び出しは無い（`grep -rn SFSpeechRecognizer App/` は `TranscriptionService.swift` のコメント 1 行だけ）。ダイアログの実挙動は実機でしか見られない |
+| `installTap` のクロージャ内に状態変更が無く、concurrency 警告が 0 件 | **済** | クロージャが触るのは `AVAudioFile.write(from:)` と continuation 2 本の `yield` だけ。`grep -c "warning:"` = 0 |
+
+### 採用した設定（docs/spikes/speech-spike.md と実装計画 §7.3 から）
+
+- `AVAudioSession`: カテゴリ `.playAndRecord` / モード `.default`（`.voiceChat` に切替可） /
+  オプション `[.allowBluetoothHFP, .allowBluetoothA2DP]`。
+  **スパイクと違い `.defaultToSpeaker` は付けていない**（実装計画 §7.3 と task_007 scope に従う。
+  付けるとイヤホンが無視され R8 が成立しない）。出力先は再生・発話の直前に
+  `applyOutputRoute(preferReceiver:)` が `currentRoute.outputs` を見て
+  accessory / speaker / receiver を決める。
+- 消音スイッチ: `.playAndRecord` はスイッチの影響を受けないので OS 任せにしない。
+  `requiresAudiblePlaybackConfirmation`（イヤホン未接続 かつ `outputVolume > 0.3`）を
+  確認 UI（「イヤホンで聞く / 文字で読む」）のゲートにした（fix-decisions P3.1 / P5.4）。
+- 無音判定: RMS 閾値 0.015、既定 1.5 秒（`SilenceDuration` = 1.2 / 1.5 / 2.0）。
+- 録音: AAC 32 kbps、標本化周波数とチャンネル数は入力ノードに合わせる。タップは 4096 フレーム。
+- 上限: `VoiceCaptureLimit.utterance` = 20 秒 / `.declaration` = 30 秒。
+  到達したら `.reachedLimit` を流して自分で停止する。
+- TTS: ja-JP の enhanced / premium を優先し、無ければ既定音声で開始する（fix-decisions P5.8）。
+  `hasHighQualityJapaneseVoice` をオンボーディングの案内条件に使う。
+- `AnalyzerInputConverter` は使わない（iOS 26.2 SDK に不在）。`AVAudioConverter` +
+  `AnalyzerInput(buffer:)` で供給する（fix-decisions P4.1）。
+
+### 未解決
+
+- **`Saydo.xcodeproj` はこのブランチに含めていない**（task_004 と同じ運用）。
+  `App/Audio/` の 7 ファイルと `Tests/SaydoTests/SilenceDetectorTests.swift` を足したので、
+  **main へ取り込んだ後に `xcodegen generate` を実行しないとビルドとテストに入らない**。
+- `project.yml` は変更していない。`Saydo` ターゲットの sources が `path: App`（ディレクトリ単位）、
+  `SaydoTests` が `path: Tests/SaydoTests` なので、ターゲット定義の追加は不要。
+- `SilenceDetectorTests` は **一度も実行していない**（iOS 26.x ランタイム未導入）。型検査だけが根拠。
+- `AVAudioFile.write(from:)` を入力タップ内（オーディオスレッド）で呼んでいる（task_004 から継続）。
+  実機でグリッチが出る場合は書き込みを別スレッドへ逃がす。
+- `AudioSessionController` は `deinit` で通知の解除をしない（`@MainActor` の格納プロパティに
+  nonisolated な deinit から触れないため）。`deactivate()` を明示的に呼ぶ設計にした。
+  task_008 の `SessionViewModel` が画面の終了時に呼ぶこと。
+- `AudioSessionController.events` は購読者 1 つを想定した `AsyncStream`。
+  複数の画面から同時に購読する必要が出たら分配層が要る。
+- RMS 閾値 0.015 と `WaveformSampler` の正規化基準（これまでの最大値・下限 0.05）は
+  実機で調整する前提の初期値。
+
+### 人間の確認待ち
+
+1. **ディスク容量の確保**（task_001 から継続・これが全ての iOS ビルドとテストを止めている）。
+   9 GB 以上空けて `xcodebuild -downloadPlatform iOS`。導入後に `scripts/test-ios.sh` を実行して
+   `SilenceDetectorTests` の緑を確認し、このエントリの done_definition 表を更新する。
+2. **実機での結合確認**（task_007 scope「UI なしの結合テストは実機で手動確認」）。
+   録音ファイルが生成されて再生できること、話す → 無音で停止 → 文字起こし → 再生が通ること、
+   マイク以外の権限ダイアログが出ないこと。
+3. main へのマージ後に `xcodegen generate` を実行して `Saydo.xcodeproj` を更新する。
