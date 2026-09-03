@@ -280,3 +280,67 @@ EXIT=0
 ### 人間の確認待ち
 
 - task_001 と同じ（iOS 26.x シミュレータランタイムの導入）。追加はなし。
+
+---
+
+## task_016-core — 週次分析の純ロジック（InsightCalculator）
+
+- 日時: 2026-09-04
+- 状態: done（SaydoCore の純ロジック部分のみ。`WeeklyInsightView` と `Repository.weeklyStats` は未着手）
+- ブランチ / コミット: `task/009-notification-core` / （このコミット）
+
+### スコープ
+
+task_016 のうち **SaydoCore に置く純計算だけ**。SwiftUI / SwiftData には触れていない。
+
+### 証拠
+
+| コマンド | exit code | ログ |
+|---|---|---|
+| `scripts/test-core.sh` | **0**（62 tests, 0 failures） | `docs/logs/task_016-core-1.txt` |
+
+```
+Test Suite 'InsightCalculatorTests' passed at 2026-09-04 06:05.
+	 Executed 15 tests, with 0 failures (0 unexpected)
+Test Suite 'All tests' passed
+	 Executed 62 tests, with 0 failures (0 unexpected) in 0.014 (0.017) seconds
+lint-principles: OK
+EXIT=0
+```
+
+### 確定した週次分析の契約
+
+| 型 | 内容 |
+|---|---|
+| `InsightInput` | `date` / `domain?` / `reason?` / `outcome`。App 側の `Repository` が `Commitment` + `AvoidanceItem` から詰め替える |
+| `InsightCalculator.weeklyStats(from:weekStart:)` | 与えられた入力をそのまま集計。期間の切り出しは呼び出し側 |
+| `InsightCalculator.weeklyStats(from:weekContaining:calendar:)` | 暦の週で切り出してから集計 |
+| `InsightCalculator.firstInsight(from:)` | 3 件目で出す 1 行（retention R9）。件数不足・最多が 1 件のときは nil |
+| `InsightCalculator.weeklyReflection(for:)` | テンプレートの振り返り 1 文。3 件未満は `InsightCopy.notEnoughData` |
+| `InsightCopy` | データ不足の文言、初回インサイト、理由 × 分野の組み合わせ表（7 理由 × 7 分野） |
+
+集計の規則:
+
+- 分野別件数は `domain != nil` の件数。理由別割合の母数は `reason != nil` の件数。
+- 結果内訳（done / partial / notYet）と平均縮小回数は**持たない**（`WeeklyStats` が持たない。
+  達成率の表示に使わせないため。企画原則 §22-8）。
+
+企画メモ §11 の例を再現するフィクスチャ（`InsightCalculatorTests.conceptMemoFixture`）:
+
+- 分野 56 件 = 人への返信 18 / お金 14 / 大きなタスク 11 / 営業 8 / 書類 5（上位 5 の並びが §11 と一致）
+- 理由 56 件 = 気まずさ 21 / 完璧主義 15 / 面倒 12 / 不安 8
+  → 38% / 27% / 21% / 14%（§11 の数字と一致）
+
+### 未解決
+
+- `scripts/lint-principles.sh` が `Insight/InsightCopy.swift` の日本語リテラルを WARN で列挙する
+  （task_002 の Domain `displayName` と同じ扱い。exit code には影響しない）。
+  文言を Copy ファイルに集約する規約自体は守っている。許可リストに `InsightCopy.swift` を足すかは
+  レビューの判断に委ねる。**WARN を消すために文言を `InsightCalculator` へ戻さないこと。**
+- `Repository.weeklyStats`・`WeeklyInsightView`・Tier A の `weeklyReflection`（task_014）は未実装。
+- 分野の判定（Tier B のキーワード辞書 / Tier A の `classifyDomain`）は task_005 / task_014 の担当。
+  `InsightCalculator` は `domain` が入っている前提で数えるだけ。
+
+### 人間の確認待ち
+
+- task_001 と同じ（iOS 26.x シミュレータランタイムの導入）。追加はなし。
