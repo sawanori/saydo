@@ -1,0 +1,69 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    body { margin: 0; background: #0A111E;
+      font-family: -apple-system, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "BIZ UDPGothic", system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased; }
+    a { color: #EDA96F; } a:hover { color: #F6C79E; }
+    .jp { font-feature-settings: "palt" 1; line-break: strict; }
+    .num { font-variant-numeric: tabular-nums; }
+    .grain { position: absolute; inset: 0; pointer-events: none;
+      opacity: 0.045; mix-blend-mode: overlay; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.86' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E"); background-repeat: repeat; }
+    .vignette { position: absolute; inset: 0; pointer-events: none;
+      background: radial-gradient(128% 74% at 50% 46%, rgba(8,13,24,0) 42%, rgba(8,13,24,0.42) 84%, rgba(8,13,24,0.62) 100%); }
+    .mark { font-size: 11px; font-weight: 500; letter-spacing: 0.38em; color: #6B7EA6; }
+    .eyebrow { font-size: 11px; font-weight: 500; letter-spacing: 0.24em; color: #8494B4; }
+    @keyframes saydo-breathe { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
+    @keyframes saydo-bloom { 0%, 100% { opacity: 0.055; transform: scaleY(0.93); }
+                              50% { opacity: 0.12;  transform: scaleY(1.07); } }
+    .listen { animation: saydo-breathe 2.8s cubic-bezier(0.4, 0, 0.4, 1) infinite; }
+    .bloom  { transform-box: fill-box; transform-origin: 50% 50%;
+              animation: saydo-bloom 3.6s cubic-bezier(0.4, 0, 0.4, 1) infinite; }
+    @media (prefers-reduced-motion: reduce) { .listen, .bloom { animation: none; } }
+  </style>
+</helmet>
+<div style="position: relative; width: 402px; height: 874px; overflow: hidden; background: radial-gradient(148% 22% at 50% 52%, rgba(237,169,111,0.15) 0%, rgba(237,169,111,0.05) 40%, rgba(237,169,111,0) 76%), linear-gradient(180deg, #131E35 0%, #101A2E 46%, #0C1424 100%);">
+  <div class="vignette"></div>
+  <div class="grain"></div>
+
+  <div class="mark" style="position: absolute; left: 28px; top: 64px;">SAYDO</div>
+
+  <div class="jp" style="position: absolute; left: 30px; right: 30px; top: 210px; text-align: center; font-size: 28px; font-weight: 500; line-height: 1.5; letter-spacing: 0.02em; color: #E8ECF4;">今日、何から逃げたい？</div>
+
+  <div style="position: absolute; left: 41px; top: 386px; width: 320px; height: 132px;">
+    <svg width="320" height="132" viewBox="0 0 320 132" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <defs><linearGradient id="wgHero" x1="0" y1="0" x2="100%" y2="0">
+        <stop offset="0" stop-color="#6E7FA6" stop-opacity="0.10"></stop>
+        <stop offset="0.18" stop-color="#9A8B9B" stop-opacity="0.44"></stop>
+        <stop offset="0.38" stop-color="#D6975F" stop-opacity="0.88"></stop>
+        <stop offset="0.5" stop-color="#EDA96F" stop-opacity="1"></stop>
+        <stop offset="0.62" stop-color="#D6975F" stop-opacity="0.88"></stop>
+        <stop offset="0.82" stop-color="#9A8B9B" stop-opacity="0.44"></stop>
+        <stop offset="1" stop-color="#6E7FA6" stop-opacity="0.10"></stop>
+      </linearGradient></defs>
+      <path class="bloom" d="M0 65.45L2 65.43L4 65.40L6 65.34L8 65.23L10 65.07L12 64.86L14 64.61L16 64.36L18 64.14L20 63.97L22 63.88L24 63.85L26 63.87L28 63.89L30 63.87L32 63.73L34 63.42L36 62.92L38 62.23L40 61.40L42 60.49L44 59.63L46 58.93L48 58.52L50 58.48L52 58.88L54 59.71L56 60.92L58 62.40L60 64.05L62 65.74L64 67.36L66 68.85L68 70.23L70 71.52L72 72.82L74 74.23L76 75.82L78 77.62L80 79.61L82 81.68L84 83.64L86 85.26L88 86.33L90 86.63L92 86.07L94 84.63L96 82.43L98 79.69L100 76.73L102 73.86L104 71.42L106 69.62L108 68.58L110 68.27L112 68.53L114 69.10L116 69.68L118 69.97L120 69.75L122 68.92L124 67.50L126 65.64L128 63.58L130 61.58L132 59.88L134 58.62L136 57.83L138 57.38L140 57.02L142 56.46L144 55.37L146 53.51L148 50.77L150 47.21L152 43.06L154 38.73L156 34.69L158 31.45L160 29.44L162 28.95L164 30.08L166 32.73L168 36.62L170 41.35L172 46.44L174 51.48L176 56.11L178 60.14L180 63.55L182 66.43L184 68.99L186 71.47L188 74.05L190 76.85L192 79.86L194 82.92L196 85.79L198 88.17L200 89.78L202 90.39L204 89.91L206 88.38L208 86.02L210 83.13L212 80.08L214 77.25L216 74.95L218 73.38L220 72.63L222 72.61L224 73.14L226 73.96L228 74.79L230 75.40L232 75.59L234 75.30L236 74.54L238 73.41L240 72.08L242 70.71L244 69.45L246 68.40L248 67.58L250 66.96L252 66.46L254 65.94L256 65.32L258 64.49L260 63.45L262 62.20L264 60.84L266 59.48L268 58.27L270 57.31L272 56.72L274 56.55L276 56.79L278 57.40L280 58.28L282 59.33L284 60.43L286 61.49L288 62.44L290 63.23L292 63.87L294 64.37L296 64.78L298 65.12L300 65.45L302 65.78L304 66.12L306 66.46L308 66.78L310 67.04L312 67.24L314 67.34L316 67.35L318 67.28L320 67.14" stroke="url(#wgHero)" stroke-width="19" stroke-linecap="round" stroke-linejoin="round" opacity="0.09"></path>
+      <path d="M0 65.45L2 65.43L4 65.40L6 65.34L8 65.23L10 65.07L12 64.86L14 64.61L16 64.36L18 64.14L20 63.97L22 63.88L24 63.85L26 63.87L28 63.89L30 63.87L32 63.73L34 63.42L36 62.92L38 62.23L40 61.40L42 60.49L44 59.63L46 58.93L48 58.52L50 58.48L52 58.88L54 59.71L56 60.92L58 62.40L60 64.05L62 65.74L64 67.36L66 68.85L68 70.23L70 71.52L72 72.82L74 74.23L76 75.82L78 77.62L80 79.61L82 81.68L84 83.64L86 85.26L88 86.33L90 86.63L92 86.07L94 84.63L96 82.43L98 79.69L100 76.73L102 73.86L104 71.42L106 69.62L108 68.58L110 68.27L112 68.53L114 69.10L116 69.68L118 69.97L120 69.75L122 68.92L124 67.50L126 65.64L128 63.58L130 61.58L132 59.88L134 58.62L136 57.83L138 57.38L140 57.02L142 56.46L144 55.37L146 53.51L148 50.77L150 47.21L152 43.06L154 38.73L156 34.69L158 31.45L160 29.44L162 28.95L164 30.08L166 32.73L168 36.62L170 41.35L172 46.44L174 51.48L176 56.11L178 60.14L180 63.55L182 66.43L184 68.99L186 71.47L188 74.05L190 76.85L192 79.86L194 82.92L196 85.79L198 88.17L200 89.78L202 90.39L204 89.91L206 88.38L208 86.02L210 83.13L212 80.08L214 77.25L216 74.95L218 73.38L220 72.63L222 72.61L224 73.14L226 73.96L228 74.79L230 75.40L232 75.59L234 75.30L236 74.54L238 73.41L240 72.08L242 70.71L244 69.45L246 68.40L248 67.58L250 66.96L252 66.46L254 65.94L256 65.32L258 64.49L260 63.45L262 62.20L264 60.84L266 59.48L268 58.27L270 57.31L272 56.72L274 56.55L276 56.79L278 57.40L280 58.28L282 59.33L284 60.43L286 61.49L288 62.44L290 63.23L292 63.87L294 64.37L296 64.78L298 65.12L300 65.45L302 65.78L304 66.12L306 66.46L308 66.78L310 67.04L312 67.24L314 67.34L316 67.35L318 67.28L320 67.14" stroke="url(#wgHero)" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" opacity="0.24"></path>
+      <path d="M0 66.27L2 66.29L4 66.30L6 66.33L8 66.39L10 66.47L12 66.57L14 66.69L16 66.82L18 66.93L20 67.01L22 67.06L24 67.08L26 67.07L28 67.05L30 67.07L32 67.14L34 67.29L36 67.54L38 67.88L40 68.30L42 68.75L44 69.19L46 69.54L48 69.74L50 69.76L52 69.56L54 69.14L56 68.54L58 67.80L60 66.97L62 66.13L64 65.32L66 64.57L68 63.89L70 63.24L72 62.59L74 61.89L76 61.09L78 60.19L80 59.19L82 58.16L84 57.18L86 56.37L88 55.84L90 55.68L92 55.96L94 56.68L96 57.78L98 59.15L100 60.64L102 62.07L104 63.29L106 64.19L108 64.71L110 64.87L112 64.74L114 64.45L116 64.16L118 64.01L120 64.12L122 64.54L124 65.25L126 66.18L128 67.21L130 68.21L132 69.06L134 69.69L136 70.08L138 70.31L140 70.49L142 70.77L144 71.32L146 72.25L148 73.62L150 75.40L152 77.47L154 79.63L156 81.65L158 83.27L160 84.28L162 84.53L164 83.96L166 82.63L168 80.69L170 78.33L172 75.78L174 73.26L176 70.95L178 68.93L180 67.23L182 65.78L184 64.50L186 63.27L188 61.97L190 60.57L192 59.07L194 57.54L196 56.10L198 54.91L200 54.11L202 53.81L204 54.05L206 54.81L208 55.99L210 57.44L212 58.96L214 60.38L216 61.53L218 62.31L220 62.69L222 62.70L224 62.43L226 62.02L228 61.60L230 61.30L232 61.20L234 61.35L236 61.73L238 62.29L240 62.96L242 63.64L244 64.27L246 64.80L248 65.21L250 65.52L252 65.77L254 66.03L256 66.34L258 66.75L260 67.28L262 67.90L264 68.58L266 69.26L268 69.87L270 70.34L272 70.64L274 70.72L276 70.60L278 70.30L280 69.86L282 69.33L284 68.78L286 68.25L288 67.78L290 67.38L292 67.07L294 66.81L296 66.61L298 66.44L300 66.27L302 66.11L304 65.94L306 65.77L308 65.61L310 65.48L312 65.38L314 65.33L316 65.32L318 65.36L320 65.43" stroke="url(#wgHero)" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" opacity="0.2"></path>
+      <path d="M0 65.45L2 65.43L4 65.40L6 65.34L8 65.23L10 65.07L12 64.86L14 64.61L16 64.36L18 64.14L20 63.97L22 63.88L24 63.85L26 63.87L28 63.89L30 63.87L32 63.73L34 63.42L36 62.92L38 62.23L40 61.40L42 60.49L44 59.63L46 58.93L48 58.52L50 58.48L52 58.88L54 59.71L56 60.92L58 62.40L60 64.05L62 65.74L64 67.36L66 68.85L68 70.23L70 71.52L72 72.82L74 74.23L76 75.82L78 77.62L80 79.61L82 81.68L84 83.64L86 85.26L88 86.33L90 86.63L92 86.07L94 84.63L96 82.43L98 79.69L100 76.73L102 73.86L104 71.42L106 69.62L108 68.58L110 68.27L112 68.53L114 69.10L116 69.68L118 69.97L120 69.75L122 68.92L124 67.50L126 65.64L128 63.58L130 61.58L132 59.88L134 58.62L136 57.83L138 57.38L140 57.02L142 56.46L144 55.37L146 53.51L148 50.77L150 47.21L152 43.06L154 38.73L156 34.69L158 31.45L160 29.44L162 28.95L164 30.08L166 32.73L168 36.62L170 41.35L172 46.44L174 51.48L176 56.11L178 60.14L180 63.55L182 66.43L184 68.99L186 71.47L188 74.05L190 76.85L192 79.86L194 82.92L196 85.79L198 88.17L200 89.78L202 90.39L204 89.91L206 88.38L208 86.02L210 83.13L212 80.08L214 77.25L216 74.95L218 73.38L220 72.63L222 72.61L224 73.14L226 73.96L228 74.79L230 75.40L232 75.59L234 75.30L236 74.54L238 73.41L240 72.08L242 70.71L244 69.45L246 68.40L248 67.58L250 66.96L252 66.46L254 65.94L256 65.32L258 64.49L260 63.45L262 62.20L264 60.84L266 59.48L268 58.27L270 57.31L272 56.72L274 56.55L276 56.79L278 57.40L280 58.28L282 59.33L284 60.43L286 61.49L288 62.44L290 63.23L292 63.87L294 64.37L296 64.78L298 65.12L300 65.45L302 65.78L304 66.12L306 66.46L308 66.78L310 67.04L312 67.24L314 67.34L316 67.35L318 67.28L320 67.14" stroke="url(#wgHero)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></path>
+    </svg>
+  </div>
+
+  <div class="listen jp" style="position: absolute; left: 0; right: 0; top: 570px; text-align: center; font-size: 14px; font-weight: 400; letter-spacing: 0.2em; color: #8494B4;">聞いています…</div>
+
+  <div style="position: absolute; right: 20px; bottom: 34px; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+    <div style="width: 40px; height: 40px; border-radius: 13px; border: 1px solid rgba(255,255,255,0.085); background: rgba(255,255,255,0.028); display: flex; align-items: center; justify-content: center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8494B4" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="6" width="19" height="12" rx="2.6"></rect><path d="M6.5 9.8h0M10 9.8h0M13.5 9.8h0M17 9.8h0M6.5 13.2h0M10 13.2h0M13.5 13.2h0M17 13.2h0M8.6 16.4h6.8"></path></svg></div>
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"$preview":{"width":402,"height":874}}'>
+class Component extends DCLogic {}
+</script>
+</body>
+</html>

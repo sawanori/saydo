@@ -1,0 +1,84 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    body { margin: 0; background: #0A111E;
+      font-family: -apple-system, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "BIZ UDPGothic", system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased; }
+    a { color: #EDA96F; } a:hover { color: #F6C79E; }
+    .jp { font-feature-settings: "palt" 1; line-break: strict; }
+    .num { font-variant-numeric: tabular-nums; }
+    .grain { position: absolute; inset: 0; pointer-events: none;
+      opacity: 0.045; mix-blend-mode: overlay; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.86' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E"); background-repeat: repeat; }
+    .vignette { position: absolute; inset: 0; pointer-events: none;
+      background: radial-gradient(128% 74% at 50% 46%, rgba(8,13,24,0) 42%, rgba(8,13,24,0.42) 84%, rgba(8,13,24,0.62) 100%); }
+    .mark { font-size: 11px; font-weight: 500; letter-spacing: 0.38em; color: #6B7EA6; }
+    .eyebrow { font-size: 11px; font-weight: 500; letter-spacing: 0.24em; color: #8494B4; }
+    @keyframes saydo-breathe { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
+    @keyframes saydo-bloom { 0%, 100% { opacity: 0.055; transform: scaleY(0.93); }
+                              50% { opacity: 0.12;  transform: scaleY(1.07); } }
+    .listen { animation: saydo-breathe 2.8s cubic-bezier(0.4, 0, 0.4, 1) infinite; }
+    .bloom  { transform-box: fill-box; transform-origin: 50% 50%;
+              animation: saydo-bloom 3.6s cubic-bezier(0.4, 0, 0.4, 1) infinite; }
+    @media (prefers-reduced-motion: reduce) { .listen, .bloom { animation: none; } }
+  </style>
+</helmet>
+<div style="position: relative; width: 402px; height: 874px; overflow: hidden; background: radial-gradient(148% 22% at 50% 36%, rgba(237,169,111,0.15) 0%, rgba(237,169,111,0.05) 40%, rgba(237,169,111,0) 76%), linear-gradient(180deg, #131E35 0%, #101A2E 46%, #0C1424 100%);">
+  <div class="vignette"></div>
+  <div class="grain"></div>
+
+  <div class="mark" style="position: absolute; left: 28px; top: 64px;">SAYDO</div>
+
+  <div class="jp" style="position: absolute; left: 30px; right: 30px; top: 176px; text-align: center; font-size: 28px; font-weight: 500; line-height: 1.5; letter-spacing: 0.02em; color: #E8ECF4;">一番近いのはどれ？</div>
+
+  <div style="position: absolute; left: 61px; top: 296px; width: 280px; height: 64px;">
+    <svg width="280" height="64" viewBox="0 0 280 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <defs><linearGradient id="wgM1" x1="0" y1="0" x2="100%" y2="0">
+        <stop offset="0" stop-color="#6E7FA6" stop-opacity="0.10"></stop>
+        <stop offset="0.18" stop-color="#9A8B9B" stop-opacity="0.44"></stop>
+        <stop offset="0.38" stop-color="#D6975F" stop-opacity="0.88"></stop>
+        <stop offset="0.5" stop-color="#EDA96F" stop-opacity="1"></stop>
+        <stop offset="0.62" stop-color="#D6975F" stop-opacity="0.88"></stop>
+        <stop offset="0.82" stop-color="#9A8B9B" stop-opacity="0.44"></stop>
+        <stop offset="1" stop-color="#6E7FA6" stop-opacity="0.10"></stop>
+      </linearGradient></defs>
+      <path class="bloom" d="M0 31.43L2 31.43L4 31.45L6 31.52L8 31.64L10 31.77L12 31.90L14 32.00L16 32.04L18 32.02L20 31.94L22 31.86L24 31.83L26 31.91L28 32.16L30 32.61L32 33.26L34 34.07L36 34.96L38 35.85L40 36.62L42 37.21L44 37.57L46 37.70L48 37.64L50 37.45L52 37.22L54 36.98L56 36.74L58 36.47L60 36.09L62 35.49L64 34.59L66 33.34L68 31.77L70 29.98L72 28.12L74 26.41L76 25.05L78 24.19L80 23.89L82 24.12L84 24.73L86 25.52L88 26.25L90 26.73L92 26.84L94 26.56L96 25.97L98 25.26L100 24.62L102 24.23L104 24.18L106 24.47L108 25.00L110 25.59L112 26.05L114 26.24L116 26.11L118 25.74L120 25.31L122 25.11L124 25.43L126 26.50L128 28.44L130 31.18L132 34.53L134 38.15L136 41.65L138 44.66L140 46.93L142 48.31L144 48.85L146 48.71L148 48.13L150 47.37L152 46.62L154 45.94L156 45.31L158 44.60L160 43.62L162 42.22L164 40.32L166 37.96L168 35.30L170 32.60L172 30.15L174 28.24L176 27.04L178 26.61L180 26.85L182 27.56L184 28.46L186 29.27L188 29.77L190 29.81L192 29.41L194 28.66L196 27.73L198 26.82L200 26.10L202 25.67L204 25.54L206 25.66L208 25.90L210 26.15L212 26.31L214 26.34L216 26.26L218 26.16L220 26.16L222 26.37L224 26.88L226 27.72L228 28.85L230 30.17L232 31.56L234 32.87L236 33.98L238 34.81L240 35.32L242 35.55L244 35.55L246 35.41L248 35.21L250 35.00L252 34.82L254 34.68L256 34.55L258 34.39L260 34.19L262 33.92L264 33.59L266 33.22L268 32.85L270 32.52L272 32.25L274 32.08L276 32.00L278 32.00L280 32.06" stroke="url(#wgM1)" stroke-width="11" stroke-linecap="round" stroke-linejoin="round" opacity="0.08"></path>
+      <path d="M0 31.43L2 31.43L4 31.45L6 31.52L8 31.64L10 31.77L12 31.90L14 32.00L16 32.04L18 32.02L20 31.94L22 31.86L24 31.83L26 31.91L28 32.16L30 32.61L32 33.26L34 34.07L36 34.96L38 35.85L40 36.62L42 37.21L44 37.57L46 37.70L48 37.64L50 37.45L52 37.22L54 36.98L56 36.74L58 36.47L60 36.09L62 35.49L64 34.59L66 33.34L68 31.77L70 29.98L72 28.12L74 26.41L76 25.05L78 24.19L80 23.89L82 24.12L84 24.73L86 25.52L88 26.25L90 26.73L92 26.84L94 26.56L96 25.97L98 25.26L100 24.62L102 24.23L104 24.18L106 24.47L108 25.00L110 25.59L112 26.05L114 26.24L116 26.11L118 25.74L120 25.31L122 25.11L124 25.43L126 26.50L128 28.44L130 31.18L132 34.53L134 38.15L136 41.65L138 44.66L140 46.93L142 48.31L144 48.85L146 48.71L148 48.13L150 47.37L152 46.62L154 45.94L156 45.31L158 44.60L160 43.62L162 42.22L164 40.32L166 37.96L168 35.30L170 32.60L172 30.15L174 28.24L176 27.04L178 26.61L180 26.85L182 27.56L184 28.46L186 29.27L188 29.77L190 29.81L192 29.41L194 28.66L196 27.73L198 26.82L200 26.10L202 25.67L204 25.54L206 25.66L208 25.90L210 26.15L212 26.31L214 26.34L216 26.26L218 26.16L220 26.16L222 26.37L224 26.88L226 27.72L228 28.85L230 30.17L232 31.56L234 32.87L236 33.98L238 34.81L240 35.32L242 35.55L244 35.55L246 35.41L248 35.21L250 35.00L252 34.82L254 34.68L256 34.55L258 34.39L260 34.19L262 33.92L264 33.59L266 33.22L268 32.85L270 32.52L272 32.25L274 32.08L276 32.00L278 32.00L280 32.06" stroke="url(#wgM1)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" opacity="0.16"></path>
+      <path d="M0 31.43L2 31.43L4 31.45L6 31.52L8 31.64L10 31.77L12 31.90L14 32.00L16 32.04L18 32.02L20 31.94L22 31.86L24 31.83L26 31.91L28 32.16L30 32.61L32 33.26L34 34.07L36 34.96L38 35.85L40 36.62L42 37.21L44 37.57L46 37.70L48 37.64L50 37.45L52 37.22L54 36.98L56 36.74L58 36.47L60 36.09L62 35.49L64 34.59L66 33.34L68 31.77L70 29.98L72 28.12L74 26.41L76 25.05L78 24.19L80 23.89L82 24.12L84 24.73L86 25.52L88 26.25L90 26.73L92 26.84L94 26.56L96 25.97L98 25.26L100 24.62L102 24.23L104 24.18L106 24.47L108 25.00L110 25.59L112 26.05L114 26.24L116 26.11L118 25.74L120 25.31L122 25.11L124 25.43L126 26.50L128 28.44L130 31.18L132 34.53L134 38.15L136 41.65L138 44.66L140 46.93L142 48.31L144 48.85L146 48.71L148 48.13L150 47.37L152 46.62L154 45.94L156 45.31L158 44.60L160 43.62L162 42.22L164 40.32L166 37.96L168 35.30L170 32.60L172 30.15L174 28.24L176 27.04L178 26.61L180 26.85L182 27.56L184 28.46L186 29.27L188 29.77L190 29.81L192 29.41L194 28.66L196 27.73L198 26.82L200 26.10L202 25.67L204 25.54L206 25.66L208 25.90L210 26.15L212 26.31L214 26.34L216 26.26L218 26.16L220 26.16L222 26.37L224 26.88L226 27.72L228 28.85L230 30.17L232 31.56L234 32.87L236 33.98L238 34.81L240 35.32L242 35.55L244 35.55L246 35.41L248 35.21L250 35.00L252 34.82L254 34.68L256 34.55L258 34.39L260 34.19L262 33.92L264 33.59L266 33.22L268 32.85L270 32.52L272 32.25L274 32.08L276 32.00L278 32.00L280 32.06" stroke="url(#wgM1)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.82"></path>
+    </svg>
+  </div>
+
+  <div class="listen jp" style="position: absolute; left: 0; right: 0; top: 384px; text-align: center; font-size: 12px; font-weight: 400; letter-spacing: 0.2em; color: #8494B4;">聞いています…</div>
+
+  <div style="position: absolute; left: 30px; right: 30px; top: 508px; display: flex; flex-direction: column; gap: 10px;">
+    <div style="display: flex; gap: 10px; justify-content: center;">
+      <div style="display: flex; align-items: center; justify-content: center; height: 46px; padding: 0 16px; border-radius: 15px; border: 1px solid rgba(255,255,255,0.075); background: rgba(255,255,255,0.045); font-size: 15px; font-weight: 400; letter-spacing: 0.01em; color: #D6DEEE; white-space: nowrap; cursor: pointer;">気まずい</div>
+      <div style="display: flex; align-items: center; justify-content: center; height: 46px; padding: 0 16px; border-radius: 15px; border: 1px solid rgba(255,255,255,0.075); background: rgba(255,255,255,0.045); font-size: 15px; font-weight: 400; letter-spacing: 0.01em; color: #D6DEEE; white-space: nowrap; cursor: pointer;">完璧にやりたい</div>
+      <div style="display: flex; align-items: center; justify-content: center; height: 46px; padding: 0 16px; border-radius: 15px; border: 1px solid rgba(255,255,255,0.075); background: rgba(255,255,255,0.045); font-size: 15px; font-weight: 400; letter-spacing: 0.01em; color: #D6DEEE; white-space: nowrap; cursor: pointer;">面倒</div>
+    </div>
+    <div style="display: flex; gap: 10px; justify-content: center;">
+      <div style="display: flex; align-items: center; justify-content: center; height: 46px; padding: 0 16px; border-radius: 15px; border: 1px solid rgba(255,255,255,0.075); background: rgba(255,255,255,0.045); font-size: 15px; font-weight: 400; letter-spacing: 0.01em; color: #D6DEEE; white-space: nowrap; cursor: pointer;">不安・怖い</div>
+      <div style="display: flex; align-items: center; justify-content: center; height: 46px; padding: 0 16px; border-radius: 15px; border: 1px solid rgba(255,255,255,0.075); background: rgba(255,255,255,0.045); font-size: 15px; font-weight: 400; letter-spacing: 0.01em; color: #D6DEEE; white-space: nowrap; cursor: pointer;">量が多い</div>
+      <div style="display: flex; align-items: center; justify-content: center; height: 46px; padding: 0 16px; border-radius: 15px; border: 1px solid rgba(255,255,255,0.075); background: rgba(255,255,255,0.045); font-size: 15px; font-weight: 400; letter-spacing: 0.01em; color: #D6DEEE; white-space: nowrap; cursor: pointer;">期限が怖い</div>
+    </div>
+    <div style="display: flex; gap: 10px; justify-content: center;">
+      <div style="display: flex; align-items: center; justify-content: center; height: 46px; padding: 0 16px; border-radius: 15px; border: 1px solid rgba(255,255,255,0.075); background: rgba(255,255,255,0.045); font-size: 15px; font-weight: 400; letter-spacing: 0.01em; color: #D6DEEE; white-space: nowrap; cursor: pointer;">何から始めるかわからない</div>
+    </div>
+  </div>
+
+  <div style="position: absolute; right: 20px; bottom: 34px; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+    <div style="width: 40px; height: 40px; border-radius: 13px; border: 1px solid rgba(255,255,255,0.085); background: rgba(255,255,255,0.028); display: flex; align-items: center; justify-content: center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8494B4" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="6" width="19" height="12" rx="2.6"></rect><path d="M6.5 9.8h0M10 9.8h0M13.5 9.8h0M17 9.8h0M6.5 13.2h0M10 13.2h0M13.5 13.2h0M17 13.2h0M8.6 16.4h6.8"></path></svg></div>
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"$preview":{"width":402,"height":874}}'>
+class Component extends DCLogic {}
+</script>
+</body>
+</html>

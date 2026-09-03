@@ -1,0 +1,71 @@
+{
+  "artboards": [
+    {
+      "file": "Main.dc.html",
+      "title": "SessionView — 朝 M0",
+      "x": 0,
+      "y": 0,
+      "w": 402,
+      "h": 874
+    },
+    {
+      "file": "SessionReason.dc.html",
+      "title": "SessionView — 朝 M1",
+      "x": 482,
+      "y": 0,
+      "w": 402,
+      "h": 874
+    },
+    {
+      "file": "Playback.dc.html",
+      "title": "PlaybackCard — 昼 N0",
+      "x": 964,
+      "y": 0,
+      "w": 402,
+      "h": 874
+    },
+    {
+      "file": "Today.dc.html",
+      "title": "TodayView",
+      "x": 0,
+      "y": 1040,
+      "w": 402,
+      "h": 874
+    },
+    {
+      "file": "Timeline.dc.html",
+      "title": "TimelineView",
+      "x": 482,
+      "y": 1040,
+      "w": 402,
+      "h": 874
+    },
+    {
+      "file": "WeeklyInsight.dc.html",
+      "title": "WeeklyInsightView",
+      "x": 964,
+      "y": 1040,
+      "w": 402,
+      "h": 874
+    }
+  ],
+  "annotations": [
+    {
+      "id": "row-conversation",
+      "x": 0,
+      "y": -168,
+      "w": 620,
+      "text": "会話 ─ 開いた瞬間にもう始まっている。文字は質問と状態だけ、波形が主役。\n触る要素は各画面 1〜3 個。吹き出しと履歴は作らない。"
+    },
+    {
+      "id": "row-record",
+      "x": 0,
+      "y": 908,
+      "w": 620,
+      "text": "記録 ─ 達成率・連続日数・未達成マーク・赤は一切置かない。\n記録のない日は描かない（空白そのものが責めになるため）。"
+    }
+  ],
+  "launch": {
+    "view": "canvas"
+  }
+}
