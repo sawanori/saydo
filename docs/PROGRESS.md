@@ -365,3 +365,110 @@ scratchpad に SwiftPM パッケージを 1 つ作り、`Sources/Saydo` → `App
 - task_001 と同じ。**iOS 26.x プラットフォーム（シミュレータランタイム）の導入**が、この 3 タスクで唯一
   ふさがっていない穴。空き容量 6.0 GB / 必要 8.39 GB。`xcodebuild -downloadPlatform iOS` を実行できる状態にする。
   導入後に `scripts/build-ios.sh` と `scripts/test-ios.sh` を実行し、この節と上の「未検証」を更新すること。
+
+---
+
+## task_019 — データの書き出し・全削除・バックアップ復元の確認（UI を除く中核）
+
+- 日時: 2026-09-04
+- 状態: wip（中核は done。**設定画面の UI と実機での復元確認は未実施**）
+- ブランチ: `task/019-data-export`（`task/006-data` から分岐）
+
+### やったこと
+
+| 変更 | 内容 |
+|---|---|
+| `App/Features/Settings/DataExporter.swift`（新規） | 全 5 モデルを JSON にし、音声と一緒に zip にまとめる |
+| `App/Data/Repository.swift`（追加のみ） | `deleteAll(cancelPendingNotifications:)` と `DeletionSummary` を追加。既存メソッドは変えていない |
+| `Tests/SaydoTests/DataExporterTests.swift`（新規） | 純ロジックのテスト 11 件（JSON の中身・ファイル一覧・zip・ファイル名） |
+| `docs/backup-restore-check.md`（新規） | 人間が実機で埋める確認手順と記入欄（容量・復元・ファイル保護） |
+
+**このタスクの範囲外（別担当）**: `App/Features/Settings/SettingsView.swift`（書き出しの ShareLink と「全部消す」のボタン）。
+`.xcodeproj` は再生成していない（worktree では生成しない規約）。`project.yml` と `SaydoCore` は触っていない。
+
+### 設計
+
+- **zip の作り方**: `NSFileCoordinator` の `.forUploading` にディレクトリを渡すと zip ができる。
+  これが Foundation だけで zip 書庫を作れる唯一の経路（`Compression` はストリーム圧縮で書庫を作らず、
+  `AppleArchive` が作るのは `.aar` で Finder が開けない）。
+- **純ロジックの分離**: `ExportArchive`（Codable な値型 5 種）と `DataExportBuilder`（ファイルを並べて zip にする）は
+  SwiftData に触らない。SwiftData を読むのは `DataExporter`（`@ModelActor`）だけ。テストは前者だけを見る。
+- **`Repository` を増やさない**: 書き出しは読み取り専用なので、`Repository` に fetch を足さず
+  `DataExporter` を別の `@ModelActor` にした。`Repository` への追加は `deleteAll` だけ。
+- **`deleteAll` が消さないもの**: `UserDefaults`（`AppSettings.reset()`）と保留中の通知。
+  前者は画面の判断、後者はコールバック（`cancelPendingNotifications`）に委譲した。
+  `Repository` が `UserNotifications` を持つと保存データのテストが通知センターを要るようになるため。
+- 書き出しの zip は `tmp/SaydoExport/` に置く（バックアップ対象外。共有したら消えてよい）。
+
+### 証拠
+
+| コマンド | exit code | ログ |
+|---|---|---|
+| `swiftc -typecheck -swift-version 6 -strict-concurrency=complete`（App のソース） | **0** | `docs/logs/task_019-1.txt` |
+| `swiftc -typecheck`（`Tests/SaydoTests/DataExporterTests.swift`、`-enable-testing` の Saydo モジュール付き） | **0** | `docs/logs/task_019-2.txt` |
+| macOS 実行確認（SwiftData in-memory で書き出し + 全削除、22 件すべて PASS） | **0** | `docs/logs/task_019-3.txt` |
+| `scripts/lint-principles.sh` | **0**（`lint-principles: OK`。DataExporter.swift は日本語リテラルの WARN なし） | `docs/logs/task_019-4.txt` |
+| `scripts/build-ios.sh` | **70**（task_001 / 002 と同じ destination の問題。差分とは無関係） | `docs/logs/task_019-5.txt` |
+| `scripts/test-ios.sh` | **2**（iOS 26.x のシミュレータランタイムが無い） | `docs/logs/task_019-6.txt` |
+
+`swiftc -typecheck`（iOS シミュレータ SDK・iOS 26.0 ターゲット・Swift 6 strict concurrency）は
+`scripts/build-ios.sh` が通らない環境での代替。`@ModelActor` と `#Predicate` を含めて 0 で通る。
+
+macOS 実行確認の末尾（全文は `docs/logs/task_019-3.txt`）:
+
+```
+--- deleteAll ---
+DeletionSummary(avoidanceItemCount: 1, commitmentCount: 1, voiceEntryCount: 2, sessionLogCount: 0, carryoverCount: 1, audioFileCount: 2)
+PASS  通知取り消しのコールバックが呼ばれた
+PASS  消したレコード数 = 5
+PASS  消した音声 = 2
+PASS  音声ディレクトリが消えた
+PASS  全削除後は空
+EXIT 0
+```
+
+同じ実行で確かめた zip の中身:
+
+```
+     2015  09-04-2026 06:12   saydo-export/saydo-export.json
+    61440  09-04-2026 06:12   saydo-export/Audio/2026/09/aaaaaaaa-0000-0000-0000-000000000001.m4a
+    58000  09-04-2026 06:12   saydo-export/Audio/2026/09/bbbbbbbb-0000-0000-0000-000000000002.m4a
+```
+
+### done_definition との対応
+
+| done_definition | 状態 |
+|---|---|
+| zip に音声と JSON が含まれる | **満たした**（macOS 実行確認。iOS 実機は未確認） |
+| 全削除で空状態に戻る | **保存データは満たした**。「オンボーディングに戻る」は `AppSettings.reset()` を呼ぶ設定画面（別担当）が要る |
+| ドッグフーディング 7 日後のデータで復元確認を行った記録がある | **未達**。`docs/backup-restore-check.md` の記入欄が空。task_013b の後に人間が実施する |
+| 実測の 1 件あたり容量と年間見積もりが記録されている | **見積もり（60 KB/件・年間約 110 MB）は記載済み。実測欄は空** |
+
+### 未検証
+
+- **iOS シミュレータ・実機では 1 行も動かしていない。** 型検査と macOS 実行だけ。
+  `NSFileCoordinator(.forUploading)` の zip 生成は macOS 26.0 でしか確認できていない。
+- `Tests/SaydoTests/DataExporterTests.swift` は**型検査のみ**。`xcodebuild test` は動かせていない（上表の exit 2）。
+- ShareLink での共有、ファイル保護属性、iCloud バックアップからの復元は全部未確認。
+
+### 未解決
+
+- **`DayKey.make(from:calendar:)` は端末の暦設定が和暦だと壊れる**（task_006 の `App/Data/Schema.swift`）。
+  `Calendar(identifier: .japanese)` では `dateComponents(...).year` が元号の年を返すため、
+  2026-09-04 が `0008-09-04` になる（macOS で実測）。`Commitment.dayKey` と `Carryover.forDayKey` が
+  日ごとに変わらなくなるわけではないが、`AppSettings` の暦とまたぐと日付の解釈が食い違う。
+  本タスクの範囲外なので直していない（task_006 のファイル）。`DayKey` を
+  `Calendar(identifier: .gregorian)` に固定するのが直し方。`DataExporter.zipFileName` は
+  同じ罠を踏まないよう西暦固定にしてある。
+- `App/Features/Settings/SettingsView.swift` は未作成（task_013 / task_019 の UI 担当）。
+  そこで `DataExporter.export()` の返す `zipURL` を ShareLink に渡し、
+  「全部消す」で `Repository.deleteAll { UNUserNotificationCenter.current().removeAllPendingNotificationRequests() }` と
+  `AppSettings.shared.reset()` の両方を呼ぶこと。**後者を呼ばないとオンボーディングに戻らない。**
+- `Saydo.xcodeproj` に新しいファイルが登録されていない。main へマージしたあとで `xcodegen generate` が要る。
+
+### 人間の確認待ち
+
+- task_001 と同じ **iOS 26.x シミュレータランタイムの導入**（`xcodebuild -downloadPlatform iOS`）。
+  導入後に `scripts/test-ios.sh` を実行し、`DataExporterTests` の 11 件が通ることを確かめて上表を更新すること。
+- **`docs/backup-restore-check.md` の記入欄**（1〜6 節）。task_013b の 7 日間ドッグフーディングが終わった後に、
+  実機で書き出し・全削除・iCloud バックアップ復元・ファイル保護属性・容量実測を行い、結果を書き込む。

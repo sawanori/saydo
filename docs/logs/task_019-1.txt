@@ -1,0 +1,2 @@
+$ swiftc -typecheck -swift-version 6 -strict-concurrency=complete -sdk $(xcrun --sdk iphonesimulator --show-sdk-path) -target arm64-apple-ios26.0-simulator -I <SaydoCore module> App/Data/*.swift App/Data/Models/*.swift App/Features/Settings/DataExporter.swift App/SaydoApp.swift
+EXIT=0
