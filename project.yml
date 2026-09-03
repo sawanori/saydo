@@ -88,6 +88,31 @@ targets:
         NSMicrophoneUsageDescription: 音声パイプラインの検証のために録音します
         UILaunchScreen: {}
 
+  AlarmSpike:
+    type: application
+    platform: iOS
+    deploymentTarget: "26.0"
+    sources:
+      - path: Spikes/AlarmSpike
+        excludes:
+          - "Info.plist"
+    settings:
+      base:
+        PRODUCT_NAME: AlarmSpike
+        PRODUCT_BUNDLE_IDENTIFIER: com.nonturn.saydo.alarmspike
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        TARGETED_DEVICE_FAMILY: "1"
+        CODE_SIGN_STYLE: Automatic
+    info:
+      path: Spikes/AlarmSpike/Info.plist
+      properties:
+        CFBundleDisplayName: AlarmSpike
+        ITSAppUsesNonExemptEncryption: false
+        NSAlarmKitUsageDescription: 行動時刻に、朝のあなたの声を鳴らすためにアラームを使います
+        NSMicrophoneUsageDescription: アラーム音に使う宣言音声を録音します
+        UILaunchScreen: {}
+
   fm-probe:
     type: tool
     platform: macOS
@@ -122,6 +147,19 @@ schemes:
     build:
       targets:
         SpeechSpike: all
+    run:
+      config: Debug
+    profile:
+      config: Release
+    analyze:
+      config: Debug
+    archive:
+      config: Release
+
+  AlarmSpike:
+    build:
+      targets:
+        AlarmSpike: all
     run:
       config: Debug
     profile:

@@ -213,3 +213,89 @@ EXIT=0
 ### 人間の確認待ち
 
 - task_001 と同じ（iOS 26.x シミュレータランタイムの導入）。追加はなし。
+
+---
+
+## task_023 — 行動時刻アラーム（AlarmKit）スパイク S-E
+
+- 日時: 2026-09-04
+- 状態: **コンパイルまで完了。実機挙動は全て未検証（人間の確認待ち）**
+- ブランチ: `task/023-alarm-spike`
+- 記録: `docs/spikes/alarm-spike.md`
+
+### 証拠
+
+| コマンド | exit code | ログ |
+|---|---|---|
+| `xcodegen generate` | 0 | — |
+| `scripts/build-ios.sh AlarmSpike` | **70**（task_001 / 002 と同じ destination の問題。AlarmSpike の差分とは無関係） | `docs/logs/task_023-1.txt` |
+| `xcodebuild -project Saydo.xcodeproj -target AlarmSpike -sdk iphonesimulator -configuration Debug CODE_SIGNING_ALLOWED=NO build` | **0** | `docs/logs/task_023-2.txt` |
+| `supportedModes` の実測（4 通りビルド） | 全て 0 | `docs/logs/task_023-3.txt` |
+
+`scripts/build-ios.sh AlarmSpike`（末尾）:
+
+```
+xcodebuild: error: Unable to find a destination matching the provided destination specifier:
+		{ generic:1, platform:iOS Simulator }
+
+	Ineligible destinations for the "AlarmSpike" scheme:
+		{ platform:iOS, id:dvtdevice-DVTiPhonePlaceholder-iphoneos:placeholder, name:Any iOS Device, error:iOS 26.2 is not installed. Please download and install the platform from Xcode > Settings > Components. }
+EXIT=70
+```
+
+`-target` 直指定（destination を要求しないためランタイム不要）の末尾:
+
+```
+Validate /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-023/build/Debug-iphonesimulator/AlarmSpike.app (in target 'AlarmSpike' from project 'Saydo')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-023
+    builtin-validationUtility /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-023/build/Debug-iphonesimulator/AlarmSpike.app -shallow-bundle -infoplist-subpath Info.plist
+
+Touch /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-023/build/Debug-iphonesimulator/AlarmSpike.app (in target 'AlarmSpike' from project 'Saydo')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-023
+    /usr/bin/touch -c /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-023/build/Debug-iphonesimulator/AlarmSpike.app
+
+warning: ONLY_ACTIVE_ARCH=YES requested with multiple ARCHS and no active architecture could be computed; building for all applicable architectures (in target 'AlarmSpike' from project 'Saydo')
+** BUILD SUCCEEDED **
+
+EXIT=0
+```
+
+ソース由来の警告は 0 件（`ONLY_ACTIVE_ARCH` の 1 件のみ。これはランタイム未導入に伴うもの）。
+`SWIFT_VERSION=6.0` + `SWIFT_STRICT_CONCURRENCY=complete` のまま、`@unchecked Sendable` も
+`nonisolated(unsafe)` も `@preconcurrency import` も使わずに通っている。
+
+### API についての確定事項（詳細は `docs/spikes/alarm-spike.md` §2）
+
+- `AlertConfiguration.AlertSound` は **ActivityKit** の **struct**。公開メンバーは
+  `static var default` と `static func named(_ name: String) -> AlertSound` の 2 つだけ。enum の case ではない。
+  AlarmKit は ActivityKit を再エクスポートしないので **`import ActivityKit` が必須**（省くとコンパイルエラー）。
+- `AlertSound.named` の SDK ドキュメントコメントに「main bundle **または** データコンテナの `Library/Sounds`」と明記されている。
+  スパイクの未確認事項「音声ファイルの置き場所」への SDK 側の回答。AlarmKit が同じ探索をするかは実機項目。
+- **`AlarmPresentation.Alert.stopButton` は iOS 26.1 で deprecated**（"This property is not used anymore"）。
+  26.1 以降の init には stopButton 引数自体が無い。**停止ボタンはアプリの持ち物ではなくなった** =
+  要望「アプリを開くまで消せない」は AlarmKit 単体では成立しない。
+- `AlarmConfiguration.alarm(...)` に **`appEntityIdentifier:` という引数は存在しない**（26.2 SDK）。
+- `cancel` / `stop` / `pause` / `resume` / `countdown` は同期の `throws`。`async` なのは `schedule` と
+  `requestAuthorization` だけ。`alarms` は `get throws`。
+- `AlarmButton` に `.stopButton` などの static メンバーは無い。`init(text:textColor:systemImageName:)` のみ。
+- **`supportedModes` の罠（実測）**: `static let supportedModes: IntentModes = .foreground(.immediate)` と書くと
+  AppIntents のメタデータ抽出が定数畳み込みできず、`.background` と同じ **1** を書き出す。
+  static var 形式の `.foreground` なら **2**。4 通りとも exit 0・警告 0 件なので**コンパイラは何も言わない**。
+  SAYDO 本体で AppIntent を書くときも同じ罠を踏む。
+
+### 未解決
+
+- 実機挙動は 1 つも検証できていない。消音/集中モード、連鎖、Open インテント、バンドル外サウンド、
+  強制終了、音量の 6 項目は全て `docs/spikes/alarm-spike.md` §6 の記入欄が空のまま。
+- `NSAlarmKitUsageDescription` というキー名は Xcode 同梱ドキュメント由来で、コンパイラでは検証できない。実機項目 (0)。
+- アラームの同時登録上限（`AlarmError.maximumLimitReached` が出る件数）は SDK に定数が無く未測定。
+- iOS 26.x シミュレータランタイムは依然として未導入（`xcrun simctl runtime list` は `Total Disk Images: 0`）。
+  そのため `scripts/build-ios.sh` は AlarmSpike でも通らない。task_001 の「人間の確認待ち」と同じ。
+
+### 人間の確認待ち
+
+1. **実機で `docs/spikes/alarm-spike.md` §6 の 6 項目（+ 補助 4 項目）を実施し、記入欄と Go / No-Go を埋める。**
+   iOS 26.x の実機が必要。シミュレータでは意味が無い。
+2. §7 の要望 4 点の整理表を実機結果で確定させる。特に①（アプリを開くまで消せない）と④（音量が最大に戻る）は
+   **API の事実として不可**なので、連鎖アラームで代替するか、体験設計を変えるかの方針判断が要る。
+3. iOS 26.x シミュレータランタイムの導入（task_001 と同じ）。
