@@ -2,7 +2,7 @@
 
 - 作成日: 2026-09-04
 - 対象: `docs/implementation-plan.md` の task_001〜021 を、開発者 1 人 + Claude Code で実行するための体制と手順
-- 前提: Fable 5.1 は限られた時間枠でのみ使える。日常の実装は Opus / Sonnet が担う（SessionStart フックで fable-like 規範が注入される）。
+- 前提: Fable 5.1 は限られた時間枠でのみ使える。方針は「計画・分析は Fable、実装は Opus」。Opus セッションには SessionStart フックで fable-like 規範が注入される。
 
 ---
 
@@ -12,11 +12,11 @@
 |---|---|---|---|
 | プロダクトオーナー兼デバイステスター | noritaka（人間） | 企画原則の最終判断、スパイクの Go / No-Go、実機テスト、権限ダイアログ確認、TestFlight / App Store Connect 操作、7 日間ドッグフーディング | iPhone 実機、Apple Developer アカウント |
 | アーキテクト（Planner） | Fable 5.1（時間枠内のみ） | 計画書と task-list の改訂、Phase ゲートでの敵対的レビュー、音声パイプラインなど最難関の設計判断と行き詰まったデバッグ | `plan` スキル、`.claude/workflows/plan-review.js`、`fable-protocol` |
-| 実装者（Executor） | Opus（risk_level = high / medium）、Sonnet（risk_level = low） | task-list.json の 1 タスクを 1 セッションで実装し、verify_commands を実行し、証拠付きで報告 | `task-executor` エージェント、serena MCP（シンボル単位の編集）、`scripts/*.sh` |
+| 実装者（Executor） | Opus（全タスク。計画・分析は Fable、実装は Opus という方針） | task-list.json の 1 タスクを 1 セッションで実装し、verify_commands を実行し、証拠付きで報告 | `task-executor` エージェント、serena MCP（シンボル単位の編集）、`scripts/*.sh` |
 | レビュアー（Reviewer） | 実装者とは別セッション（Opus） | 差分を done_definition・企画原則・Swift 6 並行性・テスト充足の 4 観点で審査 | `/code-review high`、`code-reviewer` / `code-verifier` エージェント、`.claude/workflows/task-review.js`（task_001 で作成） |
-| 品質修復者（Fixer） | Sonnet または Opus | ビルド・テスト失敗を緑になるまで修復。仕様変更はしない | `quality-fixer` エージェント、`scripts/test-core.sh` / `scripts/test-ios.sh` |
+| 品質修復者（Fixer） | Opus | ビルド・テスト失敗を緑になるまで修復。仕様変更はしない | `quality-fixer` エージェント、`scripts/test-core.sh` / `scripts/test-ios.sh` |
 | 調査班（Investigator / Verifier / Solver） | Opus | 実機で再現した不具合の観測 → 反証 → 解決案の 3 段。音声・通知の不具合はここに回す | `investigator` → `verifier` → `solver` エージェント |
-| 文言監査（Copy Auditor） | Sonnet | 全ユーザー向け文字列を Guardrails（責めない）とトーンで監査 | `.claude/workflows/copy-audit.js`（task_005 で作成） |
+| 文言監査（Copy Auditor） | Fable（分析。時間枠外は Opus） | 全ユーザー向け文字列を Guardrails（責めない）とトーンで監査 | `.claude/workflows/copy-audit.js`（task_005 で作成） |
 
 人数は 1 人。並列に走らせる Claude Code セッションは最大 3（1 つは常に実機確認に使える状態を保つ）。
 
@@ -46,10 +46,9 @@
 
 | タスク | モデル | 理由 |
 |---|---|---|
-| task_001, 002, 012, 016, 017, 018, 020 | Sonnet | 定型。仕様が計画書で確定している |
-| task_005, 006, 009, 010, 011, 013, 019, 021 | Opus | 設計判断を含む（状態機械、SwiftData、通知ルール、引き継ぎ） |
-| task_003, 004, 007, 008, 014, 015 | Opus（行き詰まったら Fable の時間枠へ） | Apple の新 API と実機挙動に依存。音声パイプラインと AI 層 |
-| Phase ゲートのレビュー、計画改訂 | Fable 5.1 | 敵対的レビューの精度が結果を左右する |
+| task_001〜021 の実装すべて | Opus | 実装は Opus に固定する（ユーザー方針） |
+| task_003, 004, 007, 008, 014, 015 で行き詰まった時の設計判断 | Fable 5.1（時間枠内） | Apple の新 API と実機挙動に依存する最難関 |
+| 計画改訂、スパイク結果の解釈、Phase ゲートの敵対的レビュー、リテンション分析 | Fable 5.1 | 計画・分析は Fable に固定する（ユーザー方針） |
 
 Fable の時間枠が来たら優先順: (1) 直前 Phase のゲートレビュー、(2) blocked タスクの設計判断、(3) 次 Phase の task-list 改訂。実装の手作業には使わない。
 

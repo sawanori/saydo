@@ -152,7 +152,7 @@ const mergePrompt = `5 人のレビュアーが SAYDO 実装計画書に出し�
 指摘の内容を発明・拡張してはならない。統合と順位付けだけを行う。
 ファイルを読む必要はない。以下が全指摘の JSON:
 ` + JSON.stringify(all, null, 1) + '\n\n' + SNIPPET
-const merged = await agent(mergePrompt, { label: 'merge', phase: 'Merge', schema: MERGED_SCHEMA, effort: 'medium' })
+const merged = await agent(mergePrompt, { label: 'merge', phase: 'Merge', schema: MERGED_SCHEMA, model: 'opus', effort: 'high' })
 const mergedList = merged && merged.merged ? merged.merged : []
 const lowList = merged && merged.low ? merged.low : []
 const CAP = 16
@@ -182,7 +182,7 @@ const verifyPrompt = f => CONTEXT + `
 ` + JSON.stringify(f, null, 1) + '\n\n' + SNIPPET
 
 const verdicts = await parallel(toVerify.map((f, i) => () =>
-  agent(verifyPrompt(f), { label: 'verify:' + f.id, phase: 'Verify', schema: VERDICT_SCHEMA, effort: 'high' })
+  agent(verifyPrompt(f), { label: 'verify:' + f.id, phase: 'Verify', schema: VERDICT_SCHEMA, model: 'opus', effort: 'max' })
     .then(v => ({ finding: f, verdict: v }))))
 
 const results = verdicts.filter(Boolean)
