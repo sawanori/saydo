@@ -213,3 +213,70 @@ EXIT=0
 ### 人間の確認待ち
 
 - task_001 と同じ（iOS 26.x シミュレータランタイムの導入）。追加はなし。
+
+---
+
+## task_009-core — 通知の純ロジック（NotificationPlan / NotificationCopy）
+
+- 日時: 2026-09-04
+- 状態: done（SaydoCore の純ロジック部分のみ。task_009 の App 側は未着手）
+- ブランチ / コミット: `task/009-notification-core` / （このコミット）
+
+### スコープ
+
+task_009 のうち **SaydoCore に置く純計算だけ**。`NotificationScheduler` / `AppDelegate` / `AppRouter` /
+`UNUserNotificationCenter` / SwiftData には触れていない。
+
+### 証拠
+
+| コマンド | exit code | ログ |
+|---|---|---|
+| `scripts/test-core.sh` | **0**（47 tests, 0 failures） | `docs/logs/task_009-core-1.txt` |
+
+```
+Test Suite 'NotificationCopyTests' passed at 2026-09-04 05:59.
+	 Executed 9 tests, with 0 failures (0 unexpected)
+Test Suite 'NotificationPlanTests' passed at 2026-09-04 05:59.
+	 Executed 23 tests, with 0 failures (0 unexpected)
+Test Suite 'All tests' passed
+	 Executed 47 tests, with 0 failures (0 unexpected) in 0.010 (0.012) seconds
+lint-principles: OK
+EXIT=0
+```
+
+`scripts/build-ios.sh` は未実行（この差分に iOS ターゲットのファイルが無く、task_001 の環境要因で
+どのみち exit 70 になるため）。
+
+### 確定した通知の契約（App 側の task_009 はこの名前を使う）
+
+| 型 | 内容 |
+|---|---|
+| `TimeOfDay` | `hour` / `minute`。`minutesFromMidnight`、`Comparable` |
+| `NotificationSlot` | morning / noon / night / action。識別子の接頭辞。`sessionType` は action → `.noon`（行動時刻通知も NoonFlow に入る） |
+| `NotificationMode` | twice（既定・朝のみ固定）/ thrice（朝昼夜）。`fixedSlots`・`fixedNotificationsPerDay` |
+| `NotificationSettings` | `morning` / `noon` / `night` / `mode` / `weekendEnabled`（false = 週末オフ） |
+| `DayCommitment` | `plannedAt?` / `outcome`。`.noCommitment` が宣言前 |
+| `NotificationRegistration` | `identifier`（`<slot>-yyyyMMdd`）/ `fireDate` / `slot` / `copyKey` / `sessionType` |
+| `NotificationPlan` | `registrations`（発火日時の昇順）/ `cancelledIdentifiers`。`make(now:settings:today:calendar:)` |
+| `NotificationCopyKey` | morning / noonRemember / noonAvoiding / night / action / declarationReminder |
+| `NotificationCopy` | `body(for:)`、`noonKey(for:calendar:)`（日替わり交互）、`restTodayActionTitle` = 「今日は休む」、`categoryIdentifier` |
+
+先読み日数は `min(maxHorizonDays 30, pendingBudget 50 / 1 日あたりの固定本数)`。
+2 回モード = 30 日（30 本）、3 回モード = 16 日（48 本）。行動時刻通知を足しても保留 50 本を超えない。
+
+昼をスキップする規則（当日のみ・`cancelledIdentifiers` にも入る）:
+(a) 固定の昼通知が `plannedAt` と 30 分以内、(b) 計画時点で `now < plannedAt`、
+(c) `outcome` が `done` / `partial`（このとき `action-yyyyMMdd` も取り消す）。
+
+### 未解決
+
+- `Guardrails`（task_005）が別ブランチのため、禁止句リストを `NotificationCopyTests` に直接持っている。
+  task_005 が入ったら `Guardrails` 側のリストへ寄せる（テストのコメントに明記済み）。
+- App 側（`NotificationScheduler` / `AppDelegate` / `AppRouter` / 通知カテゴリ登録 / ディープリンク）は未実装。
+  `NotificationCopy.restTodayActionIdentifier` と `categoryIdentifier` は App 側が使う前提の定数。
+- `declarationReminder`（retention R1 の「30 秒だけ、声で約束して」）は文言だけ用意した。
+  発火時刻は「一人になれる時刻」の設定（task_013）に依存するため、`NotificationPlan` は生成しない。
+
+### 人間の確認待ち
+
+- task_001 と同じ（iOS 26.x シミュレータランタイムの導入）。追加はなし。
