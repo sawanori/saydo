@@ -1,0 +1,205 @@
+{
+  "feature": "SAYDO — 音声主体の現実逃避伴走アプリ（iOS ネイティブ / 機種依存ストレージ / オンデバイス AI）",
+  "checks": [
+    {
+      "id": "check_001",
+      "target": "朝フロー（通知起点）",
+      "rule": "オンボーディング完了後、朝の通知をタップしてから宣言保存まで、ユーザーがマイクボタン・送信・次へをタップしない",
+      "expected_result": "TTS の質問が自動で始まり、発話が自動で録音・認識され、無音で自動終了し、M0〜M4 が完走して Commitment と宣言 m4a が保存される",
+      "manual_or_automated": "manual",
+      "verification_method": "実機で朝通知をタップし、画面録画で操作回数を数える（選択肢チップの任意タップは除く）"
+    },
+    {
+      "id": "check_002",
+      "target": "本人の声を本人に返す",
+      "rule": "行動時刻に『朝のあなたからです。』通知が届き、タップすると朝に録音した宣言音声がそのまま再生される",
+      "expected_result": "再生される音声が朝の録音と一致し、再生後に自動で『どうだった？』へ進む",
+      "manual_or_automated": "manual",
+      "verification_method": "実機で朝フロー完了後、行動時刻を 3 分後に設定して通知を待ち、再生内容を確認"
+    },
+    {
+      "id": "check_003",
+      "target": "昼フローの再縮小",
+      "rule": "『まだ』を選ぶと『何が止めてる？』の後に行動がより小さい文に置き換わる",
+      "expected_result": "Commitment.microActionText が更新され shrinkCount が 1 増える。文は 40 文字以内で動詞で終わる",
+      "manual_or_automated": "automated",
+      "verification_method": "Tests/SaydoTests/SessionViewModelTests.swift の昼フロー分岐テスト（scripts/test-ios.sh）"
+    },
+    {
+      "id": "check_004",
+      "target": "夜フローと翌日引き継ぎ",
+      "rule": "夜の『明日はどうする？』の回答が翌朝の最初の発話に含まれる",
+      "expected_result": "翌朝の M0 が『昨日の夜『◯◯』って言ってたね。今日はそれでいく？』で始まる",
+      "manual_or_automated": "automated",
+      "verification_method": "SessionViewModelTests の引き継ぎテストと、実機で日付をまたいだ手動確認"
+    },
+    {
+      "id": "check_005",
+      "target": "責めない（ガードレール）",
+      "rule": "TTS 文言・通知文言・空状態文言・LLM 出力のいずれにも禁止語（未達成/連続/サボ/怠/ダメ/なぜやらない/失敗/遅い/甘え/言い訳/また逃げ）が含まれない",
+      "expected_result": "DialogueCopy と NotificationCopy の全文言が Guardrails を通過し、LLM 出力は違反時にテンプレートへ置換される",
+      "manual_or_automated": "automated",
+      "verification_method": "Packages/SaydoCore/Tests/SaydoCoreTests/GuardrailsTests.swift と SaydoAI のフォールバックテスト（scripts/test-core.sh）"
+    },
+    {
+      "id": "check_006",
+      "target": "Tier B フォールバック",
+      "rule": "Apple Intelligence 非対応またはオフの端末で、朝・昼・夜が LLM なしで完走する",
+      "expected_result": "SessionLog.tier が B で記録され、会話が途中で止まらない",
+      "manual_or_automated": "manual",
+      "verification_method": "設定で Apple Intelligence をオフにした実機、または非対応機で 1 日分を通す"
+    },
+    {
+      "id": "check_007",
+      "target": "Tier A の失敗耐性",
+      "rule": "LLM がタイムアウト・コンテキスト超過・利用不可を返しても会話が継続する",
+      "expected_result": "6 秒でテンプレート文に切り替わり、SessionLog.guardrailReplacedCount または置換記録が増える",
+      "manual_or_automated": "automated",
+      "verification_method": "モック DialogueEngine でエラーを注入する SessionViewModelTests（scripts/test-ios.sh）"
+    },
+    {
+      "id": "check_008",
+      "target": "権限（認証相当）",
+      "rule": "初回に表示される権限ダイアログはマイクと通知の 2 つだけで、音声認識の権限ダイアログは表示されない",
+      "expected_result": "オンボーディング中の権限ダイアログが 2 回。2 回目以降の起動では権限ダイアログが出ない",
+      "manual_or_automated": "manual",
+      "verification_method": "アプリを削除して再インストールし、初回起動を画面録画"
+    },
+    {
+      "id": "check_009",
+      "target": "権限拒否時",
+      "rule": "マイク権限を拒否しても、テキスト入力で朝フローを完走できる",
+      "expected_result": "設定アプリへの導線が表示され、キーボード入力で Commitment が保存される（宣言音声はなし）",
+      "manual_or_automated": "manual",
+      "verification_method": "実機でマイク権限を拒否して朝フローを実行"
+    },
+    {
+      "id": "check_010",
+      "target": "通知の登録ルール",
+      "rule": "固定 3 回の通知が設定時刻に届き、行動時刻の通知が昼通知と 30 分以内に重なる場合は昼通知が当日分だけスキップされる",
+      "expected_result": "NotificationPlan の計算結果が仕様どおり",
+      "manual_or_automated": "automated",
+      "verification_method": "Packages/SaydoCore/Tests/SaydoCoreTests/NotificationPlanTests.swift（scripts/test-core.sh）"
+    },
+    {
+      "id": "check_011",
+      "target": "通知タップから発話開始までの時間",
+      "rule": "通知タップから TTS の最初の音が出るまで 1.5 秒以内",
+      "expected_result": "5 回計測の中央値が 1.5 秒以内",
+      "manual_or_automated": "manual",
+      "verification_method": "実機で画面録画し、タップから音声開始までのフレームを数える。結果を docs/spikes/speech-spike.md に記録"
+    },
+    {
+      "id": "check_012",
+      "target": "無音自動停止",
+      "rule": "発話後、設定した無音秒数（既定 1.5 秒）で自動的に聞き取りが終了する",
+      "expected_result": "ユーザーの操作なしで確定した文字起こしが次のステップに渡る。途中の短い間（0.5 秒）で切れない",
+      "manual_or_automated": "automated",
+      "verification_method": "Tests/SaydoTests/SilenceDetectorTests.swift（scripts/test-ios.sh）と実機での体感確認"
+    },
+    {
+      "id": "check_013",
+      "target": "Voice Timeline",
+      "rule": "当日の全 VoiceEntry が時刻順に表示され、各エントリを再生できる",
+      "expected_result": "🎙️ + 時刻 + 文字起こし + 再生が並び、再生は同時に 1 件だけ",
+      "manual_or_automated": "manual",
+      "verification_method": "実機で朝・昼・夜を通した後に記録タブを確認"
+    },
+    {
+      "id": "check_014",
+      "target": "週次分析",
+      "rule": "7 日分の固定データで、分野上位と理由の割合が集計と一致する",
+      "expected_result": "企画書 §11 の例（気まずさ 38% / 完璧主義 27% / 面倒 21% / 不安 14%）を再現するフィクスチャで割合が一致",
+      "manual_or_automated": "automated",
+      "verification_method": "Packages/SaydoCore/Tests/SaydoCoreTests/InsightCalculatorTests.swift（scripts/test-core.sh）"
+    },
+    {
+      "id": "check_015",
+      "target": "データベース整合",
+      "rule": "同じ日に 2 件目のアクティブな Commitment を作れない。VoiceEntry を削除すると音声ファイルも削除される",
+      "expected_result": "Repository が 2 件目を拒否し、AudioFileStore がファイルを消す",
+      "manual_or_automated": "automated",
+      "verification_method": "Tests/SaydoTests/RepositoryTests.swift と AudioFileStoreTests.swift（scripts/test-ios.sh）"
+    },
+    {
+      "id": "check_016",
+      "target": "外部通信ゼロ",
+      "rule": "アプリにネットワークアクセスのコード（URLSession 等）が存在しない。App Store のプライバシー表示は『データを収集しない』",
+      "expected_result": "リポジトリ検索で URLSession / Network の使用が 0 件（Foundation Models と Speech のアセットダウンロードは OS 側の処理）",
+      "manual_or_automated": "automated",
+      "verification_method": "grep -rn \"URLSession\\|import Network\" App Packages が 0 件"
+    },
+    {
+      "id": "check_017",
+      "target": "バックアップ復元",
+      "rule": "iCloud バックアップから復元した端末で、宣言音声と Timeline が再生・表示できる",
+      "expected_result": "復元後に音声ファイルと SwiftData の内容が揃っている",
+      "manual_or_automated": "manual",
+      "verification_method": "docs/backup-restore-check.md の手順を実施し結果を記録"
+    },
+    {
+      "id": "check_018",
+      "target": "モバイルレイアウト",
+      "rule": "iPhone SE（3 世代）と iPhone 17 Pro Max、Dynamic Type xxxLarge で全画面が崩れない",
+      "expected_result": "文字の切れ・重なり・横スクロールがない。波形と質問文が 1 画面に収まる",
+      "manual_or_automated": "manual",
+      "verification_method": "2 サイズ × 2 段階のスクリーンショットを docs/screenshots/ に保存して目視"
+    },
+    {
+      "id": "check_019",
+      "target": "アクセシビリティ",
+      "rule": "VoiceOver で朝フローを完走できる。Reduce Motion 時に波形が静的表示に切り替わる",
+      "expected_result": "状態（聞いています / 考えています）と選択肢が読み上げられる",
+      "manual_or_automated": "manual",
+      "verification_method": "実機で VoiceOver と Reduce Motion を有効にして朝フローを実行"
+    },
+    {
+      "id": "check_020",
+      "target": "会話時間",
+      "rule": "朝は 3 分、昼と夜は 1 分を超えない",
+      "expected_result": "ドッグフーディング 7 日間の SessionLog（endedAt - startedAt）の中央値が上限内",
+      "manual_or_automated": "manual",
+      "verification_method": "docs/dogfood/week1.md に日別の所要時間を記録して集計"
+    },
+    {
+      "id": "check_021",
+      "target": "回帰: セッション中断",
+      "rule": "会話の途中でアプリを閉じても、再開時にクラッシュせず、途中までの VoiceEntry が残っている",
+      "expected_result": "再起動後に Today 画面が表示され、Timeline に途中のエントリがある。次回の同種セッションは最初から始まる",
+      "manual_or_automated": "manual",
+      "verification_method": "M2 の途中でアプリをスワイプ終了し、再起動して確認"
+    },
+    {
+      "id": "check_022",
+      "target": "回帰: フォアグラウンド受信と時刻変更",
+      "rule": "アプリ表示中に通知が届いても会話が二重に始まらない。設定で時刻を変えると翌日から新しい時刻で届く",
+      "expected_result": "セッション中の通知はバナー表示のみ。時刻変更後の pending 通知が新しい時刻になっている",
+      "manual_or_automated": "manual",
+      "verification_method": "実機で確認。pending 通知は UNUserNotificationCenter の一覧をデバッグ表示で確認"
+    },
+    {
+      "id": "check_023",
+      "target": "回帰: TTS の回り込み",
+      "rule": "TTS の発話内容が文字起こしに混入しない",
+      "expected_result": "半二重制御により、質問文が VoiceEntry.transcript に現れない",
+      "manual_or_automated": "manual",
+      "verification_method": "スピーカー出力で朝フローを 5 回実行し transcript を確認"
+    },
+    {
+      "id": "check_024",
+      "target": "ビルド・テスト",
+      "rule": "scripts/test-core.sh、scripts/build-ios.sh、scripts/test-ios.sh が exit 0",
+      "expected_result": "SaydoCore / SaydoAI / SaydoTests のテストがすべて緑（Apple Intelligence 無効環境では SaydoAI の結合テストはスキップ）",
+      "manual_or_automated": "automated",
+      "verification_method": "3 つのスクリプトを順に実行"
+    },
+    {
+      "id": "check_025",
+      "target": "Swift 6 並行性",
+      "rule": "strict concurrency でビルド警告・エラーがない",
+      "expected_result": "xcodebuild のログに concurrency 関連の警告が 0 件",
+      "manual_or_automated": "automated",
+      "verification_method": "scripts/build-ios.sh の出力を grep -c \"warning:\" で確認"
+    }
+  ]
+}
