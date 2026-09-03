@@ -34,16 +34,38 @@
         "SAYDO/CLAUDE.md にモジュール構成と検証コマンドを記載",
         ".claude/settings.json に任意のフック（既存の .claude/workflows/*.js を呼ぶ）"
       ],
-      "non_scope": ["アプリ機能の実装", "SwiftLint / SwiftFormat の導入", "CI の構築", "git init（リポジトリは作成済み）", "packages（SaydoCore / SaydoAI）の project.yml への登録"],
-      "files_to_read": ["docs/implementation-plan.md"],
-      "files_to_create": [".gitignore", "project.yml", "App/SaydoApp.swift", "App/Resources/Assets.xcassets", "Tests/SaydoTests/SmokeTests.swift", "scripts/test-core.sh", "scripts/build-ios.sh", "scripts/test-ios.sh", "scripts/build-mac.sh", "scripts/lint-principles.sh", "docs/PROGRESS.md", "CLAUDE.md", ".claude/settings.json"],
+      "non_scope": [
+        "アプリ機能の実装",
+        "SwiftLint / SwiftFormat の導入",
+        "CI の構築",
+        "git init（リポジトリは作成済み）",
+        "packages（SaydoCore / SaydoAI）の project.yml への登録"
+      ],
+      "files_to_read": [
+        "docs/implementation-plan.md"
+      ],
+      "files_to_create": [
+        ".gitignore",
+        "project.yml",
+        "App/SaydoApp.swift",
+        "App/Resources/Assets.xcassets",
+        "Tests/SaydoTests/SmokeTests.swift",
+        "scripts/test-core.sh",
+        "scripts/build-ios.sh",
+        "scripts/test-ios.sh",
+        "scripts/build-mac.sh",
+        "scripts/lint-principles.sh",
+        "docs/PROGRESS.md",
+        "CLAUDE.md",
+        ".claude/settings.json"
+      ],
       "files_to_modify": [],
       "dependencies": [],
       "implementation_steps": [
         "git remote -v と git log で sawanori/saydo に初回コミット済みであることを確認する（git init はしない）",
         "brew install xcodegen を実行し、xcodegen --version を確認",
         "xcodebuild -downloadPlatform iOS を実行し、xcrun simctl list runtimes に iOS 26.x が出ることを確認",
-        "project.yml に 4 ターゲットをプレースホルダのソース付きで書き（packages は書かない）、xcodegen generate で Saydo.xcodeproj を生成（.xcodeproj は .gitignore に入れず、生成物としてコミットする方針を CLAUDE.md に明記）",
+        "project.yml に 4 ターゲットをプレースホルダのソース付きで書き（packages は書かない）、xcodegen generate で Saydo.xcodeproj を生成（.xcodeproj は .gitignore に入れ、scripts/*.sh が実行前に xcodegen generate を自動実行する方針を CLAUDE.md に明記）",
         "Assets.xcassets に仮 AppIcon 1024px と AccentColor を置く",
         "scripts/*.sh を作成し chmod +x。build-ios.sh / test-ios.sh / build-mac.sh はスキーム引数（既定 Saydo）を受ける",
         "scripts/build-ios.sh（引数なし）と scripts/test-ios.sh が成功することを確認し、SpeechSpike / fm-probe もスキーム指定でビルドできることを確認"
@@ -55,7 +77,10 @@
         "scripts/test-ios.sh が SmokeTests を実行して exit 0 で終わる",
         "CLAUDE.md に検証コマンド（test-core.sh / build-ios.sh / test-ios.sh / build-mac.sh / lint-principles.sh）が記載されている"
       ],
-      "verify_commands": ["scripts/build-ios.sh", "scripts/test-ios.sh"],
+      "verify_commands": [
+        "scripts/build-ios.sh",
+        "scripts/test-ios.sh"
+      ],
       "risk_level": "medium"
     },
     {
@@ -69,8 +94,13 @@
         "各 enum の日本語表示名（displayName）",
         "最小のテスト（enum の網羅と displayName）"
       ],
-      "non_scope": ["Flow の実装", "SwiftData モデル（App 側）"],
-      "files_to_read": ["docs/implementation-plan.md"],
+      "non_scope": [
+        "Flow の実装",
+        "SwiftData モデル（App 側）"
+      ],
+      "files_to_read": [
+        "docs/implementation-plan.md"
+      ],
       "files_to_create": [
         "Packages/SaydoCore/Package.swift",
         "Packages/SaydoCore/Sources/SaydoCore/Domain/SessionType.swift",
@@ -83,16 +113,27 @@
         "Packages/SaydoCore/Sources/SaydoCore/Domain/WeeklyStats.swift",
         "Packages/SaydoCore/Tests/SaydoCoreTests/DomainTests.swift"
       ],
-      "files_to_modify": ["project.yml"],
-      "dependencies": ["task_001"],
+      "files_to_modify": [
+        "project.yml"
+      ],
+      "dependencies": [
+        "task_001"
+      ],
       "implementation_steps": [
         "Package.swift を作成し swift build --package-path Packages/SaydoCore が通ることを確認",
         "project.yml に packages.SaydoCore を追加し、Saydo / SaydoTests の dependencies に登録して xcodegen generate を実行（main で実行する。worktree では .xcodeproj を再生成しない）",
         "Domain 型を実装（すべて Sendable, Codable, Hashable）",
         "DomainTests を追加し scripts/test-core.sh を緑にする"
       ],
-      "done_definition": ["scripts/test-core.sh が緑", "7 種の ReasonCategory と 7 種の TaskDomain が displayName 付きで定義されている", "project.yml に packages.SaydoCore があり、scripts/build-ios.sh が SaydoCore をリンクした状態で exit 0 で終わる"],
-      "verify_commands": ["scripts/test-core.sh", "scripts/build-ios.sh"],
+      "done_definition": [
+        "scripts/test-core.sh が緑",
+        "7 種の ReasonCategory と 7 種の TaskDomain が displayName 付きで定義されている",
+        "project.yml に packages.SaydoCore があり、scripts/build-ios.sh が SaydoCore をリンクした状態で exit 0 で終わる"
+      ],
+      "verify_commands": [
+        "scripts/test-core.sh",
+        "scripts/build-ios.sh"
+      ],
       "risk_level": "low"
     },
     {
@@ -107,11 +148,25 @@
         "人手採点（採用可 / 要修正 / 不可）と Go / No-Go の記入",
         "iOS 26.2 シミュレータで同じ呼び出しが動くかを確認（S-D）"
       ],
-      "non_scope": ["プロンプトの最終調整", "アプリへの組み込み"],
-      "files_to_read": ["docs/implementation-plan.md", "voice_avoidance_companion_app_concept.md"],
-      "files_to_create": ["Spikes/fm-probe/main.swift", "Spikes/fm-probe/fixtures.json", "docs/spikes/fm-probe.md"],
-      "files_to_modify": ["project.yml"],
-      "dependencies": ["task_002"],
+      "non_scope": [
+        "プロンプトの最終調整",
+        "アプリへの組み込み"
+      ],
+      "files_to_read": [
+        "docs/implementation-plan.md",
+        "voice_avoidance_companion_app_concept.md"
+      ],
+      "files_to_create": [
+        "Spikes/fm-probe/main.swift",
+        "Spikes/fm-probe/fixtures.json",
+        "docs/spikes/fm-probe.md"
+      ],
+      "files_to_modify": [
+        "project.yml"
+      ],
+      "dependencies": [
+        "task_002"
+      ],
       "implementation_steps": [
         "Mac の設定で Apple Intelligence が有効であることを確認（無効なら有効化）",
         "fm-probe ターゲットを project.yml に追加し xcodegen generate",
@@ -128,7 +183,9 @@
         "Go / No-Go が明記され、No-Go の場合は Phase 2 の扱い（Tier B 固定）が書かれている",
         "シミュレータでの可否が記録されている"
       ],
-      "verify_commands": ["scripts/build-mac.sh fm-probe"],
+      "verify_commands": [
+        "scripts/build-mac.sh fm-probe"
+      ],
       "risk_level": "medium"
     },
     {
@@ -144,11 +201,25 @@
         "ローカル通知を 10 秒後に登録し、タップから TTS 開始までの時間を 5 回計測",
         "AVAudioSession のカテゴリ・モード・Bluetooth オプションの iOS 26.2 SDK での正式名を確認して記録"
       ],
-      "non_scope": ["本番 UI", "SwiftData 保存"],
-      "files_to_read": ["docs/implementation-plan.md"],
-      "files_to_create": ["Spikes/SpeechSpike/SpeechSpikeApp.swift", "Spikes/SpeechSpike/SpikeView.swift", "Spikes/SpeechSpike/SpikeAudio.swift", "docs/spikes/speech-spike.md"],
-      "files_to_modify": ["project.yml"],
-      "dependencies": ["task_001"],
+      "non_scope": [
+        "本番 UI",
+        "SwiftData 保存"
+      ],
+      "files_to_read": [
+        "docs/implementation-plan.md"
+      ],
+      "files_to_create": [
+        "Spikes/SpeechSpike/SpeechSpikeApp.swift",
+        "Spikes/SpeechSpike/SpikeView.swift",
+        "Spikes/SpeechSpike/SpikeAudio.swift",
+        "docs/spikes/speech-spike.md"
+      ],
+      "files_to_modify": [
+        "project.yml"
+      ],
+      "dependencies": [
+        "task_001"
+      ],
       "implementation_steps": [
         "task_001 が作成した SpeechSpike ターゲットの info に NSMicrophoneUsageDescription があることを確認する（ターゲット自体は task_001 で作成済み）",
         "Apple 公式のサンプル構成（SpeechTranscriber / AssetInventory / AsyncStream<AnalyzerInput> / analyzeSequence / finalizeAndFinish）で実装",
@@ -163,7 +234,9 @@
         "AnalyzerInputConverter を使わず AVAudioConverter + AnalyzerInput(buffer:) で供給できたことが記録されている",
         "Go / No-Go が明記され、No-Go なら SFSpeechRecognizer フォールバックの採用を記述している"
       ],
-      "verify_commands": ["scripts/build-ios.sh SpeechSpike"],
+      "verify_commands": [
+        "scripts/build-ios.sh SpeechSpike"
+      ],
       "risk_level": "high"
     },
     {
@@ -186,8 +259,17 @@
         ".claude/workflows/copy-audit.js を実行し、指摘された文言を修正する",
         "各コンポーネントのテスト"
       ],
-      "non_scope": ["音声・UI・SwiftData", "Foundation Models", "TemplateDialogueEngine / ShrinkLadder / JapaneseTimeParser（task_005b）"],
-      "files_to_read": ["docs/implementation-plan.md", "docs/retention-strategy.md", "voice_avoidance_companion_app_concept.md", "Packages/SaydoCore/Sources/SaydoCore/Domain/"],
+      "non_scope": [
+        "音声・UI・SwiftData",
+        "Foundation Models",
+        "TemplateDialogueEngine / ShrinkLadder / JapaneseTimeParser（task_005b）"
+      ],
+      "files_to_read": [
+        "docs/implementation-plan.md",
+        "docs/retention-strategy.md",
+        "voice_avoidance_companion_app_concept.md",
+        "Packages/SaydoCore/Sources/SaydoCore/Domain/"
+      ],
       "files_to_create": [
         "Packages/SaydoCore/Sources/SaydoCore/Flows/FlowMachine.swift",
         "Packages/SaydoCore/Sources/SaydoCore/Flows/MorningFlow.swift",
@@ -203,7 +285,9 @@
         "Packages/SaydoCore/Tests/SaydoCoreTests/DialogueCopyTests.swift"
       ],
       "files_to_modify": [],
-      "dependencies": ["task_002"],
+      "dependencies": [
+        "task_002"
+      ],
       "implementation_steps": [
         "FlowMachine のイベント（transcript / choice / timeout / playbackFinished / skip / interrupted）と命令型を定義し、3 フローを純関数（state, event) -> (state, [Command]) として実装",
         "DialogueCopy に企画書の文言を移し、主要 8 文言を 5 種以上の配列にして、直近 3 日に使った文言を避ける選択関数を書く",
@@ -218,7 +302,9 @@
         "interrupted で中断した後、同じ FlowStep から再開できるテストがある",
         "copy-audit.js の実行結果が指摘 0 件（指摘があった場合は修正して再実行し 0 件にした記録がある）"
       ],
-      "verify_commands": ["scripts/test-core.sh"],
+      "verify_commands": [
+        "scripts/test-core.sh"
+      ],
       "risk_level": "medium"
     },
     {
@@ -232,8 +318,16 @@
         "JapaneseTimeParser: 「14 時」「2 時」「午後 2 時」「昼過ぎ」「1 時間後」を Date に変換。M3 の「どこで」の回答は場所文字列としてそのまま保持する",
         "各コンポーネントのテスト"
       ],
-      "non_scope": ["音声・UI・SwiftData", "Foundation Models", "FlowMachine と DialogueCopy（task_005）"],
-      "files_to_read": ["docs/implementation-plan.md", "Packages/SaydoCore/Sources/SaydoCore/Dialogue/DialogueCopy.swift", "Packages/SaydoCore/Sources/SaydoCore/Domain/"],
+      "non_scope": [
+        "音声・UI・SwiftData",
+        "Foundation Models",
+        "FlowMachine と DialogueCopy（task_005）"
+      ],
+      "files_to_read": [
+        "docs/implementation-plan.md",
+        "Packages/SaydoCore/Sources/SaydoCore/Dialogue/DialogueCopy.swift",
+        "Packages/SaydoCore/Sources/SaydoCore/Domain/"
+      ],
       "files_to_create": [
         "Packages/SaydoCore/Sources/SaydoCore/Dialogue/TemplateDialogueEngine.swift",
         "Packages/SaydoCore/Sources/SaydoCore/Dialogue/ShrinkLadder.swift",
@@ -243,7 +337,9 @@
         "Packages/SaydoCore/Tests/SaydoCoreTests/JapaneseTimeParserTests.swift"
       ],
       "files_to_modify": [],
-      "dependencies": ["task_005"],
+      "dependencies": [
+        "task_005"
+      ],
       "implementation_steps": [
         "TemplateDialogueEngine を実装し、DialogueEngine の全メソッドを LLM なしで満たす",
         "ShrinkLadder を一般形の段階表として実装し、分野に依らず 1 段ずつ下れることをテスト",
@@ -256,7 +352,9 @@
         "ShrinkLadder が一般形（開く → 一部だけ → 1 行だけ → 置くだけ）で、特定の分野に依存しないことがテストで固定されている",
         "行動文が本人の言葉から作られ、自由発話からの名詞切り出しをしていないことがテストで固定されている"
       ],
-      "verify_commands": ["scripts/test-core.sh"],
+      "verify_commands": [
+        "scripts/test-core.sh"
+      ],
       "risk_level": "medium"
     },
     {
@@ -271,8 +369,15 @@
         "AppSettings（UserDefaults ラッパ。既定値: 朝 8:00 / 昼 13:00 / 夜 21:00、無音判定 1.5 秒、TTS 音声 ID、オンボーディング完了フラグ、通知モード（既定は朝 + 行動時刻の 2 回）、週末オフ、『一人で話せる時間』）。UI は task_013",
         "テスト用インメモリ ModelContainer と Repository のテスト"
       ],
-      "non_scope": ["CloudKit 同期", "書き出し・全削除 UI（task_019）", "設定画面の UI（task_013）"],
-      "files_to_read": ["docs/implementation-plan.md", "Packages/SaydoCore/Sources/SaydoCore/Domain/"],
+      "non_scope": [
+        "CloudKit 同期",
+        "書き出し・全削除 UI（task_019）",
+        "設定画面の UI（task_013）"
+      ],
+      "files_to_read": [
+        "docs/implementation-plan.md",
+        "Packages/SaydoCore/Sources/SaydoCore/Domain/"
+      ],
       "files_to_create": [
         "App/Data/Schema.swift",
         "App/Data/Models/AvoidanceItem.swift",
@@ -287,8 +392,13 @@
         "Tests/SaydoTests/AudioFileStoreTests.swift",
         "Tests/SaydoTests/AppSettingsTests.swift"
       ],
-      "files_to_modify": ["project.yml", "App/SaydoApp.swift"],
-      "dependencies": ["task_002"],
+      "files_to_modify": [
+        "project.yml",
+        "App/SaydoApp.swift"
+      ],
+      "dependencies": [
+        "task_002"
+      ],
       "implementation_steps": [
         "Schema と 5 モデルを定義し、SaydoApp の modelContainer に登録",
         "AudioFileStore を実装（ディレクトリ作成、保存、削除、掃除、ファイル保護属性）",
@@ -302,7 +412,10 @@
         "VoiceEntry 削除で音声ファイルが消えるテストがある",
         "AppSettings が既定値（朝 8:00 / 昼 13:00 / 夜 21:00、無音 1.5 秒、通知は朝 + 行動時刻の 2 回）を返すテストがある"
       ],
-      "verify_commands": ["scripts/build-ios.sh", "scripts/test-ios.sh"],
+      "verify_commands": [
+        "scripts/build-ios.sh",
+        "scripts/test-ios.sh"
+      ],
       "risk_level": "medium"
     },
     {
@@ -319,8 +432,14 @@
         "WaveformSampler: 描画用のレベル履歴（@Observable）",
         "UI なしの結合テスト（録音ファイルが生成され再生できる）は実機で手動確認"
       ],
-      "non_scope": ["画面", "フロー制御"],
-      "files_to_read": ["docs/spikes/speech-spike.md", "Spikes/SpeechSpike/SpikeAudio.swift"],
+      "non_scope": [
+        "画面",
+        "フロー制御"
+      ],
+      "files_to_read": [
+        "docs/spikes/speech-spike.md",
+        "Spikes/SpeechSpike/SpikeAudio.swift"
+      ],
       "files_to_create": [
         "App/Audio/AudioSessionController.swift",
         "App/Audio/VoiceCapture.swift",
@@ -331,8 +450,12 @@
         "App/Audio/WaveformSampler.swift",
         "Tests/SaydoTests/SilenceDetectorTests.swift"
       ],
-      "files_to_modify": ["project.yml"],
-      "dependencies": ["task_004"],
+      "files_to_modify": [
+        "project.yml"
+      ],
+      "dependencies": [
+        "task_004"
+      ],
       "implementation_steps": [
         "docs/spikes/speech-spike.md の採用設定（AVAudioSession、無音秒数、モード）をそのまま実装",
         "SpeechAnalyzer への供給は AVAudioConverter + AnalyzerInput(buffer:) で行う（AnalyzerInputConverter は使わない）",
@@ -346,7 +469,10 @@
         "音声認識権限のダイアログが出ない（マイクのみ）",
         "installTap のクロージャ内に状態変更が無く、concurrency 警告が 0 件（grep -c \"warning:\" の結果を記録）"
       ],
-      "verify_commands": ["scripts/build-ios.sh", "scripts/test-ios.sh"],
+      "verify_commands": [
+        "scripts/build-ios.sh",
+        "scripts/test-ios.sh"
+      ],
       "risk_level": "high"
     },
     {
@@ -365,8 +491,16 @@
         "M0 の文字起こし訂正動線（retention R7）: 文字起こしを 1 行だけ表示し、違えば 1 タップで再録音できる。音声ファイルが主で文字起こしは従とし、分類に失敗しても会話を止めない",
         "マイク拒否時: テキストで完走できるが Commitment に『声なし』フラグを付け、設定アプリへの導線を出す"
       ],
-      "non_scope": ["通知登録（task_009）", "昼・夜（task_010, 011）", "AI（task_014, 015）"],
-      "files_to_read": ["Packages/SaydoCore/Sources/SaydoCore/Flows/", "App/Audio/", "App/Data/Repository.swift"],
+      "non_scope": [
+        "通知登録（task_009）",
+        "昼・夜（task_010, 011）",
+        "AI（task_014, 015）"
+      ],
+      "files_to_read": [
+        "Packages/SaydoCore/Sources/SaydoCore/Flows/",
+        "App/Audio/",
+        "App/Data/Repository.swift"
+      ],
       "files_to_create": [
         "App/Features/Session/SessionViewModel.swift",
         "App/Features/Session/SessionView.swift",
@@ -375,8 +509,14 @@
         "App/Features/Session/TextFallbackSheet.swift",
         "Tests/SaydoTests/SessionViewModelTests.swift"
       ],
-      "files_to_modify": ["App/SaydoApp.swift"],
-      "dependencies": ["task_005b", "task_006", "task_007"],
+      "files_to_modify": [
+        "App/SaydoApp.swift"
+      ],
+      "dependencies": [
+        "task_005b",
+        "task_006",
+        "task_007"
+      ],
       "implementation_steps": [
         "SessionViewModel を @MainActor @Observable で実装し、音声スタックをプロトコル経由で注入（テストではモック）",
         "SessionView を実装。文字は最小限、吹き出しは作らない",
@@ -392,7 +532,10 @@
         "M0 の文字起こしが 1 行表示され、1 タップで再録音できる",
         "SessionViewModelTests が緑"
       ],
-      "verify_commands": ["scripts/build-ios.sh", "scripts/test-ios.sh"],
+      "verify_commands": [
+        "scripts/build-ios.sh",
+        "scripts/test-ios.sh"
+      ],
       "risk_level": "high"
     },
     {
@@ -411,8 +554,15 @@
         "AppRouter: sessionType と commitmentID から SessionView を直接表示",
         "NotificationPlan / NotificationCopy のテスト（Guardrails 通過を含む）"
       ],
-      "non_scope": ["プッシュ通知", "Critical Alert"],
-      "files_to_read": ["docs/implementation-plan.md", "docs/retention-strategy.md", "App/Features/Session/SessionViewModel.swift"],
+      "non_scope": [
+        "プッシュ通知",
+        "Critical Alert"
+      ],
+      "files_to_read": [
+        "docs/implementation-plan.md",
+        "docs/retention-strategy.md",
+        "App/Features/Session/SessionViewModel.swift"
+      ],
       "files_to_create": [
         "Packages/SaydoCore/Sources/SaydoCore/Notifications/NotificationPlan.swift",
         "Packages/SaydoCore/Sources/SaydoCore/Notifications/NotificationCopy.swift",
@@ -422,8 +572,13 @@
         "App/AppDelegate.swift",
         "App/AppRouter.swift"
       ],
-      "files_to_modify": ["App/SaydoApp.swift", "App/Features/Session/SessionViewModel.swift"],
-      "dependencies": ["task_008"],
+      "files_to_modify": [
+        "App/SaydoApp.swift",
+        "App/Features/Session/SessionViewModel.swift"
+      ],
+      "dependencies": [
+        "task_008"
+      ],
       "implementation_steps": [
         "NotificationPlan を純関数で実装しテスト（7 日分の非繰り返し計画、重複ルール、週末オフ、翌日繰り越し、時刻変更、3 回モードの増減）",
         "NotificationScheduler を実装し、起動時と宣言時に 7 日分を再計画。朝の M4 完了で行動時刻通知（.timeSensitive）を登録",
@@ -440,7 +595,11 @@
         "行動時刻通知が朝の宣言後に .timeSensitive で登録される",
         "NotificationPlanTests が緑で、全通知文言が Guardrails を通過する"
       ],
-      "verify_commands": ["scripts/test-core.sh", "scripts/build-ios.sh", "scripts/test-ios.sh"],
+      "verify_commands": [
+        "scripts/test-core.sh",
+        "scripts/build-ios.sh",
+        "scripts/test-ios.sh"
+      ],
       "risk_level": "medium"
     },
     {
@@ -458,11 +617,30 @@
         "昼フローが 1 分を超えない",
         "TestFlight 内部配布 #1（本人のみ。オンボーディングは権限要求だけの最小構成でよい）"
       ],
-      "non_scope": ["AI による再縮小（task_015）", "外部テスター配布"],
-      "files_to_read": ["Packages/SaydoCore/Sources/SaydoCore/Flows/NoonFlow.swift", "docs/retention-strategy.md", "App/Features/Session/SessionViewModel.swift"],
-      "files_to_create": ["App/Features/Session/PlaybackCardView.swift", "App/Features/Session/ListenModeSheet.swift", "App/Features/Today/TodayView.swift"],
-      "files_to_modify": ["App/Features/Session/SessionViewModel.swift", "App/Features/Session/SessionView.swift", "App/AppRouter.swift", "App/Audio/AudioSessionController.swift", "Tests/SaydoTests/SessionViewModelTests.swift"],
-      "dependencies": ["task_009"],
+      "non_scope": [
+        "AI による再縮小（task_015）",
+        "外部テスター配布"
+      ],
+      "files_to_read": [
+        "Packages/SaydoCore/Sources/SaydoCore/Flows/NoonFlow.swift",
+        "docs/retention-strategy.md",
+        "App/Features/Session/SessionViewModel.swift"
+      ],
+      "files_to_create": [
+        "App/Features/Session/PlaybackCardView.swift",
+        "App/Features/Session/ListenModeSheet.swift",
+        "App/Features/Today/TodayView.swift"
+      ],
+      "files_to_modify": [
+        "App/Features/Session/SessionViewModel.swift",
+        "App/Features/Session/SessionView.swift",
+        "App/AppRouter.swift",
+        "App/Audio/AudioSessionController.swift",
+        "Tests/SaydoTests/SessionViewModelTests.swift"
+      ],
+      "dependencies": [
+        "task_009"
+      ],
       "implementation_steps": [
         "SessionViewModel に NoonFlow の命令（play / 選択肢 / shrink / reschedule）と入口 3 状態の分岐を配線",
         "出力経路と消音スイッチの状態を見て『イヤホンで聞く / 文字で読む』を出す ListenModeSheet を実装",
@@ -479,7 +657,10 @@
         "SessionViewModelTests に昼フローの 3 分岐と入口 3 状態のテストがある",
         "TestFlight 内部配布 #1 が完了し、ビルド番号が docs/PROGRESS.md に記録されている"
       ],
-      "verify_commands": ["scripts/build-ios.sh", "scripts/test-ios.sh"],
+      "verify_commands": [
+        "scripts/build-ios.sh",
+        "scripts/test-ios.sh"
+      ],
       "risk_level": "medium"
     },
     {
@@ -494,11 +675,23 @@
         "反省会にしない: 未完了を数えたり表示したりしない",
         "（任意 / Phase 3 送り可）retention R10『初めて動けた日』カード: 宣言どおり動けた最初の日の朝の宣言音声と夜の前進音声を並べた 1 枚のカードとして残す。共有機能は付けない。本タスクの done_definition には含めない"
       ],
-      "non_scope": ["週次分析", "R10 カードの必須実装（optional 扱い）"],
-      "files_to_read": ["Packages/SaydoCore/Sources/SaydoCore/Flows/NightFlow.swift", "Packages/SaydoCore/Sources/SaydoCore/Flows/MorningFlow.swift"],
+      "non_scope": [
+        "週次分析",
+        "R10 カードの必須実装（optional 扱い）"
+      ],
+      "files_to_read": [
+        "Packages/SaydoCore/Sources/SaydoCore/Flows/NightFlow.swift",
+        "Packages/SaydoCore/Sources/SaydoCore/Flows/MorningFlow.swift"
+      ],
       "files_to_create": [],
-      "files_to_modify": ["App/Features/Session/SessionViewModel.swift", "App/Data/Repository.swift", "Tests/SaydoTests/SessionViewModelTests.swift"],
-      "dependencies": ["task_010"],
+      "files_to_modify": [
+        "App/Features/Session/SessionViewModel.swift",
+        "App/Data/Repository.swift",
+        "Tests/SaydoTests/SessionViewModelTests.swift"
+      ],
+      "dependencies": [
+        "task_010"
+      ],
       "implementation_steps": [
         "NightFlow の命令を配線し Carryover を保存",
         "E0 の前進なし分岐を 2 チップ（もっと小さくする / 明日に回す）で実装する",
@@ -511,7 +704,11 @@
         "夜の画面と発話に『未達成』『連続』が一切出ない（Guardrails テストで固定）",
         "引き継ぎのテストが緑"
       ],
-      "verify_commands": ["scripts/test-core.sh", "scripts/build-ios.sh", "scripts/test-ios.sh"],
+      "verify_commands": [
+        "scripts/test-core.sh",
+        "scripts/build-ios.sh",
+        "scripts/test-ios.sh"
+      ],
       "risk_level": "low"
     },
     {
@@ -525,19 +722,41 @@
         "空状態の文言（責めない）",
         "TabView（今日 / 記録）の導入"
       ],
-      "non_scope": ["編集・削除 UI（全削除は task_019）", "検索"],
-      "files_to_read": ["App/Data/Repository.swift", "App/Audio/VoicePlayer.swift"],
-      "files_to_create": ["App/Features/Timeline/TimelineView.swift", "App/Features/Timeline/VoiceEntryRow.swift"],
-      "files_to_modify": ["App/SaydoApp.swift", "App/AppRouter.swift"],
-      "dependencies": ["task_011"],
+      "non_scope": [
+        "編集・削除 UI（全削除は task_019）",
+        "検索"
+      ],
+      "files_to_read": [
+        "App/Data/Repository.swift",
+        "App/Audio/VoicePlayer.swift"
+      ],
+      "files_to_create": [
+        "App/Features/Timeline/TimelineView.swift",
+        "App/Features/Timeline/VoiceEntryRow.swift"
+      ],
+      "files_to_modify": [
+        "App/SaydoApp.swift",
+        "App/AppRouter.swift"
+      ],
+      "dependencies": [
+        "task_011"
+      ],
       "implementation_steps": [
         "@Query で VoiceEntry を recordedAt 降順に取得し、記録のある日だけを日別にグループ化する（空白日のセクションを作らない）",
         "VoiceEntryRow と再生制御を実装",
         "iPhone SE サイズと Dynamic Type xxxLarge でレイアウト確認",
         "7 日分 30 件のデータを投入し、Instruments でスクロール時のフレーム落ち警告件数を計測する"
       ],
-      "done_definition": ["当日の全エントリが時刻順に表示され再生できる", "7 日分 30 件のデータで一覧をスクロールしたとき、Instruments のフレーム落ち警告が 0 件", "記録が無い日と『今日は休む』の日がセクションとして表示されない", "空状態に責める文言がない"],
-      "verify_commands": ["scripts/build-ios.sh", "scripts/test-ios.sh"],
+      "done_definition": [
+        "当日の全エントリが時刻順に表示され再生できる",
+        "7 日分 30 件のデータで一覧をスクロールしたとき、Instruments のフレーム落ち警告が 0 件",
+        "記録が無い日と『今日は休む』の日がセクションとして表示されない",
+        "空状態に責める文言がない"
+      ],
+      "verify_commands": [
+        "scripts/build-ios.sh",
+        "scripts/test-ios.sh"
+      ],
       "risk_level": "low"
     },
     {
@@ -552,16 +771,33 @@
         "AppSettings（task_006 で作成済み）を読み書きする UI のみを作る",
         ".claude/workflows/phase-gate.js を実行し、Phase 1 の合格条件を満たすまで修正する"
       ],
-      "non_scope": ["AppSettings 自体の作成（task_006）", "TestFlight 配布（task_013b）", "外部テスター配布", "App Store 提出"],
-      "files_to_read": ["App/Notifications/NotificationScheduler.swift", "App/Features/Settings/AppSettings.swift", "App/Audio/TranscriptionService.swift", "docs/retention-strategy.md"],
+      "non_scope": [
+        "AppSettings 自体の作成（task_006）",
+        "TestFlight 配布（task_013b）",
+        "外部テスター配布",
+        "App Store 提出"
+      ],
+      "files_to_read": [
+        "App/Notifications/NotificationScheduler.swift",
+        "App/Features/Settings/AppSettings.swift",
+        "App/Audio/TranscriptionService.swift",
+        "docs/retention-strategy.md"
+      ],
       "files_to_create": [
         "App/Features/Onboarding/OnboardingView.swift",
         "App/Features/Onboarding/PermissionsViewModel.swift",
         "App/Features/Onboarding/AssetDownloadView.swift",
         "App/Features/Settings/SettingsView.swift"
       ],
-      "files_to_modify": ["App/SaydoApp.swift", "App/AppRouter.swift", "App/Notifications/NotificationScheduler.swift", "App/Features/Settings/AppSettings.swift"],
-      "dependencies": ["task_012"],
+      "files_to_modify": [
+        "App/SaydoApp.swift",
+        "App/AppRouter.swift",
+        "App/Notifications/NotificationScheduler.swift",
+        "App/Features/Settings/AppSettings.swift"
+      ],
+      "dependencies": [
+        "task_012"
+      ],
       "implementation_steps": [
         "OnboardingView を実装し、完了フラグで以降スキップ",
         "SettingsView を実装し、時刻・3 回モード・週末オフの変更で 7 日分の通知を再計画する",
@@ -576,7 +812,10 @@
         "iCloud バックアップ無効時の注意文がオンボーディングと設定の両方にある",
         "phase-gate.js の実行結果が合格（不合格なら修正して再実行した記録がある）"
       ],
-      "verify_commands": ["scripts/build-ios.sh", "scripts/test-ios.sh"],
+      "verify_commands": [
+        "scripts/build-ios.sh",
+        "scripts/test-ios.sh"
+      ],
       "risk_level": "medium"
     },
     {
@@ -593,11 +832,24 @@
         "H5: 空白日の翌日に、再入場の文言で戻れたか",
         "7 日間のドッグフーディング開始（人間の作業。Phase 2 は並行して進める）"
       ],
-      "non_scope": ["外部テスター配布（task_020）", "App Store 提出", "コード実装"],
-      "files_to_read": ["docs/retention-strategy.md", "docs/implementation-plan.md"],
-      "files_to_create": ["docs/dogfood/week1.md"],
-      "files_to_modify": ["docs/PROGRESS.md"],
-      "dependencies": ["task_013"],
+      "non_scope": [
+        "外部テスター配布（task_020）",
+        "App Store 提出",
+        "コード実装"
+      ],
+      "files_to_read": [
+        "docs/retention-strategy.md",
+        "docs/implementation-plan.md"
+      ],
+      "files_to_create": [
+        "docs/dogfood/week1.md"
+      ],
+      "files_to_modify": [
+        "docs/PROGRESS.md"
+      ],
+      "dependencies": [
+        "task_013"
+      ],
       "implementation_steps": [
         "docs/dogfood/week1.md を H1〜H5 の記入欄付きで作成する",
         "Archive し TestFlight 内部テストに配布する（人間の作業）",
@@ -608,7 +860,9 @@
         "docs/dogfood/week1.md に H1〜H5 の仮説と日々の記入欄がある",
         "ドッグフーディングの開始日が記録されている"
       ],
-      "verify_commands": ["scripts/build-ios.sh"],
+      "verify_commands": [
+        "scripts/build-ios.sh"
+      ],
       "risk_level": "medium"
     },
     {
@@ -625,8 +879,16 @@
         "ModelAvailability: availability == .available かつ SystemLanguageModel.default.supportsLocale(Locale(identifier: \"ja_JP\")) の両方で Tier A と判定する（supportsLocale が実在しない場合は task_003 で記録した代替判定に従う）。判定理由のログ",
         "fm-probe のフィクスチャを使った macOS 上の結合テスト（Apple Intelligence 有効時のみ実行、無効時はスキップ）"
       ],
-      "non_scope": ["アプリへの配線（task_015）", "ツール呼び出し", "ストリーミング表示"],
-      "files_to_read": ["docs/spikes/fm-probe.md", "Spikes/fm-probe/main.swift", "Packages/SaydoCore/Sources/SaydoCore/Dialogue/DialogueEngine.swift"],
+      "non_scope": [
+        "アプリへの配線（task_015）",
+        "ツール呼び出し",
+        "ストリーミング表示"
+      ],
+      "files_to_read": [
+        "docs/spikes/fm-probe.md",
+        "Spikes/fm-probe/main.swift",
+        "Packages/SaydoCore/Sources/SaydoCore/Dialogue/DialogueEngine.swift"
+      ],
       "files_to_create": [
         "Packages/SaydoAI/Package.swift",
         "Packages/SaydoAI/Sources/SaydoAI/GenerableTypes.swift",
@@ -635,8 +897,14 @@
         "Packages/SaydoAI/Sources/SaydoAI/ModelAvailability.swift",
         "Packages/SaydoAI/Tests/SaydoAITests/FoundationModelsDialogueEngineTests.swift"
       ],
-      "files_to_modify": ["project.yml", "scripts/test-core.sh"],
-      "dependencies": ["task_003", "task_005"],
+      "files_to_modify": [
+        "project.yml",
+        "scripts/test-core.sh"
+      ],
+      "dependencies": [
+        "task_003",
+        "task_005"
+      ],
       "implementation_steps": [
         "project.yml に packages.SaydoAI を追加し、Saydo ターゲットに登録して xcodegen generate を実行（main で実行する）",
         "docs/spikes/fm-probe.md で採用可となったプロンプトを PromptBuilder に移す",
@@ -651,7 +919,10 @@
         "@Guide に文字数制約を使っていない（description / .anyOf / .range / .count のみ）",
         "指示文が 600 文字以内であることをテストで固定"
       ],
-      "verify_commands": ["scripts/test-core.sh", "scripts/build-ios.sh"],
+      "verify_commands": [
+        "scripts/test-core.sh",
+        "scripts/build-ios.sh"
+      ],
       "risk_level": "high"
     },
     {
@@ -666,11 +937,24 @@
         "thinking 状態の表示（『考えています…』、6 秒でテンプレートに切替）",
         "AI 出力の置換件数を SessionLog に記録"
       ],
-      "non_scope": ["週次分析（task_016）"],
-      "files_to_read": ["Packages/SaydoAI/Sources/SaydoAI/", "App/Features/Session/SessionViewModel.swift"],
+      "non_scope": [
+        "週次分析（task_016）"
+      ],
+      "files_to_read": [
+        "Packages/SaydoAI/Sources/SaydoAI/",
+        "App/Features/Session/SessionViewModel.swift"
+      ],
       "files_to_create": [],
-      "files_to_modify": ["App/SaydoApp.swift", "App/Features/Session/SessionViewModel.swift", "App/Features/Session/SessionView.swift", "Tests/SaydoTests/SessionViewModelTests.swift"],
-      "dependencies": ["task_013b", "task_014"],
+      "files_to_modify": [
+        "App/SaydoApp.swift",
+        "App/Features/Session/SessionViewModel.swift",
+        "App/Features/Session/SessionView.swift",
+        "Tests/SaydoTests/SessionViewModelTests.swift"
+      ],
+      "dependencies": [
+        "task_013b",
+        "task_014"
+      ],
       "implementation_steps": [
         "DialogueEngine の注入を Tier に応じて切り替える",
         "SessionViewModel の M1 / M2 / N3 を AI 経路に対応させる",
@@ -682,7 +966,10 @@
         "AI 失敗時にも会話が止まらないテストが緑",
         "SessionLog に tier と置換件数が記録される"
       ],
-      "verify_commands": ["scripts/build-ios.sh", "scripts/test-ios.sh"],
+      "verify_commands": [
+        "scripts/build-ios.sh",
+        "scripts/test-ios.sh"
+      ],
       "risk_level": "high"
     },
     {
@@ -697,15 +984,29 @@
         "Tier A では weeklyReflection を AI で生成（集計値のみ渡す）。振り返り文の目的は「何から、なぜ逃げるか」の理解に限定する",
         "InsightCalculator のテスト"
       ],
-      "non_scope": ["グラフライブラリの導入", "月次・年次"],
-      "files_to_read": ["App/Data/Repository.swift", "docs/retention-strategy.md", "Packages/SaydoCore/Sources/SaydoCore/Domain/WeeklyStats.swift"],
+      "non_scope": [
+        "グラフライブラリの導入",
+        "月次・年次"
+      ],
+      "files_to_read": [
+        "App/Data/Repository.swift",
+        "docs/retention-strategy.md",
+        "Packages/SaydoCore/Sources/SaydoCore/Domain/WeeklyStats.swift"
+      ],
       "files_to_create": [
         "Packages/SaydoCore/Sources/SaydoCore/Insight/InsightCalculator.swift",
         "Packages/SaydoCore/Tests/SaydoCoreTests/InsightCalculatorTests.swift",
         "App/Features/Insight/WeeklyInsightView.swift"
       ],
-      "files_to_modify": ["App/Data/Repository.swift", "App/Features/Timeline/TimelineView.swift", "Packages/SaydoCore/Sources/SaydoCore/Domain/WeeklyStats.swift", "App/Features/Settings/SettingsView.swift"],
-      "dependencies": ["task_013b"],
+      "files_to_modify": [
+        "App/Data/Repository.swift",
+        "App/Features/Timeline/TimelineView.swift",
+        "Packages/SaydoCore/Sources/SaydoCore/Domain/WeeklyStats.swift",
+        "App/Features/Settings/SettingsView.swift"
+      ],
+      "dependencies": [
+        "task_013b"
+      ],
       "implementation_steps": [
         "WeeklyStats から結果内訳と平均縮小回数を外し、設定画面の開発者向け節に移す",
         "InsightCalculator を純関数で実装し、企画書 §11 の例（気まずさ 38% など）を再現するテストを書く",
@@ -713,8 +1014,18 @@
         "WeeklyInsightView を Timeline 上部のカードとして実装",
         "Tier A が使える場合は振り返り文が Guardrails を通ることを確認する（task_015 が未完了なら Tier B のテンプレート経路だけで成立させる）"
       ],
-      "done_definition": ["7 日分の固定データで割合が正しく計算されるテストが緑", "WeeklyStats に結果内訳と平均縮小回数が含まれず、設定の開発者向け節にだけ表示される", "3 件目のデータで 1 行インサイトが Timeline 上部に出る", "実機で Insight カードが表示される", "データ不足時の文言が責めない"],
-      "verify_commands": ["scripts/test-core.sh", "scripts/build-ios.sh", "scripts/test-ios.sh"],
+      "done_definition": [
+        "7 日分の固定データで割合が正しく計算されるテストが緑",
+        "WeeklyStats に結果内訳と平均縮小回数が含まれず、設定の開発者向け節にだけ表示される",
+        "3 件目のデータで 1 行インサイトが Timeline 上部に出る",
+        "実機で Insight カードが表示される",
+        "データ不足時の文言が責めない"
+      ],
+      "verify_commands": [
+        "scripts/test-core.sh",
+        "scripts/build-ios.sh",
+        "scripts/test-ios.sh"
+      ],
       "risk_level": "low"
     },
     {
@@ -729,18 +1040,36 @@
         "採点基準（責めない / 5 分以内 / 動詞終わり / 60 文字以内の質問）を自動判定できる項目はスクリプトで判定",
         "結果を docs/spikes/fm-probe.md に追記"
       ],
-      "non_scope": ["自動採点の高度化"],
-      "files_to_read": ["docs/dogfood/week1.md", "Spikes/fm-probe/main.swift", "Packages/SaydoAI/Sources/SaydoAI/PromptBuilder.swift"],
+      "non_scope": [
+        "自動採点の高度化"
+      ],
+      "files_to_read": [
+        "docs/dogfood/week1.md",
+        "Spikes/fm-probe/main.swift",
+        "Packages/SaydoAI/Sources/SaydoAI/PromptBuilder.swift"
+      ],
       "files_to_create": [],
-      "files_to_modify": ["Spikes/fm-probe/main.swift", "Spikes/fm-probe/fixtures.json", "docs/spikes/fm-probe.md"],
-      "dependencies": ["task_015"],
+      "files_to_modify": [
+        "Spikes/fm-probe/main.swift",
+        "Spikes/fm-probe/fixtures.json",
+        "docs/spikes/fm-probe.md"
+      ],
+      "dependencies": [
+        "task_015"
+      ],
       "implementation_steps": [
         "fm-probe が SaydoAI をリンクするように project.yml を変更",
         "フィクスチャを追加し、Guardrails 由来の自動判定を組み込む",
         "実行結果を記録"
       ],
-      "done_definition": ["40 件の実行結果と自動判定の通過率が docs/spikes/fm-probe.md にある", "自動判定の通過率が 90% 以上である（下回る場合はプロンプトを修正して再実行する）", "fm-probe が本番の PromptBuilder を使っている"],
-      "verify_commands": ["scripts/build-mac.sh fm-probe"],
+      "done_definition": [
+        "40 件の実行結果と自動判定の通過率が docs/spikes/fm-probe.md にある",
+        "自動判定の通過率が 90% 以上である（下回る場合はプロンプトを修正して再実行する）",
+        "fm-probe が本番の PromptBuilder を使っている"
+      ],
+      "verify_commands": [
+        "scripts/build-mac.sh fm-probe"
+      ],
       "risk_level": "low"
     },
     {
@@ -754,17 +1083,36 @@
         "ダーク背景とアクセント 1 色のカラー定義（Assets.xcassets）",
         "iPhone SE（3 世代）と iPhone 17 Pro Max のシミュレータで全画面を確認"
       ],
-      "non_scope": ["アニメーションの追加", "テーマ切替"],
-      "files_to_read": ["App/Features/"],
+      "non_scope": [
+        "アニメーションの追加",
+        "テーマ切替"
+      ],
+      "files_to_read": [
+        "App/Features/"
+      ],
       "files_to_create": [],
-      "files_to_modify": ["App/Features/Session/SessionView.swift", "App/Features/Session/WaveformView.swift", "App/Features/Timeline/TimelineView.swift", "App/Features/Insight/WeeklyInsightView.swift", "App/Resources/Assets.xcassets"],
-      "dependencies": ["task_016"],
+      "files_to_modify": [
+        "App/Features/Session/SessionView.swift",
+        "App/Features/Session/WaveformView.swift",
+        "App/Features/Timeline/TimelineView.swift",
+        "App/Features/Insight/WeeklyInsightView.swift",
+        "App/Resources/Assets.xcassets"
+      ],
+      "dependencies": [
+        "task_016"
+      ],
       "implementation_steps": [
         "Accessibility Inspector で各画面を確認し、ラベル欠落を修正",
         "2 サイズ × Dynamic Type 2 段階のスクリーンショットを docs/screenshots/ に保存"
       ],
-      "done_definition": ["全画面が 2 サイズ × xxxLarge で崩れない（スクリーンショットあり）", "VoiceOver で朝フローが完走できる"],
-      "verify_commands": ["scripts/build-ios.sh", "scripts/test-ios.sh"],
+      "done_definition": [
+        "全画面が 2 サイズ × xxxLarge で崩れない（スクリーンショットあり）",
+        "VoiceOver で朝フローが完走できる"
+      ],
+      "verify_commands": [
+        "scripts/build-ios.sh",
+        "scripts/test-ios.sh"
+      ],
       "risk_level": "low"
     },
     {
@@ -779,11 +1127,25 @@
         "iCloud バックアップが無効な場合は音声が端末のみに残る旨の表示（task_013 で入れた文言）が復元確認の結果と矛盾しないことを確認する",
         "ファイル保護属性が付いていることの確認"
       ],
-      "non_scope": ["インポート機能", "CloudKit 同期"],
-      "files_to_read": ["App/Data/AudioFileStore.swift", "App/Data/Repository.swift", "docs/dogfood/week1.md"],
-      "files_to_create": ["App/Features/Settings/DataExporter.swift", "docs/backup-restore-check.md"],
-      "files_to_modify": ["App/Features/Settings/SettingsView.swift"],
-      "dependencies": ["task_013b"],
+      "non_scope": [
+        "インポート機能",
+        "CloudKit 同期"
+      ],
+      "files_to_read": [
+        "App/Data/AudioFileStore.swift",
+        "App/Data/Repository.swift",
+        "docs/dogfood/week1.md"
+      ],
+      "files_to_create": [
+        "App/Features/Settings/DataExporter.swift",
+        "docs/backup-restore-check.md"
+      ],
+      "files_to_modify": [
+        "App/Features/Settings/SettingsView.swift"
+      ],
+      "dependencies": [
+        "task_013b"
+      ],
       "implementation_steps": [
         "DataExporter を実装し、書き出した zip を Mac で展開して中身を確認",
         "全削除後にアプリを再起動しオンボーディングに戻ることを確認",
@@ -791,8 +1153,16 @@
         "実測の容量（件数 × 平均ファイルサイズ）と年間見積もりを docs/backup-restore-check.md に記録し、約 60 KB/件・年間約 110 MB の見積もりと突き合わせる",
         "復元確認の結果を docs/backup-restore-check.md に記録"
       ],
-      "done_definition": ["zip に音声と JSON が含まれる", "全削除で空状態に戻る", "ドッグフーディング 7 日後のデータで復元確認を行った記録がある", "実測の 1 件あたり容量と年間見積もり（約 60 KB/件、年間約 110 MB）が記録されている"],
-      "verify_commands": ["scripts/build-ios.sh", "scripts/test-ios.sh"],
+      "done_definition": [
+        "zip に音声と JSON が含まれる",
+        "全削除で空状態に戻る",
+        "ドッグフーディング 7 日後のデータで復元確認を行った記録がある",
+        "実測の 1 件あたり容量と年間見積もり（約 60 KB/件、年間約 110 MB）が記録されている"
+      ],
+      "verify_commands": [
+        "scripts/build-ios.sh",
+        "scripts/test-ios.sh"
+      ],
       "risk_level": "medium"
     },
     {
@@ -810,11 +1180,25 @@
         "App Review は 1〜3 日、リジェクト 1 回分の再提出を見込んで日程を組む",
         "バージョン 1.0.0 の提出"
       ],
-      "non_scope": ["有料化", "マーケティングサイト"],
-      "files_to_read": ["docs/dogfood/week1.md", "docs/implementation-plan.md"],
-      "files_to_create": ["docs/app-store/metadata.md", "docs/app-store/review-notes.md"],
-      "files_to_modify": ["project.yml"],
-      "dependencies": ["task_018", "task_019"],
+      "non_scope": [
+        "有料化",
+        "マーケティングサイト"
+      ],
+      "files_to_read": [
+        "docs/dogfood/week1.md",
+        "docs/implementation-plan.md"
+      ],
+      "files_to_create": [
+        "docs/app-store/metadata.md",
+        "docs/app-store/review-notes.md"
+      ],
+      "files_to_modify": [
+        "project.yml"
+      ],
+      "dependencies": [
+        "task_018",
+        "task_019"
+      ],
       "implementation_steps": [
         "プライバシーポリシーを non-turn.com 配下に公開し、URL を App Store Connect に登録する",
         "メタデータと審査メモ（Tier B の機能差、マイク自動開始の仕様）を docs/app-store/ に書き、App Store Connect に転記",
@@ -822,8 +1206,16 @@
         "TestFlight のベータ審査（1〜2 日）を待って外部テストを開始し、1 週間実施する",
         "提出し、App Review（1〜3 日、リジェクト時は 1 回の再提出）を待つ"
       ],
-      "done_definition": ["App Store Connect で『審査待ち』以降の状態になっている", "プライバシーポリシー URL が公開され App Store Connect に登録されている", "docs/app-store/ に提出内容の控え（Tier B の機能差の説明文とマイク自動開始の仕様文を含む）がある", "外部テスト審査と App Review の待ち日数を見込んだ日程が docs/app-store/ に記録されている"],
-      "verify_commands": ["scripts/build-ios.sh", "scripts/test-ios.sh"],
+      "done_definition": [
+        "App Store Connect で『審査待ち』以降の状態になっている",
+        "プライバシーポリシー URL が公開され App Store Connect に登録されている",
+        "docs/app-store/ に提出内容の控え（Tier B の機能差の説明文とマイク自動開始の仕様文を含む）がある",
+        "外部テスト審査と App Review の待ち日数を見込んだ日程が docs/app-store/ に記録されている"
+      ],
+      "verify_commands": [
+        "scripts/build-ios.sh",
+        "scripts/test-ios.sh"
+      ],
       "risk_level": "medium"
     },
     {
@@ -836,18 +1228,36 @@
         "設定にトグル『声で通知（実験）』を追加（既定オフ）",
         "消音スイッチ時の挙動と、通知音の長さ上限（30 秒）の確認"
       ],
-      "non_scope": ["Critical Alert"],
-      "files_to_read": ["App/Notifications/NotificationScheduler.swift", "App/Data/AudioFileStore.swift"],
-      "files_to_create": ["App/Notifications/VoiceNotificationSound.swift"],
-      "files_to_modify": ["App/Notifications/NotificationScheduler.swift", "App/Features/Settings/SettingsView.swift"],
-      "dependencies": ["task_013"],
+      "non_scope": [
+        "Critical Alert"
+      ],
+      "files_to_read": [
+        "App/Notifications/NotificationScheduler.swift",
+        "App/Data/AudioFileStore.swift"
+      ],
+      "files_to_create": [
+        "App/Notifications/VoiceNotificationSound.swift"
+      ],
+      "files_to_modify": [
+        "App/Notifications/NotificationScheduler.swift",
+        "App/Features/Settings/SettingsView.swift"
+      ],
+      "dependencies": [
+        "task_013"
+      ],
       "implementation_steps": [
         "AVAssetExportSession / ExtAudioFile で m4a → IMA4 の .caf 変換を実装し Library/Sounds に保存",
         "行動時刻通知の sound に指定して実機で確認",
         "結果を docs/spikes/voice-notification-sound.md に記録"
       ],
-      "done_definition": ["保存された通知音が IMA4 の .caf である（afinfo で確認した記録がある）", "実機で通知音として本人の声が鳴る、または鳴らない理由が記録されている"],
-      "verify_commands": ["scripts/build-ios.sh"],
+      "done_definition": [
+        "保存された通知音が IMA4 の .caf である（afinfo で確認した記録がある）",
+        "実機で通知音として本人の声が鳴る、または鳴らない理由が記録されている"
+      ],
+      "verify_commands": [
+        "scripts/build-ios.sh",
+        "scripts/lint-principles.sh"
+      ],
       "risk_level": "medium"
     }
   ]

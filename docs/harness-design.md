@@ -11,7 +11,7 @@
 | 役割 | 担当 | 責務 | 使うもの |
 |---|---|---|---|
 | プロダクトオーナー兼デバイステスター | noritaka（人間） | 企画原則の最終判断、スパイクの Go / No-Go、実機テスト、権限ダイアログ確認、TestFlight / App Store Connect 操作、7 日間ドッグフーディング | iPhone 実機、Apple Developer アカウント |
-| アーキテクト（Planner） | Fable 5.1（時間枠内のみ） | 計画書と task-list の改訂、Phase ゲートでの敵対的レビュー、音声パイプラインなど最難関の設計判断と行き詰まったデバッグ | `plan` スキル、`.claude/workflows/plan-review.js`、`fable-protocol` |
+| アーキテクト（Planner） | Fable 5.1（時間枠内のみ） | 計画書と task-list の改訂、Phase ゲートでの敵対的レビュー、音声パイプラインなど最難関の設計判断（不具合調査そのものは調査班 = Opus が担当し、investigator → verifier → solver を 2 回試して解けなかった案件だけを Fable が引き取る） | `plan` スキル、`.claude/workflows/plan-review.js`、`fable-protocol` |
 | 実装者（Executor） | Opus（全タスク固定。タスクの難易度や risk_level でモデルを切り替えない） | task-list.json の 1 タスクを 1 セッションで実装し、verify_commands を実行し、証拠付きで報告 | `task-executor` エージェント、serena MCP（シンボル単位の編集）、`scripts/*.sh` |
 | レビュアー（Reviewer） | 実装者とは別セッション（Opus） | 差分を done_definition・企画原則・Swift 6 並行性・テスト充足の 4 観点で審査 | `/code-review high`、`code-reviewer` / `code-verifier` エージェント、`.claude/workflows/task-review.js`（作成済み） |
 | 品質修復者（Fixer） | Opus | ビルド・テスト失敗を緑になるまで修復。仕様変更はしない | `quality-fixer` エージェント、`scripts/test-core.sh` / `scripts/test-ios.sh` |
@@ -27,7 +27,7 @@
 3. **実装**: `scope` の範囲だけを実装する。`non_scope` に触れない。文言はすべて `DialogueCopy` / `NotificationCopy` に置き、画面や ViewModel に直書きしない。
 4. **検証**: `verify_commands` を全て実行する。出力の全文は `docs/logs/<task_id>-<n>.txt`（`<n>` は同一タスク内の実行回数）に保存し、`docs/PROGRESS.md` には **exit code と出力の末尾 30 行だけ** を貼り、全文ログのパスを添える。要約や書き換えはしない。失敗はそのまま記録して Fixer に回すか、自分で直す。
 5. **自己監査**: `done_definition` を 1 行ずつ「証拠（コマンド出力・ファイルパス・スクリーンショット）」付きでチェックする。実機でしか確認できない項目は「人間の確認待ち」と明記し、確認手順を書く。
-6. **コミット**: メッセージ先頭に `task_007:` のように task_id を付ける。`.xcodeproj` は XcodeGen の生成物としてコミットする。
+6. **コミット**: メッセージ先頭に `task_007:` のように task_id を付ける。`.xcodeproj` は XcodeGen の生成物なので `.gitignore` に入れ、コミット対象は `project.yml` のみとする（各 scripts/*.sh は実行前に `xcodegen generate` を自動実行する）。
 7. **PR**: main への PR を作り、Reviewer セッションが `/code-review high` と task-review ワークフローを実行する。**task_005 の完了直後から、task-review には毎回 copy-audit を組み込む**（ユーザー向け文字列が 1 文字でも増減したタスクは例外なく実行する）。あわせて `scripts/lint-principles.sh` を実行し、check_016（外部通信ゼロ）と check_025（concurrency 警告 0 件）を毎回確認する。指摘の修正は同じブランチで行い、人間がマージする。
 8. **記録**: `docs/PROGRESS.md` に「task_id / 状態（done・blocked・needs-device）/ 証拠 / 未解決」を追記する。task-list.json は仕様であり、進捗を書き込まない。
 
@@ -53,6 +53,8 @@
 Fable の時間枠が来たら優先順: (1) 直前 Phase のゲートレビュー、(2) blocked タスクの設計判断、(3) 次 Phase の task-list 改訂。実装の手作業には使わない。
 
 **Fable の枠が 2 日以内に来ない場合の代替**: ゲートレビューは Opus が `plan-review.js` / `phase-gate.js` を実行して**仮承認**とし、次の Fable 枠で再確認する（仮承認であることを `docs/PROGRESS.md` に明記する）。blocked タスクは investigator → verifier → solver（すべて Opus）を 2 回試し、それでも解けない場合にだけ Fable に回す。
+
+**1 枠の上限**: 1 つの Fable 枠で扱うのは上の優先順の上から 1 件だけ（ゲートレビュー 1 つ、または blocked 1 件の設計判断、または task-list 改訂 1 回）。複数を 1 枠に詰めない。残りは次の枠か、上の代替ルールに回す。
 
 ## 4. 並列実行の計画
 
@@ -109,5 +111,5 @@ check_026〜039（昼フローの入口・話せない時モード・通知の�
 - 毎朝: `docs/PROGRESS.md` を読み、その日のタスク（最大 2 並列）を決める。
 - 実装セッション: 2 章のプロトコルどおり。1 セッション 1 タスク。
 - 夕方: 実機確認（needs-device の消化）。
-- Phase 終端: ゲートレビュー（Fable の時間枠に合わせる）。
+- Phase 終端: ゲートレビュー。Fable の枠があればそれに合わせる。Phase 終端から 2 日以内に枠が来ない場合は §3 の代替ルールに従い、Opus が `phase-gate.js`（G1・G2）または `plan-review.js` を実行して仮承認とし、次 Phase に着手する。仮承認である旨を `docs/PROGRESS.md` に書く。
 - 週 1 回: `memory-governance` と `docs/implementation-plan.md` の見直し。実装が計画から外れた箇所は計画側を先に直す。
