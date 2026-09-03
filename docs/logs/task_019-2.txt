@@ -1,0 +1,5 @@
+$ swiftc -emit-module -module-name Saydo -enable-testing ... (App のモジュールを作る)
+EXIT=0
+
+$ swiftc -typecheck ... -I <Saydo module> -I $PLATFORM/Developer/usr/lib -F $PLATFORM/Developer/Library/Frameworks Tests/SaydoTests/DataExporterTests.swift
+EXIT=0

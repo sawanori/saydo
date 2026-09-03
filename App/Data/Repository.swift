@@ -345,6 +345,83 @@ actor Repository {
         return WeeklyStats(weekStart: start, domainCounts: domainCounts, reasonRatios: reasonRatios)
     }
 
+    // MARK: 全削除
+
+    /// 「データを全部消す」の結果（task_019）。件数は消す前に数えたもの。
+    struct DeletionSummary: Sendable, Equatable {
+        var avoidanceItemCount: Int
+        var commitmentCount: Int
+        var voiceEntryCount: Int
+        var sessionLogCount: Int
+        var carryoverCount: Int
+        /// 消した音声ファイルの数。
+        var audioFileCount: Int
+
+        var totalRecordCount: Int {
+            avoidanceItemCount + commitmentCount + voiceEntryCount + sessionLogCount + carryoverCount
+        }
+    }
+
+    /// 全レコードと音声の置き場所ごと消す（task_019）。
+    ///
+    /// 保留中の通知の取り消しは `cancelPendingNotifications` に委譲する。
+    /// `Repository` が `UserNotifications` を持つと、保存データのテストが通知センターを
+    /// 要るようになるため（通知の登録と取り消しは task_009 の `NotificationScheduler` の担当）。
+    /// `UserDefaults`（`AppSettings.reset()`）もここでは呼ばない。設定を初期値へ戻すかは
+    /// 画面の判断であって、保存データの担当ではないから。
+    ///
+    /// レコードを消したあとで音声の削除に失敗しても、残るのは参照の無いファイルだけで、
+    /// 次の起動の `sweepOrphanAudioFiles()` が消す。
+    @discardableResult
+    func deleteAll(cancelPendingNotifications: @Sendable () -> Void = {}) throws -> DeletionSummary {
+        let avoidanceItems = try modelContext.fetch(FetchDescriptor<AvoidanceItem>())
+        let commitments = try modelContext.fetch(FetchDescriptor<Commitment>())
+        let voiceEntries = try modelContext.fetch(FetchDescriptor<VoiceEntry>())
+        let sessionLogs = try modelContext.fetch(FetchDescriptor<SessionLog>())
+        let carryovers = try modelContext.fetch(FetchDescriptor<Carryover>())
+
+        let store = try audioFileStore()
+        let audioPaths = try store.allRelativePaths()
+
+        let summary = DeletionSummary(
+            avoidanceItemCount: avoidanceItems.count,
+            commitmentCount: commitments.count,
+            voiceEntryCount: voiceEntries.count,
+            sessionLogCount: sessionLogs.count,
+            carryoverCount: carryovers.count,
+            audioFileCount: audioPaths.count
+        )
+
+        // 音声から先に消す。`VoiceEntry` を消してから `Commitment` を消すのは、
+        // 宣言音声の参照（同一ファイル）を先に外して孤児判定を単純にするため。
+        for entry in voiceEntries {
+            modelContext.delete(entry)
+        }
+        for commitment in commitments {
+            modelContext.delete(commitment)
+        }
+        for item in avoidanceItems {
+            modelContext.delete(item)
+        }
+        for log in sessionLogs {
+            modelContext.delete(log)
+        }
+        for carryover in carryovers {
+            modelContext.delete(carryover)
+        }
+        try modelContext.save()
+
+        // 置き場所ごと消す。空の年月フォルダも残さない。
+        // 次の録音で `AudioFileStore.allocate` が保護属性つきで作り直す。
+        try store.removeOrphans(keeping: [])
+        if FileManager.default.fileExists(atPath: store.rootDirectory.path(percentEncoded: false)) {
+            try FileManager.default.removeItem(at: store.rootDirectory)
+        }
+
+        cancelPendingNotifications()
+        return summary
+    }
+
     // MARK: - 内部（フェッチ）
 
     private func commitmentModel(forDayKey key: String) throws -> Commitment? {

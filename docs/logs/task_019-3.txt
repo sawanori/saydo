@@ -1,0 +1,72 @@
+# macOS 実行確認（iOS 26.x シミュレータランタイムが無いための代替）
+# App/Data/*.swift + App/Features/Settings/DataExporter.swift を macOS 向けにビルドし、
+# SwiftData の in-memory コンテナで書き出しと全削除を実際に走らせた。
+# プローブのソース: 本コミットには含めない（scratchpad の使い捨て）
+
+zip: saydo-export-20260904-061500.zip
+included: ["2026/09/aaaaaaaa-0000-0000-0000-000000000001.m4a", "2026/09/bbbbbbbb-0000-0000-0000-000000000002.m4a"]
+missing: []
+audioBytes: 119440 avg: 59720
+zipBytes: 1694
+PASS  zip の名前が西暦
+PASS  音声 2 件が入る（宣言は重複しない）
+PASS  欠損なし
+PASS  zip が存在する
+--- unzip -l ---
+Archive:  /var/folders/h6/2q0crwpx3zx94d5zxclh_f5c0000gn/T/saydo-probe-F4164897-0B44-429B-9CF1-B5D653D80CAC/Export/saydo-export-20260904-061500.zip
+  Length      Date    Time    Name
+---------  ---------- -----   ----
+     2015  09-04-2026 06:13   saydo-export/saydo-export.json
+    61440  09-04-2026 06:13   saydo-export/Audio/2026/09/aaaaaaaa-0000-0000-0000-000000000001.m4a
+    58000  09-04-2026 06:13   saydo-export/Audio/2026/09/bbbbbbbb-0000-0000-0000-000000000002.m4a
+---------                     -------
+   121455                     3 files
+
+PASS  zip に JSON がある
+PASS  zip に宣言音声がある
+PASS  zip に夜の音声がある
+--- manifest ---
+{
+  "appVersion" : "0.1.0",
+  "avoidanceItems" : [
+    {
+      "createdAt" : "2026-09-03T21:13:07Z",
+      "domain" : "money",
+      "id" : "54D6BAAF-EC2F-4FAF-9A00-99EC89AA07FC",
+      "lastTouchedAt" : "2026-09-03T21:13:07Z",
+      "status" : "open",
+      "title" : "請求書の返信"
+    }
+  ],
+  "carryovers" : [
+    {
+      "createdAt" : "2026-09-03T21:13:07Z",
+      "forDayKey" : "2026-09-04",
+      "id" : "AC480359-7DC9-4215-8177-9EF3FB2955CF",
+      "text" : "続きを 1 行だけ書く"
+    }
+  ],
+  "commitments" : [
+    {
+      "avoidanceItemID" : "54D6BAAF-EC2F-4FAF-9A00-99EC89AA07FC",
+      "createdAt" : "2026-09-03T21:13:07Z",
+      "dayKey" : "2026-09-04",
+      "declarationAu
+PASS  formatVersion = 1
+PASS  schemaVersion = 1.0.0
+PASS  AvoidanceItem 1 件
+PASS  Commitment 1 件
+PASS  VoiceEntry 2 件
+PASS  Carryover 1 件
+PASS  SessionLog 0 件（まだ誰も書いていない）
+PASS  本人の言葉がそのまま
+PASS  宣言の rawValue が文字列
+PASS  理由の rawValue が文字列
+--- deleteAll ---
+DeletionSummary(avoidanceItemCount: 1, commitmentCount: 1, voiceEntryCount: 2, sessionLogCount: 0, carryoverCount: 1, audioFileCount: 2)
+PASS  通知取り消しのコールバックが呼ばれた
+PASS  消したレコード数 = 5
+PASS  消した音声 = 2
+PASS  音声ディレクトリが消えた
+PASS  全削除後は空
+EXIT 0
