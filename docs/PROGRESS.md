@@ -213,3 +213,155 @@ EXIT=0
 ### 人間の確認待ち
 
 - task_001 と同じ（iOS 26.x シミュレータランタイムの導入）。追加はなし。
+
+---
+
+## task_006 — SwiftData スキーマ V1・AudioFileStore・Repository・AppSettings
+
+- 日時: 2026-09-04
+- 状態: wip（iOS ビルド・テストが環境要因で走らないため done にしない）
+- ブランチ: `task/006-data`（`task/001-bootstrap` から分岐）
+
+### 作ったもの
+
+| ファイル | 中身 |
+|---|---|
+| `App/Data/Schema.swift` | `SaydoSchemaV1: VersionedSchema`（1.0.0）、`SaydoMigrationPlan`、`SaydoModelContainer.make(inMemory:)`、`DayKey`（`yyyy-MM-dd` / 通知識別子用 `yyyyMMdd`） |
+| `App/Data/Models/AvoidanceItem.swift` | id, title, domain, status(open/carriedOver/dropped/done), createdAt, lastTouchedAt, → 多 `Commitment` |
+| `App/Data/Models/Commitment.swift` | `#Index([\.dayKey])`。§10 の列 + `reason`（optional）+ `isVoiceless` |
+| `App/Data/Models/VoiceEntry.swift` | `#Index([\.recordedAt])`。kind 7 種（fix-decisions P2.1 の reason / status を含む） |
+| `App/Data/Models/SessionLog.swift` | sessionType, startedAt, endedAt, completed, tier(A/B), lastStep, guardrailReplacedCount |
+| `App/Data/Models/Carryover.swift` | forDayKey, text, sourceEntryID, createdAt |
+| `App/Data/AudioFileStore.swift` | `Application Support/Saydo/Audio/yyyy/MM/<uuid>.m4a`、`completeUntilFirstUserAuthentication`、削除、孤児掃除、置き場所の外を指すパスの拒否 |
+| `App/Data/Repository.swift` | `@ModelActor`。todayCommitment / createCommitment / updateOutcome / shrink / entries(for:) / carryover(for:) / saveCarryover / appendVoiceEntry / deleteVoiceEntry / sweepOrphanAudioFiles / weeklyStats / lastEntryDate |
+| `App/Data/AppSettings.swift` | `UserDefaults`。8:00 / 13:00 / 21:00、無音 1.5 秒、TTS 音声 ID、通知モード（既定 2 回）、週末通知、一人で話せる時間、オンボーディング完了 |
+| `Tests/SaydoTests/{RepositoryTests,AudioFileStoreTests,AppSettingsTests}.swift` | インメモリ `ModelContainer` と一時ディレクトリの `AudioFileStore` で 32 件 |
+
+### 設計上の判断（レビュー対象）
+
+1. **`@Model` を外へ出さない**。`@Model` のクラスは Sendable ではないので、`Repository` の返り値は
+   `CommitmentSnapshot` / `VoiceEntrySnapshot` / `CarryoverSnapshot`（すべて `Sendable` の値型）にした。
+   これで Swift 6 の strict concurrency を、検査を外す属性なしで通している。
+2. **`AppSettings` は `@MainActor`**。`UserDefaults` は iOS 26.2 SDK で明示的に非 Sendable
+   （`@_nonSendable(_assumed)`）。検査を外す属性で黙らせず隔離で解決した。設定を読むのは UI と通知登録で、どちらも main。
+3. **列挙は rawValue（String）で保存**する。`#Predicate` と `SortDescriptor` が String なら確実に動くため。
+   未知の rawValue は既定値に寄せて読めるようにしてある。
+4. **`audioPath` は相対パス**（`yyyy/MM/<uuid>.m4a`）。絶対パスを保存すると、再インストールや復元で
+   アプリコンテナの UUID が変わったときに必ず外れる。解決は `AudioFileStore.url(forRelativePath:)`。
+5. **V1 のモデルは名前空間に入れずトップレベル**。V2 を足すときに `extension SaydoSchemaV1` へ移して
+   `typealias` で現行版を指す。V1 だけの今、名前空間を先に入れる利得が無いと判断した。
+6. **`AvoidanceItem` の削除規則は `.nullify`**（`.cascade` ではない）。声の記録は対象を消しても残す（企画原則 §22-9）。
+   「捨てた」は `status = .dropped` であって削除ではない。
+7. **`updateOutcome` は `AvoidanceItem.status` を変えない**。5 分の行動が 1 回できたことと、
+   逃げている対象が終わったことは別。状態遷移は夜フロー（task_011）の担当。
+8. **`AppSettingsTests.swift` は task-list.json の files_to_create に無いが追加した**。
+   fix-decisions P1.4 が AppSettings を task_006 の成果物にしており、既定値の表を検証なしで残すのは危ないと判断した。
+9. **`weekendNotificationsEnabled` の既定は `true`**。retention-strategy.md R2 の「週末は既定でオフにできる」は
+   設定の存在を指すと読み、黙って通知を止める側には倒さなかった。**この既定値は要レビュー**。
+10. **`aloneTime`（一人で話せる時間）の既定は nil**。R1 に既定値の指定が無いので数字を作らず、
+    未設定の間は夜の時刻を使う（`effectiveAloneTime`）。
+
+### 証拠
+
+| コマンド | exit code | ログ |
+|---|---|---|
+| `scripts/lint-principles.sh` | 0 | `docs/logs/task_006-lint.txt` |
+| `scripts/test-core.sh` | 0 | `docs/logs/task_006-testcore.txt` |
+| `scripts/build-ios.sh` | **70** | `docs/logs/task_006-buildios.txt` |
+| `scripts/test-ios.sh` | **2** | `docs/logs/task_006-testios.txt` |
+| swiftc typecheck（iOS 26 シミュレータ SDK・Swift 6・strict concurrency complete） | 0 | `docs/logs/task_006-typecheck.txt` |
+| macOS で Tests/SaydoTests を実行（代替検証） | 0 | `docs/logs/task_006-macos-tests.txt` |
+
+`scripts/build-ios.sh`（末尾）:
+
+```
+xcodebuild: error: Unable to find a destination matching the provided destination specifier:
+		{ generic:1, platform:iOS Simulator }
+
+	Ineligible destinations for the "Saydo" scheme:
+		{ platform:iOS, id:dvtdevice-DVTiPhonePlaceholder-iphoneos:placeholder, name:Any iOS Device, error:iOS 26.2 is not installed. Please download and install the platform from Xcode > Settings > Components. }
+EXIT=70
+```
+
+この 70 は **task_006 の変更前から出る**（`git stash` 相当の素の `task/001-bootstrap` でも同じ）。
+`-sdk iphoneos` の実機ビルドも同じ理由で 70。原因は iOS 26.2 プラットフォームが未導入であること 1 点。
+
+`scripts/test-ios.sh`（全文）:
+
+```
+test-ios: iOS 26.x の利用可能なシミュレータが見つからない。
+  導入コマンド: xcodebuild -downloadPlatform iOS（約 8.4 GB の空きが必要）
+  現在のランタイム一覧:
+== Runtimes ==
+iOS 18.5 (18.5 - 22F77) - com.apple.CoreSimulator.SimRuntime.iOS-18-5
+EXIT=2
+```
+
+`swiftc typecheck`（全文。iOS 26 シミュレータ SDK に対する型検査。マクロ展開込み）:
+
+```
+=== 1) SaydoCore module (iOS 26 simulator, Swift 6, strict concurrency) ===
+CORE_EXIT=0
+=== 2) App sources -> Saydo module (testability on) ===
+APP_EXIT=0
+=== 3) Tests/SaydoTests typecheck (iOS 26 simulator) ===
+TESTS_EXIT=0
+```
+
+警告 0 件（`grep -c "warning:"` = 0）。`@Model` / `#Index` / `@ModelActor` のマクロは展開されている。
+
+macOS でのテスト実行（末尾）:
+
+```
+Test Suite 'RepositoryTests' passed at 2026-09-04 06:04:44.668.
+	 Executed 17 tests, with 0 failures (0 unexpected) in 0.088 (0.089) seconds
+Test Suite 'SaydoHarnessPackageTests.xctest' passed at 2026-09-04 06:04:44.668.
+	 Executed 32 tests, with 0 failures (0 unexpected) in 0.104 (0.107) seconds
+Test Suite 'All tests' passed at 2026-09-04 06:04:44.668.
+	 Executed 32 tests, with 0 failures (0 unexpected) in 0.104 (0.108) seconds
+HARNESS_TEST_EXIT=0
+```
+
+代替検証の作り方（**リポジトリには入れない**。`docs/logs/task_006-macos-harness-Package.swift.txt` に控え）:
+scratchpad に SwiftPM パッケージを 1 つ作り、`Sources/Saydo` → `App/Data`、
+`Sources/SaydoCore` → `Packages/SaydoCore/Sources/SaydoCore`、
+`Tests/SaydoTests/*.swift` → 本タスクの 3 ファイルを **symlink** して `swift test` を macOS 26 で走らせた。
+モジュール名を `Saydo` にしてあるので、テストの `@testable import Saydo` は Xcode の SaydoTests ターゲットと同じまま動く。
+`AudioFileStore` のファイル保護属性だけは `#if os(iOS)` で囲ってあるため、この経路では**実行されていない**（下記「未検証」）。
+
+### done_definition との対応
+
+| done_definition | 判定 | 証拠 |
+|---|---|---|
+| `scripts/test-ios.sh` が緑 | **未達（環境要因）** | exit 2。iOS 26.x シミュレータ未導入。代わりに macOS で同じテストが 32/32 通ることと、iOS SDK に対する型検査 0 警告を示した |
+| 同じ dayKey で 2 件目の Commitment を作ると拒否されるテストがある | 済 | `RepositoryTests.testSecondCommitmentOnTheSameDayIsRejected`（macOS で pass） |
+| VoiceEntry 削除で音声ファイルが消えるテストがある | 済 | `RepositoryTests.testDeletingAVoiceEntryDeletesItsAudioFile`（macOS で pass） |
+
+### 未検証
+
+- **iOS 実機・シミュレータでの実行は 1 行も行っていない**。`xcodebuild` が iOS プラットフォーム未導入で起動しない。
+  型検査（マクロ展開込み）と macOS 実行までが本タスクで取れた証拠のすべて。
+- **ファイル保護属性 `completeUntilFirstUserAuthentication` が実際に付くかは未検証**。
+  コードは iOS 用に型検査が通っているが、`#if os(iOS)` のため macOS 実行では通っていない。
+  iOS が入ったら `AudioFileStore` の書き込み後に `URLResourceValues` か `getattrlist` で属性を確認すること。
+- **SwiftData の実ストア（ディスク）での挙動は未検証**。テストは `isStoredInMemoryOnly: true`。
+  `#Index` が実際に張られるか、V1 スキーマがディスクに書けるかは iOS 導入後に確認が要る。
+
+### 未解決
+
+- **`Saydo.xcodeproj` を更新していない**（fix-decisions H1.4「worktree では再生成しない」に従った）。
+  本タスクが足した `App/Data/` の 8 ファイルと `Tests/SaydoTests/` の 3 ファイルは、
+  **main で `xcodegen generate` を実行するまで Xcode プロジェクトに入らない**。
+  worktree では `xcodegen generate` が exit 0 で通り、11 ファイルが取り込まれることは確認済み（生成物は破棄した）。
+- `project.yml` は変更していない。`packages` への `SaydoCore` 登録は task_002 が済ませている。
+- `AppSettings` を読むのは main のみ。task_009 の通知登録が main 以外から設定を読みたくなった場合は、
+  値を `TimeOfDay` などの `Sendable` な値にして渡すこと（`AppSettings` 自体を渡さない）。
+- 孤児掃除は `SaydoApp.init` から起動時に 1 回だけ走らせている。会話中に呼ぶと録音途中のファイルを消す。
+- `DayKey` は端末のカレンダーの「日」で区切る。深夜 1 時の夜フローが前日ではなく当日に付く点は
+  夜フロー（task_011）で扱い方を決めること。
+
+### 人間の確認待ち
+
+- task_001 と同じ。**iOS 26.x プラットフォーム（シミュレータランタイム）の導入**が、この 3 タスクで唯一
+  ふさがっていない穴。空き容量 6.0 GB / 必要 8.39 GB。`xcodebuild -downloadPlatform iOS` を実行できる状態にする。
+  導入後に `scripts/build-ios.sh` と `scripts/test-ios.sh` を実行し、この節と上の「未検証」を更新すること。

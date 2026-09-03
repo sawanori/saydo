@@ -1,0 +1,118 @@
+import Foundation
+import SaydoCore
+import XCTest
+
+@testable import Saydo
+
+/// `AppSettings` は `@MainActor`（`UserDefaults` が非 Sendable のため）。
+/// `XCTestCase` の `setUp` / `tearDown` の override は nonisolated なので、
+/// 状態はプロパティに置かず、各テストの中で作って捨てる。
+final class AppSettingsTests: XCTestCase {
+    @MainActor
+    private func withSettings(_ body: (AppSettings, UserDefaults) throws -> Void) throws {
+        let suiteName = "saydo.tests.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        try body(AppSettings(defaults: defaults), defaults)
+    }
+
+    /// fix-decisions P1.4 の既定値。
+    @MainActor
+    func testDefaultsMatchThePlan() throws {
+        try withSettings { settings, _ in
+            XCTAssertEqual(settings.morningTime, TimeOfDay(hour: 8, minute: 0))
+            XCTAssertEqual(settings.noonTime, TimeOfDay(hour: 13, minute: 0))
+            XCTAssertEqual(settings.nightTime, TimeOfDay(hour: 21, minute: 0))
+            XCTAssertEqual(settings.silenceThresholdSeconds, 1.5, accuracy: 0.0001)
+            XCTAssertNil(settings.speechVoiceIdentifier)
+            XCTAssertEqual(settings.notificationMode, .twoPerDay)
+            XCTAssertTrue(settings.weekendNotificationsEnabled)
+            XCTAssertNil(settings.aloneTime)
+            XCTAssertFalse(settings.hasCompletedOnboarding)
+        }
+    }
+
+    /// retention-strategy.md R2: 既定は朝 + 行動時刻。昼と夜は「3 回モード」で足す。
+    @MainActor
+    func testNotificationModeDecidesWhichFixedNotificationsFire() throws {
+        try withSettings { settings, _ in
+            XCTAssertEqual(settings.notificationMode.fixedSessionTypes, [.morning])
+            XCTAssertEqual(settings.fixedNotificationTime(for: .morning), TimeOfDay(hour: 8, minute: 0))
+            XCTAssertNil(settings.fixedNotificationTime(for: .noon))
+            XCTAssertNil(settings.fixedNotificationTime(for: .night))
+
+            settings.notificationMode = .threePerDay
+
+            XCTAssertEqual(settings.notificationMode.fixedSessionTypes, [.morning, .noon, .night])
+            XCTAssertEqual(settings.fixedNotificationTime(for: .noon), TimeOfDay(hour: 13, minute: 0))
+            XCTAssertEqual(settings.fixedNotificationTime(for: .night), TimeOfDay(hour: 21, minute: 0))
+            XCTAssertNil(settings.fixedNotificationTime(for: .adhoc))
+        }
+    }
+
+    @MainActor
+    func testValuesRoundTripThroughUserDefaults() throws {
+        try withSettings { settings, defaults in
+            settings.morningTime = TimeOfDay(hour: 6, minute: 45)
+            settings.silenceThresholdSeconds = 2.0
+            settings.speechVoiceIdentifier = "com.apple.voice.example"
+            settings.weekendNotificationsEnabled = false
+            settings.aloneTime = TimeOfDay(hour: 22, minute: 30)
+            settings.hasCompletedOnboarding = true
+
+            let reloaded = AppSettings(defaults: defaults)
+
+            XCTAssertEqual(reloaded.morningTime, TimeOfDay(hour: 6, minute: 45))
+            XCTAssertEqual(reloaded.silenceThresholdSeconds, 2.0, accuracy: 0.0001)
+            XCTAssertEqual(reloaded.speechVoiceIdentifier, "com.apple.voice.example")
+            XCTAssertFalse(reloaded.weekendNotificationsEnabled)
+            XCTAssertEqual(reloaded.aloneTime, TimeOfDay(hour: 22, minute: 30))
+            XCTAssertEqual(reloaded.effectiveAloneTime, TimeOfDay(hour: 22, minute: 30))
+            XCTAssertTrue(reloaded.hasCompletedOnboarding)
+        }
+    }
+
+    /// 一人で話せる時間が未設定のうちは夜の時刻を使う（retention-strategy.md R1）。
+    @MainActor
+    func testEffectiveAloneTimeFallsBackToTheNightTime() throws {
+        try withSettings { settings, _ in
+            settings.nightTime = TimeOfDay(hour: 23, minute: 15)
+
+            XCTAssertNil(settings.aloneTime)
+            XCTAssertEqual(settings.effectiveAloneTime, TimeOfDay(hour: 23, minute: 15))
+        }
+    }
+
+    /// 設定画面に無い値が入っても既定に戻す（実装計画 §7.3 の 1.2 / 1.5 / 2.0）。
+    @MainActor
+    func testSilenceThresholdRejectsValuesOutsideTheChoices() throws {
+        try withSettings { settings, _ in
+            settings.silenceThresholdSeconds = 9.9
+
+            XCTAssertEqual(settings.silenceThresholdSeconds, 1.5, accuracy: 0.0001)
+            XCTAssertEqual(AppSettings.silenceThresholdChoices, [1.2, 1.5, 2.0])
+        }
+    }
+
+    @MainActor
+    func testResetRestoresDefaults() throws {
+        try withSettings { settings, _ in
+            settings.morningTime = TimeOfDay(hour: 5, minute: 0)
+            settings.notificationMode = .threePerDay
+            settings.hasCompletedOnboarding = true
+
+            settings.reset()
+
+            XCTAssertEqual(settings.morningTime, TimeOfDay(hour: 8, minute: 0))
+            XCTAssertEqual(settings.notificationMode, .twoPerDay)
+            XCTAssertFalse(settings.hasCompletedOnboarding)
+        }
+    }
+
+    func testTimeOfDayClampsAndOrders() {
+        XCTAssertEqual(TimeOfDay(hour: 99, minute: 99), TimeOfDay(hour: 23, minute: 59))
+        XCTAssertEqual(TimeOfDay(minutesFromMidnight: 8 * 60 + 5), TimeOfDay(hour: 8, minute: 5))
+        XCTAssertLessThan(TimeOfDay(hour: 8, minute: 0), TimeOfDay(hour: 13, minute: 0))
+        XCTAssertEqual(TimeOfDay(hour: 13, minute: 0).dateComponents.hour, 13)
+    }
+}

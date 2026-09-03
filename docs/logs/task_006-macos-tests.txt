@@ -1,0 +1,92 @@
+[0/1] Planning build
+Building for debugging...
+[0/3] Write sources
+[1/3] Write swift-version--58304C5D6DBC2206.txt
+[3/6] Compiling Saydo AppSettings.swift
+[4/6] Compiling Saydo Repository.swift
+[5/6] Emitting module Saydo
+Build complete! (0.81s)
+Test Suite 'All tests' started at 2026-09-04 06:04:44.560.
+Test Suite 'SaydoHarnessPackageTests.xctest' started at 2026-09-04 06:04:44.560.
+Test Suite 'AppSettingsTests' started at 2026-09-04 06:04:44.561.
+Test Case '-[SaydoTests.AppSettingsTests testDefaultsMatchThePlan]' started.
+Test Case '-[SaydoTests.AppSettingsTests testDefaultsMatchThePlan]' passed (0.001 seconds).
+Test Case '-[SaydoTests.AppSettingsTests testEffectiveAloneTimeFallsBackToTheNightTime]' started.
+Test Case '-[SaydoTests.AppSettingsTests testEffectiveAloneTimeFallsBackToTheNightTime]' passed (0.002 seconds).
+Test Case '-[SaydoTests.AppSettingsTests testNotificationModeDecidesWhichFixedNotificationsFire]' started.
+Test Case '-[SaydoTests.AppSettingsTests testNotificationModeDecidesWhichFixedNotificationsFire]' passed (0.002 seconds).
+Test Case '-[SaydoTests.AppSettingsTests testResetRestoresDefaults]' started.
+Test Case '-[SaydoTests.AppSettingsTests testResetRestoresDefaults]' passed (0.002 seconds).
+Test Case '-[SaydoTests.AppSettingsTests testSilenceThresholdRejectsValuesOutsideTheChoices]' started.
+Test Case '-[SaydoTests.AppSettingsTests testSilenceThresholdRejectsValuesOutsideTheChoices]' passed (0.001 seconds).
+Test Case '-[SaydoTests.AppSettingsTests testTimeOfDayClampsAndOrders]' started.
+Test Case '-[SaydoTests.AppSettingsTests testTimeOfDayClampsAndOrders]' passed (0.000 seconds).
+Test Case '-[SaydoTests.AppSettingsTests testValuesRoundTripThroughUserDefaults]' started.
+Test Case '-[SaydoTests.AppSettingsTests testValuesRoundTripThroughUserDefaults]' passed (0.002 seconds).
+Test Suite 'AppSettingsTests' passed at 2026-09-04 06:04:44.571.
+	 Executed 7 tests, with 0 failures (0 unexpected) in 0.010 (0.010) seconds
+Test Suite 'AudioFileStoreTests' started at 2026-09-04 06:04:44.571.
+Test Case '-[SaydoTests.AudioFileStoreTests testAllocateCreatesParentDirectories]' started.
+Test Case '-[SaydoTests.AudioFileStoreTests testAllocateCreatesParentDirectories]' passed (0.001 seconds).
+Test Case '-[SaydoTests.AudioFileStoreTests testAllRelativePathsFindsOnlyAudioFiles]' started.
+Test Case '-[SaydoTests.AudioFileStoreTests testAllRelativePathsFindsOnlyAudioFiles]' passed (0.002 seconds).
+Test Case '-[SaydoTests.AudioFileStoreTests testDeleteRejectsPathsOutsideTheRoot]' started.
+Test Case '-[SaydoTests.AudioFileStoreTests testDeleteRejectsPathsOutsideTheRoot]' passed (0.001 seconds).
+Test Case '-[SaydoTests.AudioFileStoreTests testDeleteRemovesTheFileAndIsSafeWhenMissing]' started.
+Test Case '-[SaydoTests.AudioFileStoreTests testDeleteRemovesTheFileAndIsSafeWhenMissing]' passed (0.001 seconds).
+Test Case '-[SaydoTests.AudioFileStoreTests testRelativePathUsesYearMonthAndUUID]' started.
+Test Case '-[SaydoTests.AudioFileStoreTests testRelativePathUsesYearMonthAndUUID]' passed (0.000 seconds).
+Test Case '-[SaydoTests.AudioFileStoreTests testRemoveOrphansKeepsLivePathsAndDeletesTheRest]' started.
+Test Case '-[SaydoTests.AudioFileStoreTests testRemoveOrphansKeepsLivePathsAndDeletesTheRest]' passed (0.001 seconds).
+Test Case '-[SaydoTests.AudioFileStoreTests testRemoveOrphansOnMissingRootIsEmpty]' started.
+Test Case '-[SaydoTests.AudioFileStoreTests testRemoveOrphansOnMissingRootIsEmpty]' passed (0.000 seconds).
+Test Case '-[SaydoTests.AudioFileStoreTests testURLForRelativePathIsUnderRoot]' started.
+Test Case '-[SaydoTests.AudioFileStoreTests testURLForRelativePathIsUnderRoot]' passed (0.000 seconds).
+Test Suite 'AudioFileStoreTests' passed at 2026-09-04 06:04:44.578.
+	 Executed 8 tests, with 0 failures (0 unexpected) in 0.007 (0.007) seconds
+Test Suite 'RepositoryTests' started at 2026-09-04 06:04:44.578.
+Test Case '-[SaydoTests.RepositoryTests testCarryoverIsReadBackForTheTargetDayAndOverwritten]' started.
+Test Case '-[SaydoTests.RepositoryTests testCarryoverIsReadBackForTheTargetDayAndOverwritten]' passed (0.012 seconds).
+Test Case '-[SaydoTests.RepositoryTests testCommitmentOnTheNextDayIsAllowed]' started.
+Test Case '-[SaydoTests.RepositoryTests testCommitmentOnTheNextDayIsAllowed]' passed (0.007 seconds).
+Test Case '-[SaydoTests.RepositoryTests testCreateCommitmentStoresTheDayKeyAndAvoidanceItem]' started.
+Test Case '-[SaydoTests.RepositoryTests testCreateCommitmentStoresTheDayKeyAndAvoidanceItem]' passed (0.004 seconds).
+Test Case '-[SaydoTests.RepositoryTests testDeclarationAudioIsAlsoStoredAsAVoiceEntryWithTheSameFile]' started.
+Test Case '-[SaydoTests.RepositoryTests testDeclarationAudioIsAlsoStoredAsAVoiceEntryWithTheSameFile]' passed (0.007 seconds).
+Test Case '-[SaydoTests.RepositoryTests testDeletingAVoiceEntryDeletesItsAudioFile]' started.
+Test Case '-[SaydoTests.RepositoryTests testDeletingAVoiceEntryDeletesItsAudioFile]' passed (0.005 seconds).
+Test Case '-[SaydoTests.RepositoryTests testDeletingTheDeclarationEntryAlsoClearsTheCommitmentReference]' started.
+Test Case '-[SaydoTests.RepositoryTests testDeletingTheDeclarationEntryAlsoClearsTheCommitmentReference]' passed (0.010 seconds).
+Test Case '-[SaydoTests.RepositoryTests testEntriesForDayAreFilteredAndSortedAscending]' started.
+Test Case '-[SaydoTests.RepositoryTests testEntriesForDayAreFilteredAndSortedAscending]' passed (0.004 seconds).
+Test Case '-[SaydoTests.RepositoryTests testLastEntryDateReturnsTheNewestRecording]' started.
+Test Case '-[SaydoTests.RepositoryTests testLastEntryDateReturnsTheNewestRecording]' passed (0.003 seconds).
+Test Case '-[SaydoTests.RepositoryTests testSecondCommitmentOnTheSameDayIsRejected]' started.
+Test Case '-[SaydoTests.RepositoryTests testSecondCommitmentOnTheSameDayIsRejected]' passed (0.004 seconds).
+Test Case '-[SaydoTests.RepositoryTests testShrinkIncrementsShrinkCountAndReplacesTheText]' started.
+Test Case '-[SaydoTests.RepositoryTests testShrinkIncrementsShrinkCountAndReplacesTheText]' passed (0.005 seconds).
+Test Case '-[SaydoTests.RepositoryTests testSweepRemovesOnlyFilesWithoutAVoiceEntry]' started.
+Test Case '-[SaydoTests.RepositoryTests testSweepRemovesOnlyFilesWithoutAVoiceEntry]' passed (0.004 seconds).
+Test Case '-[SaydoTests.RepositoryTests testTodayCommitmentIsNilWithoutOne]' started.
+Test Case '-[SaydoTests.RepositoryTests testTodayCommitmentIsNilWithoutOne]' passed (0.002 seconds).
+Test Case '-[SaydoTests.RepositoryTests testUpdateOutcomeStoresOutcomeAndProgressNote]' started.
+Test Case '-[SaydoTests.RepositoryTests testUpdateOutcomeStoresOutcomeAndProgressNote]' passed (0.004 seconds).
+Test Case '-[SaydoTests.RepositoryTests testUpdatingAnUnknownCommitmentThrows]' started.
+Test Case '-[SaydoTests.RepositoryTests testUpdatingAnUnknownCommitmentThrows]' passed (0.003 seconds).
+Test Case '-[SaydoTests.RepositoryTests testVoicelessCommitmentHasNoAudioAndNoVoiceEntry]' started.
+Test Case '-[SaydoTests.RepositoryTests testVoicelessCommitmentHasNoAudioAndNoVoiceEntry]' passed (0.004 seconds).
+Test Case '-[SaydoTests.RepositoryTests testWeeklyStatsCountsDomainsAndRatiosReasonsOverCommitmentsThatHaveOne]' started.
+Test Case '-[SaydoTests.RepositoryTests testWeeklyStatsCountsDomainsAndRatiosReasonsOverCommitmentsThatHaveOne]' passed (0.008 seconds).
+Test Case '-[SaydoTests.RepositoryTests testWeeklyStatsIsEmptyWithoutData]' started.
+Test Case '-[SaydoTests.RepositoryTests testWeeklyStatsIsEmptyWithoutData]' passed (0.003 seconds).
+Test Suite 'RepositoryTests' passed at 2026-09-04 06:04:44.668.
+	 Executed 17 tests, with 0 failures (0 unexpected) in 0.088 (0.089) seconds
+Test Suite 'SaydoHarnessPackageTests.xctest' passed at 2026-09-04 06:04:44.668.
+	 Executed 32 tests, with 0 failures (0 unexpected) in 0.104 (0.107) seconds
+Test Suite 'All tests' passed at 2026-09-04 06:04:44.668.
+	 Executed 32 tests, with 0 failures (0 unexpected) in 0.104 (0.108) seconds
+◇ Test run started.
+↳ Testing Library Version: 1501
+↳ Target Platform: arm64e-apple-macos14.0
+✔ Test run with 0 tests in 0 suites passed after 0.001 seconds.
+HARNESS_TEST_EXIT=0
