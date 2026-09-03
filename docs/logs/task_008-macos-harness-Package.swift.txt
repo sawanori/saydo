@@ -1,0 +1,32 @@
+// swift-tools-version: 6.2
+import PackageDescription
+
+// task_008 の検証専用ハーネス（コミットしない）。
+// iOS 26.x シミュレータランタイムが無く xcodebuild が使えないため、
+// App と Tests/SaydoTests を macOS で実際に走らせて確かめる。
+let package = Package(
+    name: "SaydoHarness",
+    platforms: [.macOS(.v26)],
+    targets: [
+        .target(name: "SaydoCore", path: "Sources/SaydoCore",
+                swiftSettings: [.swiftLanguageMode(.v6)]),
+        .target(name: "Saydo", dependencies: ["SaydoCore"], path: "Sources/Saydo",
+                swiftSettings: [.swiftLanguageMode(.v6)]),
+        .testTarget(name: "SaydoTests", dependencies: ["Saydo", "SaydoCore"], path: "Tests/SaydoTests",
+                    swiftSettings: [.swiftLanguageMode(.v6)])
+    ]
+)
+
+// 作り方（リポジトリには入れない）:
+//   Sources/SaydoCore  → Packages/SaydoCore/Sources/SaydoCore への symlink
+//   Sources/Saydo      → App 配下の *.swift への symlink。ただし次の 3 つは除く:
+//                        AudioSessionController.swift（UIKit と AVAudioSession は macOS 非対応）
+//                        SpeechSynthesisService.swift（usesApplicationAudioSession は macOS 非対応）
+//                        VoicePlayer.swift（AudioSessionControlling を参照）
+//                        SaydoApp.swift（@main がテストバイナリの _main と衝突）
+//   Sources/Saydo/AudioSessionContract.swift  → AudioSessionControlling の最小シム（applyOutputRoute のみ）
+//   Sources/Saydo/AudioServiceContracts.swift → 実ファイルの 1..48 行（SpeechSynthesisService）と
+//                                               1..29 行（VoicePlayer）を切り出した Synthesizing / Playing
+//   Tests/SaydoTests   → Tests/SaydoTests 配下の *.swift への symlink
+// SessionViewModel はこれら除外ファイルの具象クラスに依存していないため、
+// 検証したい経路（SessionViewModel と SessionViewModelTests）はそのまま走る。

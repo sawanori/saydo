@@ -1,0 +1,14 @@
+# task_008 の型検査（iOS 26.x シミュレータランタイム未導入のため build-ios.sh の代替）
+# SDK: /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.2.sdk
+# target: arm64-apple-ios26.0-simulator
+
+$ xcrun swiftc -emit-module -module-name SaydoCore -sdk $SDK -target arm64-apple-ios26.0-simulator -swift-version 6 -strict-concurrency=complete <SaydoCore の全 .swift>
+CORE_EXIT=0
+
+$ xcrun swiftc -emit-module -module-name Saydo -enable-testing -I <mod> ... <App の全 .swift>
+APP_EXIT=0
+
+$ xcrun swiftc -typecheck -module-name SaydoTests -I <mod> -I <XCTest lib> -F <XCTest fw> ... <Tests/SaydoTests の全 .swift>
+TESTS_EXIT=0
+
+warnings: 0
