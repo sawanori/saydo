@@ -148,3 +148,116 @@ lint 自体が機能することは、禁止パターンを全部含む一時フ
    - 空ける候補: 古い iOS 18.5 シミュレータランタイム（約 7 GB。`xcrun simctl runtime list -v` で確認 → 不要なら `xcrun simctl runtime delete <build>`）、`~/Library/Developer/Xcode/DerivedData`、`~/Library/Developer/Xcode/iOS DeviceSupport`。
    - **エージェントは削除を実行しない**（不可逆・他プロジェクトへの影響があるため）。
 2. 導入後に `scripts/build-ios.sh` / `scripts/build-ios.sh SpeechSpike` / `scripts/test-ios.sh` を実行し、この節を更新する。
+
+---
+
+## task_004 — スパイク S-B / S-C: SpeechSpike（SpeechAnalyzer + 録音 + 無音停止 + TTS 半二重）
+
+- 日時: 2026-09-04
+- 状態: needs-device（コンパイルは通った。**実機での計測は 1 件も行っていない**）
+- ブランチ: `task/004-speech-spike`
+
+### 証拠
+
+| コマンド | exit code | ログ |
+|---|---|---|
+| `scripts/build-ios.sh SpeechSpike` | **0** | `docs/logs/task_004-1.txt` |
+| `scripts/lint-principles.sh` | **0** | `docs/logs/task_004-2.txt` |
+| `scripts/build-ios.sh`（Saydo。参考） | **65** | `docs/logs/task_004-3.txt` |
+
+`scripts/build-ios.sh SpeechSpike`（先頭 4 行 = 今回のフォールバックの表示）:
+
+```
+build-ios: scheme=SpeechSpike
+build-ios: 注意 — iOS シミュレータのランタイムが未導入で generic/platform=iOS Simulator を解決できない。
+build-ios: destination を使わず -target SpeechSpike でビルドする（コンパイルとリンクだけの検証。実行はできない）。
+build-ios: 解消するには空き容量を 9 GB 以上確保して xcodebuild -downloadPlatform iOS を実行する。
+```
+
+`scripts/build-ios.sh SpeechSpike`（末尾 30 行を要約せず引用。長いコマンド行は 200 桁で切った）:
+
+```
+Copy .../SpeechSpike.swiftmodule/arm64-apple-ios-simulator.swiftmodule ...
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-004
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename ...
+
+Ld .../Objects-normal/arm64/Binary/SpeechSpike normal arm64 (in target 'SpeechSpike' from project 'Saydo')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-004
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -Xlinker -reproducible -target arm64-apple-ios26.0-simulator -isysroot ...
+
+Ld .../Objects-normal/x86_64/Binary/SpeechSpike normal x86_64 (in target 'SpeechSpike' from project 'Saydo')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-004
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -Xlinker -reproducible -target x86_64-apple-ios26.0-simulator -isysroot ...
+
+CreateUniversalBinary .../SpeechSpike.app/SpeechSpike normal arm64\ x86_64 (in target 'SpeechSpike' from project 'Saydo')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-004
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/lipo -create ...
+
+ExtractAppIntentsMetadata (in target 'SpeechSpike' from project 'Saydo')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-004
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/appintentsmetadataprocessor --toolchain-dir ...
+2026-09-04 06:00:51.853 appintentsmetadataprocessor[96276:14083909] Starting appintentsmetadataprocessor export
+2026-09-04 06:00:51.855 appintentsmetadataprocessor[96276:14083909] warning: Metadata extraction skipped. No AppIntents.framework dependency found.
+
+CopySwiftLibs .../SpeechSpike.app (in target 'SpeechSpike' from project 'Saydo')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-004
+    builtin-swiftStdLibTool --copy --verbose --scan-executable .../SpeechSpike.app/SpeechSpike --scan-folder ...
+Ignoring --strip-bitcode because --sign was not passed
+
+** BUILD SUCCEEDED **
+
+EXIT=0
+```
+
+`grep -c "warning:" docs/logs/task_004-1.txt` = **2**。内訳は
+`ONLY_ACTIVE_ARCH=YES requested with multiple ARCHS ...`（ランタイム未導入で active arch が決まらないため）と
+`appintentsmetadataprocessor ... No AppIntents.framework dependency found`。
+**concurrency 警告は 0 件**（`-swift-version 6` / `SWIFT_STRICT_CONCURRENCY: complete` でビルドしている。
+`grep -E "error:" docs/logs/task_004-1.txt` は 0 件）。
+
+`grep -nE "@unchecked Sendable|nonisolated\(unsafe\)|URLSession|import Network" Spikes/SpeechSpike/*.swift`:
+
+```
+Spikes/SpeechSpike/SpikeAudio.swift:101:/// （`@unchecked Sendable` も `nonisolated(unsafe)` も使わないと決めている）。
+```
+
+コメント 1 行のみ。実コードでの使用は 0 件（`scripts/lint-principles.sh` は Spikes を対象外にしているため手で確認した）。
+
+### done_definition との対応
+
+| done_definition | 判定 | 証拠 |
+|---|---|---|
+| `docs/spikes/speech-spike.md` に ja-JP 対応可否・権限の種類・10 文の正答数・無音の推奨秒数・通知 5 回・AVAudioSession 設定 | **記入欄のみ**（実機計測が未実施） | `docs/spikes/speech-spike.md` §4 に手順と空欄、§3 に AVAudioSession の設定と `.allowBluetoothHFP` の根拠 |
+| S-B の数値基準に対する判定 | **未達**（未計測） | 同 §5 の表は空欄。3 基準は明記済み |
+| `AnalyzerInputConverter` を使わず `AVAudioConverter` + `AnalyzerInput(buffer:)` で供給できた | **済**（ビルドで確認。動作は未検証） | 同 §2。SDK 内に `AnalyzerInputConverter` は 0 件 |
+| Go / No-Go の明記と No-Go 時の `SFSpeechRecognizer` フォールバック | **Go/No-Go は空欄**。フォールバックの記述は済 | 同 §5 |
+
+### このタスクで変えた既存ファイル
+
+- `scripts/build-ios.sh`: `-showdestinations` に iOS Simulator が出ない環境では
+  `-destination` を使わず `-target <scheme>` でビルドするフォールバックを追加した（警告 3 行を出す）。
+  ランタイム導入後は従来どおり scheme + generic destination で動く。
+  この変更で `scripts/build-ios.sh`（Saydo）の失敗は exit 70（destination が無い）から
+  exit 65（アセットカタログの actool 失敗）に変わった。**原因は task_001 と同じで未解消**だが、
+  Swift のコンパイルまでは進むようになった。
+
+### 未解決
+
+- **iOS 26.x シミュレータランタイムが未導入**（task_001 と同じ。空き容量 6.3 GB / 必要 8.39 GB）。
+  そのためスパイクを一度も実行できていない。`scripts/build-ios.sh SpeechSpike` の exit 0 は
+  **コンパイルとリンクが通ったこと**しか意味しない。
+- `Saydo.xcodeproj` はこのブランチに**含めていない**（fix-decisions H1.4: worktree では再生成しない）。
+  新しく `Spikes/SpeechSpike/SpikeView.swift` と `SpikeAudio.swift` を足したので、
+  **main へ取り込んだ後に `xcodegen generate` を実行しないとこの 2 ファイルがビルドに入らない**。
+  検証時は worktree 内で `xcodegen generate` を実行し、コミット前に `git checkout -- Saydo.xcodeproj` で戻した。
+- `AVAudioFile.write(from:)` を入力タップ内（オーディオスレッド）で呼んでいる。実機でグリッチが出る場合は
+  書き込みを別スレッドへ逃がす必要がある（task_007 で再検討）。
+
+### 人間の確認待ち
+
+1. **実機での S-B / S-C 計測**（`docs/spikes/speech-spike.md` §4 の 4-1〜4-6）。
+   Xcode で `SpeechSpike` スキームを実機に Run し、10 文の正答数・無音停止の誤作動・
+   通知タップ → TTS 開始の 5 回・回り込みの有無を記入して、§5 の Go / No-Go を確定する。
+2. **ディスク容量の確保**（task_001 から継続）。9 GB 以上空けて `xcodebuild -downloadPlatform iOS`。
+   導入後は `scripts/build-ios.sh` が自動的に scheme + generic destination の経路に戻る。
+3. main へのマージ後に `xcodegen generate` を実行して `Saydo.xcodeproj` を更新する。
