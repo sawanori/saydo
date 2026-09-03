@@ -1,0 +1,33 @@
+=== task_023 supportedModes 実測（AppIntents メタデータ抽出）===
+同じ AlarmSpike ターゲットを 4 通りビルドし、
+build/Debug-iphonesimulator/AlarmSpike.app/Metadata.appintents/extract.actionsdata の
+actions.OpenSaydoIntent を読んだ結果。ビルドは 4 通りとも exit 0（警告なし）。
+
+| OpenSaydoIntent の宣言 | supportedModes | openAppWhenRun |
+|---|---|---|
+| static let supportedModes: IntentModes = .foreground(.immediate) | 1 | false |
+| static let supportedModes: IntentModes = .background | 1 | false |
+| static let openAppWhenRun = true（supportedModes を書かない） | 2 | true |
+| static let supportedModes: IntentModes = .foreground | 2 | true |
+
+結論: static func 形式の .foreground(.immediate) は定数畳み込みされず、
+.background と同じ 1 が書き出される。static var 形式の .foreground は 2 になる。
+コンパイラは両方を通すため、書き間違えても警告は出ない。最終形は .foreground を採用した。
+
+=== 最終形の extract.actionsdata（該当箇所）===
+mangledTypeNameV2 = "10AlarmSpike15OpenSaydoIntentV"
+openAppWhenRun = true
+supportedModes = 2
+systemProtocolMetadata = ["com.apple.link.systemProtocol.SessionStarting", {"empty": {}}]
+presentationStyle = 0
+authenticationPolicy = 0
+
+=== 最終形のアプリバンドル ===
+total 2368
+drwxr-xr-x  7 noritakasawada  staff      224  9月  4 07:34 .
+drwxr-xr-x@ 4 noritakasawada  staff      128  9月  4 07:34 ..
+-rwxr-xr-x  1 noritakasawada  staff  1055192  9月  4 07:34 AlarmSpike
+-rw-r--r--  1 noritakasawada  staff   144686  9月  4 07:33 chime.caf
+-rw-r--r--  1 noritakasawada  staff      993  9月  4 07:33 Info.plist
+drwxr-xr-x  4 noritakasawada  staff      128  9月  4 07:34 Metadata.appintents
+-rw-r--r--  1 noritakasawada  staff        8  9月  4 07:33 PkgInfo
