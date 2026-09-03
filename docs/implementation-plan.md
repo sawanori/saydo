@@ -37,10 +37,10 @@
 |---|---|---|
 | 音声認識（STT） | `SpeechAnalyzer` + `SpeechTranscriber`（iOS 26+） | オンデバイス。ja-JP モデルは `AssetInventory` で端末にダウンロード。権限はマイクのみ。 |
 | 対話 AI（LLM） | Foundation Models `SystemLanguageModel.default` | Apple Intelligence 対応機のみ。`availability` で `deviceNotEligible` / `appleIntelligenceNotEnabled` / `modelNotReady` を判定。**Tier A と見なすのは `availability == .available` かつ `SystemLanguageModel.default.supportsLocale(Locale(identifier: "ja_JP"))` が真の場合の両方が揃ったときだけ。** `supportsLocale` の実在は task_003 で確認し、無ければ日本語プロンプトを 1 回試行した結果で代替する。 |
-| 音声合成（TTS） | `AVSpeechSynthesizer` | ja-JP 音声。高品質音声は端末の設定でダウンロード可能なため設定画面から案内。 |
+| 音声合成（TTS） | `AVSpeechSynthesizer` | ja-JP 音声。高品質音声は端末の設定でダウンロード可能なため設定画面から案内。既定音声（未ダウンロード時）のまま使えるかは Phase 1.5 の観察項目 H6 で判定する。 |
 | 永続化 | SwiftData + アプリ領域の音声ファイル（AAC） | 自前サーバーなし。 |
 | バックアップ | iCloud バックアップ（アプリデータは既定で対象） | 複数端末同期（CloudKit）は非スコープ。 |
-| 通知 | `UserNotifications`（ローカル通知） | 既定は朝 1 回 + 行動時刻 1 回。昼・夜は設定の「3 回モード」で追加する。繰り返しトリガーは使わず 7 日分を都度再計画する（§7.4）。 |
+| 通知 | `UserNotifications`（ローカル通知） | 既定は朝 1 回 + 行動時刻 1 回。昼・夜は設定の「3 回モード」で追加する。繰り返しトリガーは使わず、モードに応じた日数分（既定 30 日 / 3 回モード 16 日）を都度再計画する（§7.4）。 |
 | 将来の高性能モデル | `PrivateCloudComputeLanguageModel`（iOS 27 beta で文書化） | v1 の依存にしない。Phase 4 以降の選択肢。 |
 
 ### 0.3 段階と出口条件
@@ -50,7 +50,7 @@
 | 0 | 環境構築 + 技術スパイク（LLM 日本語品質 / 音声パイプライン） | Go / No-Go を `docs/spikes/` に記録 | 3〜4 日 |
 | 1 | コアループ（Tier B、AI なし）: 朝 → 昼 → 夜 → 翌日引き継ぎ、通知、Voice Timeline、オンボーディング | 実機で 1 日分が通り、TestFlight 内部配布 #2 まで到達（#1 は task_010 完了時点で本人のみに配る） | 約 10 日 |
 | 1.5 | ドッグフーディング | 7 日連続使用。文言・無音閾値・通知時刻の修正リスト | 7 日（Phase 2 と並行） |
-| 2 | AI 層（Foundation Models）+ 週次分析 | Tier A/B 自動切替。ガードレール通過率 100%（違反は置換される） | 約 5 日 |
+| 2 | AI 層（Foundation Models）+ 週次分析 | Tier A/B 自動切替。task_015 の実機 5 回（朝フロー）で置換を原因別（禁止句 / 文字数・形式 / 6 秒タイムアウト / refusal・exceededContextWindowSize）に分類して `docs/spikes/fm-probe.md` に記録し、**禁止句由来の置換が 1 件でもあれば PromptBuilder を修正して再計測する**。あわせて task_017 の自動判定通過率が 90% 以上（harness-design.md §G2 の値）である | 約 5 日 |
 | 3 | 仕上げ・審査 | App Store 提出 | 約 5 日 + 待ち時間 |
 
 - Phase 3 には自分では短縮できない待ち時間が含まれる: 外部 TestFlight のベータ審査待ち（1〜2 日）と App Review（1〜3 日。リジェクト 1 回分の再提出を見込む）。
@@ -61,7 +61,7 @@
 
 | ID | リスク | 検証方法 | No-Go 時の代替 |
 |---|---|---|---|
-| S-A | Foundation Models の日本語品質（理由分類・5 分以下への細分化・短い追加質問） | macOS CLI `fm-probe` に 20 件のフィクスチャを流し、人手採点（採用可 / 要修正 / 不可）。**合格基準: 20 件中 16 件以上が採用可、生成文の禁止句 0 件、1 呼び出しの所要時間が p50 で 4 秒以内** | Tier B 固定で出荷。Phase 4 で iOS 27 の PrivateCloudComputeLanguageModel、または Claude API + 薄いプロキシ（Cloudflare Workers）を検討 |
+| S-A | Foundation Models の日本語品質（理由分類・5 分以下への細分化・短い追加質問） | macOS CLI `fm-probe` に 20 件のフィクスチャを流し、人手採点（採用可 / 要修正 / 不可）。**合格基準: 20 件中 16 件以上が採用可、生成文の禁止句 0 件、1 呼び出しの所要時間が p50 で 4 秒以内** | Tier B 固定で出荷。task_014・task_015・task_017 をスキップし、task_016 は Tier B のテンプレート振り返りだけで完了させる（依存は task_013b）。Phase 2 は task_016 のみとなり、Phase 3（task_018 → task_019 → task_020）はそのまま進む。Phase 4 で iOS 27 の PrivateCloudComputeLanguageModel、または Claude API + 薄いプロキシ（Cloudflare Workers）を検討 |
 | S-B | SpeechAnalyzer ja-JP のライブ認識精度と遅延、録音との同時実行、無音自動停止、TTS との半二重切替 | iOS スパイクアプリを実機で計測。**合格基準: 10 文中 8 文が意味の通る文字起こし、無音自動停止の誤作動が 10 回中 1 回以下、通知タップから TTS 開始までが 1.5 秒以内（5 回中 4 回）** | `SFSpeechRecognizer`（オンデバイス指定）へフォールバック。その場合のみ音声認識権限が必要 |
 | S-C | 通知タップから TTS 発話開始までの時間（目標 1.5 秒以内） | 実機でストップウォッチ計測 5 回。**合格基準は S-B と同一（5 回中 4 回が 1.5 秒以内）で、同じ計測を共有する** | 起動時にオーディオセッションと音声アセットをプリウォーム |
 | S-D | Foundation Models の Mac / シミュレータでの動作可否 | Apple Intelligence を有効化した Mac 上で `fm-probe` と iOS 26.2 シミュレータを試す | 実機のみで Tier A を検証 |
@@ -121,7 +121,7 @@ iOS ネイティブ。サーバー・アカウントなし。データは端末�
 - アカウント、サーバー、クラウド LLM、複数端末同期（CloudKit）
 - 課金・サブスクリプション
 - 日本語以外のローカライズ
-- テキストチャット UI（テキスト入力は騒音時の補助のみ）
+- テキストチャット UI（テキスト入力は騒音時と「話せない時」モードの入力経路）
 
 ## 6. Assumptions
 
@@ -129,7 +129,7 @@ iOS ネイティブ。サーバー・アカウントなし。データは端末�
 2. 言語は日本語のみ（UI・音声認識・音声合成すべて ja-JP）。
 3. 利用者は端末につき 1 人。
 4. 音声ファイルは端末内に保存し、iCloud バックアップの対象から除外しない。AAC 32 kbps モノラル × 15 秒でおよそ 60 KB/件、1 日 5 件で約 300 KB、年間およそ 110 MB。復元は iOS の端末バックアップに委ねる。**iCloud バックアップが無効な端末では音声が端末内にしか残らない**ため、その旨をオンボーディングと設定画面に明示する（task_013・task_019）。
-5. 通知の既定は朝 1 回（8:00）+ 行動時刻 1 回。昼 13:00 と夜 21:00 は設定の「3 回モード」で追加する（時刻はいずれも変更可、週末オフも可）。すべて非繰り返しトリガーで 7 日分ずつ登録する。
+5. 通知の既定は朝 1 回（8:00）+ 行動時刻 1 回。昼 13:00 と夜 21:00 は設定の「3 回モード」で追加する（時刻はいずれも変更可、週末オフも可）。すべて非繰り返しトリガーで、モードに応じた日数分（既定 30 日 / 3 回モード 16 日）ずつ登録する。
 6. Bundle ID は `com.nonturn.saydo`。Apple Developer Program 加入済みで TestFlight を使える。
 7. プロジェクト定義は XcodeGen（`project.yml`）で行う。Claude Code から再生成できることを優先する。XcodeGen を使わない場合は task_001 で `.xcodeproj` を Xcode で手作成し、以降の手順は同じ。
 8. Foundation Models は Apple Intelligence を有効化した Mac の macOS 26.5 上で動作する（公式ドキュメントで macOS 26.0+ と明記）。シミュレータでの動作は S-D で確認する。
@@ -176,10 +176,10 @@ SAYDO/
 - `FlowMachine` の入力イベントに `interrupted`（着信・Siri 起動・オーディオ経路変更）を持たせる。`interrupted` を受けたら途中状態（`lastStep` と入力済みの値）を保存してセッションを閉じ、次回起動時にそのステップから再開する。
 - `DialogueEngine` プロトコルに `TemplateDialogueEngine`（Tier B）と `FoundationModelsDialogueEngine`（Tier A）の 2 実装。Tier は起動時に `SystemLanguageModel.default.availability == .available` かつ `SystemLanguageModel.default.supportsLocale(Locale(identifier: "ja_JP"))` が真であることの両方で決める（§0.2 の対応表を参照。`supportsLocale` の実在は task_003 で確認する）。
 - LLM 呼び出しは 1 ステップ 1 回、タイムアウト 6 秒。失敗・タイムアウト・ガードレール違反はすべてテンプレート出力に置換し、会話は止めない。
-- 発話の保存: M0（逃げたいこと）・M1（理由）・M4（宣言）・N1（状態）・N2（止めているもの）・E0（前進）・E1（明日）はいずれも `VoiceEntry` として音声と文字起こしを残す。kind は §10 の一覧（avoidance / reason / declaration / status / blocker / progress / tomorrow）をそのまま使う。選択肢で答えた場合は音声なしで文字起こし相当のテキストだけを残す。
+- 発話の保存: M0（逃げたいこと）・M1（理由）・M4（宣言）・N1（状態）・N2（止めているもの）・E0（前進）・E1（明日）はいずれも `VoiceEntry` として音声と文字起こしを残す。kind は §10 の一覧（avoidance / reason / declaration / status / blocker / progress / tomorrow）をそのまま使う。選択肢で答えた場合は音声なしで文字起こし相当のテキストだけを残す。M2（行動の確定）・M3（時刻）・N3（再縮小）は段階表と時刻の選択であり本人の言葉ではないため `VoiceEntry` を作らない。§10 の 7 kind はこの 7 ステップと 1 対 1 に対応する。
 - タイムボックス: 朝 3 分、昼 1 分、夜 1 分。各「聞く」区間は最長 20 秒。**沈黙は最大 5 秒で「長く考えなくていい。10 秒で答えて。」を 1 回だけ挟み、さらに 10 秒沈黙が続いたらその質問をスキップして次のステップへ進む。** タイムボックスを超えた場合は「続きは昼に聞くね。」と言い、そこまでの入力を保存して終了する。
 - TTS 音声: enhanced / premium の ja-JP 音声が端末にインストール済みならそれを使い、無ければ既定音声で開始する。オンボーディングと設定画面で高品質音声のダウンロード手順を案内する（アプリからは強制できない）。
-- チップ（選択肢）の出しどころ: **答えを選ばせるチップは M1（理由）・N1（状態）・E0 の前進なし分岐の 3 か所だけ。** M0・M3・M4 にはチップを出さず、音声（または「話せない時」モード）で答える。M2 と N3 の一般形 4 つは「答えに詰まったときの例示」であって選択肢ではなく、本人が自分の言葉で言うのが既定。キーボードは常時、画面右下の小さなボタンとして置くだけにして自動表示しない。
+- チップ（選択肢）の出しどころ: **答えを選ばせるチップは M1（理由）・N1（状態）・E0 の前進なし分岐の 3 か所だけ。** M0・M2・M3・M4 にはチップを出さず（「話せない時」モードとマイク拒否時を除く）、音声（または「話せない時」モード）で答える。M2 と N3 の一般形 4 つは「答えに詰まったときの例示」であって選択肢ではなく、本人が自分の言葉で言うのが既定。キーボードは常時、画面右下の小さなボタンとして置くだけにして自動表示しない。
 - 「話せない時」モード（R1）: オンボーディングと会話画面から切り替えられる第一級のモード。M0〜M3 を選択肢と短文入力だけで完走でき、M4（声の宣言）だけを「後で声で」に回せる。後回しにした場合、オンボーディングで聞いた「一人になれる時刻」に「30 秒だけ、声で約束して。」を **1 回だけ** 通知する（再通知はしない）。
 - マイク権限が拒否された場合: テキスト入力で朝・昼・夜すべてを完走できる。ただしその日の `Commitment` には「声なし」フラグを立て、昼 N0 では宣言音声の代わりに **本人の宣言テキストを画面に大きく表示**して「朝のあなたからです。」とだけ読む（本人の言葉を TTS で読み上げ直さない。本人の言葉は本人に見せる）。同時に設定アプリでマイクを許可する導線を出す。
 - 文言バリエーション（R5）: `DialogueCopy` は主要 8 文言について 5 種類以上の言い換えを配列で持ち、3 日以内に同じ文言を繰り返さない。可能な箇所では本人の名詞（「見積書」「クライアント」）をそのまま埋め込む。
@@ -190,9 +190,9 @@ SAYDO/
 | Step | 発話（テンプレート） | 入力 | 処理 |
 |---|---|---|---|
 | M0 | 「おはよう。今日、いちばん逃げたいことは何？」（前夜の引き継ぎがあれば「昨日の夜『◯◯』って言ってたね。今日はそれでいく？」+ 選択肢。2 日以上空いた後は「おかえり。今日から、また一つだけ。」） | 音声 | `AvoidanceItem` 作成、`VoiceEntry(kind: avoidance)` 保存。**「特にない」と答えた場合は「それは良い日。10 秒で終わるね。」で終了し、良い日として Timeline に残す**（R6。逃げたいことを無理に作らせない） |
-| M1 | Tier A: LLM が生成した 1 文の追加質問。Tier B: 「一番近いのはどれ？」+ 選択肢 7 種（気まずい / 完璧にやりたい / 面倒 / 不安・怖い / 量が多い / 何から始めるかわからない / 期限が怖い） | 音声 or 選択肢 | `ReasonCategory` 確定（音声はキーワード照合、Tier A は LLM 分類）。理由を声で答えた場合は `VoiceEntry(kind: reason)` として保存する |
-| M2 | Tier A: LLM が 5 分以下の行動を 3 案生成し、1 案目を読み上げ。Tier B: **「最初の 5 分でできる、いちばん小さいことは？」と本人に言わせ、本人の言葉をそのまま行動文にする**（自由発話から名詞を機械的に切り出さない）。例示チップは分野に依らない一般形の 4 つ（開くだけ / 1 行だけ書く / 必要なものを机に置く / 相手の名前を検索する）。常に「もっと小さく」を選べる | 音声 or 選択肢 | `MicroAction` 確定。「もっと小さく」は `ShrinkLadder`（一般形の段階表: 開く → 一部だけ → 1 行だけ → 置くだけ）を 1 段下る。段階表はメール専用にしない |
-| M3 | 「今日は何時に、どこでやる？」+ 選択肢（1 時間後 / 午後 / 夕方 / 時刻を選ぶ）。時間と場所を **同じ一問** で聞き、会話時間は増やさない（R11） | 音声 or 選択肢 | 日本語時刻パース（「14 時」「2 時」「午後 2 時」「昼過ぎ」）。場所は本人の言葉のまま `MicroAction` に添える |
+| M1 | Tier A: LLM が生成した 1 文の追加質問。Tier B: 「一番近いのはどれ？」+ 選択肢 7 種（気まずい / 完璧にやりたい / 面倒 / 不安・怖い / 量が多い / 何から始めるかわからない / 期限が怖い） | 音声 or 選択肢 | `ReasonCategory` 確定（音声はキーワード照合、Tier A は LLM 分類）。回答は入力方式に依らず `VoiceEntry(kind: reason)` として残す（音声なら m4a + 文字起こし、チップなら audioPath なし・transcript にチップの文言） |
+| M2 | Tier A: LLM が 5 分以下の行動を 3 案生成し、1 案目を読み上げ。Tier B: **「最初の 5 分でできる、いちばん小さいことは？」と本人に言わせ、本人の言葉をそのまま行動文にする**（自由発話から名詞を機械的に切り出さない）。一般形の 4 例（開くだけ / 1 行だけ書く / 必要なものを机に置く / 相手の名前を検索する）は TTS の言い添えとして読み上げるだけにし、チップとしては「話せない時」モードとマイク拒否時にだけ出す。常に「もっと小さく」を選べる | 音声 or 選択肢 | `MicroAction` 確定。「もっと小さく」は `ShrinkLadder`（一般形の段階表: 開く → 一部だけ → 1 行だけ → 置くだけ）を 1 段下る。段階表はメール専用にしない |
+| M3 | 「今日は何時に、どこでやる？」（音声で答える。選択肢〈1 時間後 / 午後 / 夕方 / 時刻を選ぶ〉は「話せない時」モードとマイク拒否時にだけ出す）。時間と場所を **同じ一問** で聞き、会話時間は増やさない（R11） | 音声 or 選択肢 | 日本語時刻パース（「14 時」「2 時」「午後 2 時」「昼過ぎ」）。場所は本人の言葉のまま `MicroAction` に添える |
 | M4 | 「じゃあ最後に、自分に約束してください。今日やることを声に出して。」 | 音声（30 秒以内） | 宣言音声を保存、`Commitment` 作成、行動時刻の通知を登録。「受け取りました。◯時に、朝のあなたから届きます。」。**「話せない時」モードでは「後で声で」を選べ、その場合は宣言テキストだけで `Commitment` を作り、一人になれる時刻に 1 回だけ再通知する** |
 
 #### 昼（NoonFlow。行動時刻通知・昼通知・手動起動で共通）
@@ -201,15 +201,15 @@ SAYDO/
 
 | 状況 | 挙動 |
 |---|---|
-| 当日の `Commitment` が無い（朝を飛ばした） | 昼・夜の通知タップは NoonFlow ではなく **短縮版の朝フロー（M0 → M2 → M4）** を開く。理由（M1）は聞かない |
-| `Commitment.outcome == done` | 固定の昼通知と行動時刻通知を取り消す。手動起動時は「今日はもう動けてる。」で終了する |
+| 当日の `Commitment` が無い（朝を飛ばした） | 昼・夜の通知タップは NoonFlow ではなく **短縮版の朝フロー（M0 → M2 → M4）** を開く。理由（M1）は聞かない。`plannedAt` は昼起点なら 1 時間後、夜起点なら翌朝の朝通知時刻とする。M1 を飛ばす日は `ReasonCategory` を保存しない（`reason` を nil にする） |
+| `Commitment.outcome == done` または `partial` | その日の `noon-yyyyMMdd` と `action-yyyyMMdd` を取り消す。手動起動時は「今日はもう動けてる。」で終了する |
 | 現在時刻 < `Commitment.plannedAt` | 「どうだった？」は出さない。固定の昼通知は送らず、行動時刻通知だけを送る。手動起動時は「◯時の約束、まだ生きてる？」+ 選択肢（はい / 時間を変える）で終了 |
 | 上記以外 | 下表の N0 から通常どおり進む |
 
 | Step | 発話 | 入力 | 処理 |
 |---|---|---|---|
-| N0 | 「朝のあなたからです。」→ 宣言音声を再生 | なし | 再生完了を待つ。**イヤホン未接続かつ消音スイッチが ON の場合は、再生と TTS を始める前に「イヤホンで聞く / 文字で読む」を出す**（R8。文字で読んだ場合も体験は成立させる）。「声なし」フラグが立っている日は宣言テキストを画面に大きく表示し、「朝のあなたからです。」だけを読む |
-| N1 | 「どうだった？」+ 選択肢（やった / 少しやった / まだ） | 音声 or 選択肢 | `Commitment.outcome` 更新。声で答えた場合は `VoiceEntry(kind: status)` として保存。「やった」なら「それを残しておくね。」で終了。**「少しやった」も前進として扱い、`outcome = partial` にして「それを今日の前進として残すね。」で終了する（N2 に進まない）** |
+| N0 | 「朝のあなたからです。」→ 宣言音声を再生 | なし | 再生完了を待つ。**イヤホン未接続かつ `AVAudioSession.outputVolume` が 0.3 を超える場合は、再生と TTS を始める前に「イヤホンで聞く / 文字で読む」を出す**（R8。文字で読んだ場合も体験は成立させる）。「声なし」フラグが立っている日は宣言テキストを画面に大きく表示し、「朝のあなたからです。」だけを読む |
+| N1 | 「どうだった？」+ 選択肢（やった / 少しやった / まだ） | 音声 or 選択肢 | `Commitment.outcome` 更新。回答は入力方式に依らず `VoiceEntry(kind: status)` として残す（同上）。「やった」なら「それを残しておくね。」で終了。**「少しやった」も前進として扱い、`outcome = partial` にして「それを今日の前進として残すね。」で終了する（N2 に進まない）** |
 | N2 | 「何が止めてる？」 | 音声 | `VoiceEntry(kind: blocker)` 保存 |
 | N3 | Tier A: LLM が blocker を踏まえて行動を縮小。Tier B: **「じゃあ今は◯◯しなくていい。最初の 5 分でできる、いちばん小さいことは？」と本人に言わせ、本人の言葉をそのまま新しい行動文にする**（例示チップは M2 と同じ一般形 4 つ）。`ShrinkLadder` を 1 段下るのは本人が「決められない」を選んだときだけ。+ 選択肢（1 時間後にもう一度 / 今日は捨てる / 明日に回す）。**企画書 §9 の 6 選択肢は、夜 E0 ではなくこの N3 と翌朝 M0 の引き継ぎ確認で使う** | 音声 or 選択肢 | `MicroAction` 更新（`shrinkCount` +1）、必要なら通知を再登録 |
 
@@ -227,7 +227,8 @@ SAYDO/
 - 並行性: **`installTap` のクロージャは nonisolated である。** クロージャ内では `AsyncStream` の continuation に yield する（と `AVAudioFile` へ書く）だけにし、状態変更は `@MainActor` 側で行う。クロージャから actor 隔離された状態に触らない（`actor` でまとめて包む方法は採らない）。
 - 無音判定 `SilenceDetector`: RMS が閾値未満の状態が 1.5 秒（設定で 1.2 / 1.5 / 2.0 秒）続いたら発話終了。`SpeechTranscriber` の確定結果（finalized）を待って処理に進む。
 - 半二重: TTS 発話中は STT へ流さない。`AVSpeechSynthesizerDelegate.didFinish` の後に聞き取りを開始する。
-- `AVAudioSession`: カテゴリ `.playAndRecord`、モード `.default`、スピーカー既定出力。Bluetooth オプションは iOS 26.2 SDK の最新名を S-B で確認して使う。TTS の回り込みが認識に混入する場合は `.voiceChat` モードを S-B で比較する。**消音スイッチを尊重する**: 消音を無視して鳴らす（`.ambient` 相当の切り替えで押し通す）ことはしない。イヤホン未接続かつ消音スイッチ ON の状態で通知から起動した場合は、TTS と宣言音声の再生を始める前に「イヤホンで聞く / 文字で読む」を出す。
+- `AVAudioSession`: カテゴリ `.playAndRecord`、モード `.default`。**`.defaultToSpeaker` は付けない**（Apple 公式: このオプションは「plugging in a headset doesn't cause the route to change to headset mic and headphones」となり、有線・Bluetooth いずれのイヤホンも無視されるため、R8 の「イヤホンで聞く」が成立しなくなる）。出力先は再生直前に `AVAudioSession.sharedInstance().currentRoute.outputs` で判定し、(a) アクセサリ（headphones / bluetoothA2DP / bluetoothHFP / usbAudio / carAudio）が接続されていればそのまま鳴らす、(b) 未接続なら `overrideOutputAudioPort(.speaker)` を都度呼んでスピーカーへ回す、(c) 画面の「耳に当てて聞く」を選んだときだけ `overrideOutputAudioPort(.none)` に戻して受話口で鳴らし、`UIDevice.current.isProximityMonitoringEnabled = true` を併用する。Bluetooth オプションは iOS 26.2 SDK の最新名を S-B で確認して使う。TTS の回り込みが認識に混入する場合は `.voiceChat` モードを S-B で比較する。
+- **消音スイッチの扱い**: `.ambient` / `.soloAmbient` は Ring/Silent スイッチで**消音される**カテゴリであり、押し通す側ではない。本アプリが使う `.playAndRecord` はスイッチの影響を受けないため、消音の尊重は OS ではなくアプリ側の確認 UI で行う。イヤホン未接続かつ `AVAudioSession.outputVolume` が 0.3 を超える状態で通知から起動した場合は、TTS と宣言音声の再生を始める前に「イヤホンで聞く / 文字で読む」を出す。Ring/Silent スイッチの状態を読む公開 API は AVFAudio に無い（`setOutputMuted` / `outputMuteStateChangeNotification` はアプリ自身が設定したミュートであって物理スイッチではない）。`outputVolume` は KVO で監視できるため、これをゲート条件に使う。
 - 「話せない時」モードとマイク拒否時は、この音声パイプライン自体を起動しない（選択肢と短文入力だけでフローを進める）。
 - 音声認識モデル: 初回に `AssetInventory.assetInstallationRequest(supporting:)` で ja-JP をダウンロード。オンボーディングで進捗表示。
 - 通知タップからの起動時に、オーディオセッション有効化 → TTS 開始までを 1.5 秒以内に収める（S-C）。
@@ -235,9 +236,11 @@ SAYDO/
 ### 7.4 通知
 
 - **既定は 2 回 + 1 回**（R2）: 朝と行動時刻だけを既定で送る。昼の固定通知と夜の通知は、設定画面で「3 回モード」を選んだときにだけ追加する。週末をまとめてオフにする設定も置く。時刻の既定値は朝 8:00 / 昼 13:00 / 夜 21:00 のまま（後 2 つは既定では鳴らない）。
-- **繰り返しトリガーは使わない**（当日分だけをスキップできないため）: 固定通知は毎回の起動時と宣言時に、**今日から 7 日分を非繰り返しの `UNCalendarNotificationTrigger` として再計画する**。識別子は `morning-yyyyMMdd`・`noon-yyyyMMdd`・`night-yyyyMMdd` の形にし、再計画のたびに古い pending を消してから登録し直す。文言は §15 のもの。昼は「朝、自分で言ったこと覚えてる？」「例のやつ、まだ避けてる？」を日替わりで交互に使う。
+- **繰り返しトリガーは使わない**（当日分だけをスキップできないため）: 固定通知は毎回の起動時と宣言時に、**今日から一定日数分を非繰り返しの `UNCalendarNotificationTrigger` として再計画する**。7 日分では、アプリを 8 日開かないと pending が尽きて通知が完全に止まる。再計画は「1 日あたりの固定通知本数 × 日数 ≤ 50 件」に収まる最長日数で行う（既定 2 回モードなら 30 日分、3 回モードなら 16 日分）。識別子は `morning-yyyyMMdd`・`noon-yyyyMMdd`・`night-yyyyMMdd` の形にし、再計画のたびに古い pending を消してから登録し直す。文言は §15 のもの。昼は「朝、自分で言ったこと覚えてる？」「例のやつ、まだ避けてる？」を日替わりで交互に使う。
 - 行動時刻 1 回: 朝の M4 完了時に登録（識別子 `action-yyyyMMdd`）。文言「朝のあなたからです。」。固定の昼通知と 30 分以内に重なる場合は、その日の `noon-yyyyMMdd` だけを取り消す（非繰り返しなので翌日以降には影響しない）。
 - 通知アクション「今日は休む」（R3）: すべての通知に付ける。長押しから 1 タップで当日を休みにでき、その日の残りの pending 通知を取り消す。休みは記録上「失敗」にせず（`Commitment` を作らない）、Timeline にも表示しない。`SessionLog` にだけ休みとして残す。
+- 朝・行動時刻・（3 回モード時の）昼・夜のすべてに `UNNotificationCategory` を登録し、アクションを 2 つ置く。「今日は休む」（R3 / check_035）と「今は話せない」。後者は同じ通知を 60 分後に 1 件だけ再登録し（同日 2 回まで）、`Commitment` には未達を記録しない。`didReceive` では `actionIdentifier` を見て、既定タップのときだけフローを開始する。
+- 長期離脱への復帰導線は通知を増やさず、上の登録日数（既定 2 回モードなら 30 日分、3 回モードなら 16 日分）と R4（前回の記録から 2 日以上空いた次の起動で M0 を「おかえり。今日から、また一つだけ。」に差し替える）だけで扱う。
 - `userInfo` に `sessionType` と `commitmentID` を入れ、`UNUserNotificationCenterDelegate.didReceive` から `AppRouter` が該当フローを自動開始する。当日の `Commitment` が無い場合と、既に `outcome == done` の場合の分岐は §7.2 の「入口の条件」に従う。
 - 起動ごとに通知許可状態と pending 一覧を確認する。許可が拒否・失効していたり pending が空だったりする場合は、`TodayView` に再許可（設定アプリ）への導線を出す。通知が唯一の入口なので、黙って壊れたままにしない。
 - 行動時刻通知は **Time Sensitive エンタイトルメントを追加して `.timeSensitive`** にする（集中モード中でも届かせる）。固定通知は通常の割り込みレベルのままにする。
@@ -245,15 +248,15 @@ SAYDO/
 
 ### 7.5 ガードレール（責めない保証）
 
-- **単語の部分一致ではなく句パターンで判定する**（「連続」だけで弾くと「連続して 5 分」のような無害な文まで落ちるため）。禁止句リスト（初期値）: 「未達成」「N 日連続」（数字 + 日連続）「サボ」「怠け」「言い訳」「甘え」「なぜやらない」「また逃げ」。「失敗」「ダメ」は **断定形のみ**（「失敗です」「失敗した」「ダメです」「ダメだ」）を対象にする。
+- **単語の部分一致ではなく句パターンで判定する**（「連続」だけで弾くと「連続して 5 分」のような無害な文まで落ちるため）。禁止句リスト（初期値）: 「未達成」「N 日連続」（数字 + 日連続）「なぜやらない」「また逃げ」。「失敗」「ダメ」「サボ」「言い訳」「甘え」「怠け」は **断定・非難形のみ**（「失敗です」「失敗した」「ダメです」「ダメだ」「サボった」「サボってる」「言い訳だ」「甘えだ」「甘えてる」「怠けてる」）を対象にする。
 - **適用範囲は生成文（LLM 出力・テンプレート文言・通知文言）だけ。** ユーザーの文字起こしには一切適用しない（本人が「またサボった」と言うのは自由で、それを弾いてはいけない）。
-- 形式規則: 質問は 60 文字以内で「？」で終わる。行動文は 40 文字以内で動詞で終わる。URL・英語のみの出力を拒否。
+- 形式規則: 質問は 60 文字以内で「？」で終わる。行動文は 40 文字以内で動詞で終わる。URL・英語のみの出力を拒否。振り返り 1 文（`weeklyReflection` の出力）は 80 文字以内の平叙文とし、アラビア数字・漢数字（一〜十、半分、割、％、パーセント）を一切含めてはならない。違反時は Tier B のテンプレート振り返り文に置換し、`SessionLog.guardrailReplacedCount` を増やす。
 - 違反時: 該当ステップのテンプレート文に置換し、`SessionLog` に `guardrailReplaced` を記録する（後で品質改善に使う）。
 
 ### 7.6 週次分析（Insight）
 
-- `InsightCalculator` は SwiftData の集計だけで動く純関数: 逃げ対象の分野（`TaskDomain`: 人への返信 / お金 / 大きなタスク / 営業 / 書類 / 健康 / その他）別件数と、理由（`ReasonCategory`）別割合。
-- **`WeeklyStats`（= LLM に渡す構造体）に入れるのは分野別件数と理由別割合だけ。** 宣言の結果内訳（やった / 少し / まだ）と平均縮小回数は入れない。達成率の提示は「責めない」原則と衝突するため、結果内訳は設定画面の開発者向け節にだけ表示する（retention-strategy.md §4 の計測項目と同じ扱い）。
+- `InsightCalculator` は SwiftData の集計だけで動く純関数: 逃げ対象の分野（`TaskDomain`: 人への返信 / お金 / 大きなタスク / 営業 / 書類 / 健康 / その他）別件数、理由（`ReasonCategory`）別割合、前進（`VoiceEntry(kind: progress)`）が記録された日数、対象期間の記録日数。**理由別割合は `reason != nil` の `Commitment` だけを母数にする**（短縮版の朝フローで M1 を飛ばした日は理由を持たない）。
+- **`weeklyReflection` に渡す `WeeklyStats` はこの 4 つに限り、`Commitment.outcome` の内訳（done / partial / notYet の件数）と `shrinkCount` の平均は含めない。** 結果と縮小回数は §10 のとおり `Commitment.outcome` / `Commitment.shrinkCount` に永続化済みであり、必要になれば `Repository` の内部メソッドとして参照する。`WeeklyStats`・`WeeklyInsightView`・LLM プロンプトのいずれにも出さない。達成率の提示は「責めない」原則と衝突するため、結果内訳は設定画面の開発者向け節にだけ表示する（retention-strategy.md §4 の計測項目と同じ扱い）。
 - 振り返り文の目的は **「何から、なぜ逃げるか」を本人が理解すること** に限定する。達成度の評価・激励・次週の目標設定は書かない。
 - 振り返り 1 文: Tier A は集計値だけを LLM に渡して生成（原文は渡さない → トークン節約）。Tier B は上位の理由 × 分野の組み合わせ表から選ぶテンプレート。
 - 分野の判定: Tier A は `@Generable enum TaskDomain` で分類。Tier B はキーワード辞書。
@@ -263,7 +266,7 @@ SAYDO/
 
 | 画面 | 役割 | 状態 |
 |---|---|---|
-| `SessionView`（Today タブの本体） | 朝・昼・夜・手動の会話画面。中央に大きな波形、1 行の質問、状態行（「聞いています…」「考えています…」）。答えを選ばせるチップは M1・N1・E0 の前進なし分岐だけに表示（M2・N3 の一般形 4 つは例示として控えめに置く）。右下に小さなキーボードボタンを常時置く（自動でせり上げない）。「話せない時」モードへの切り替えも同じ場所から。マイク拒否時は画面上部に設定アプリへの導線を出し、昼 N0 では宣言テキストを大きく表示する | `idle` / `speaking`（TTS） / `listening` / `thinking`（LLM） / `choosing`（チップ） / `recordingDeclaration` / `playback` / `done` / `error(micDenied / assetDownloading)` |
+| `SessionView`（Today タブの本体） | 朝・昼・夜・手動の会話画面。中央に大きな波形、1 行の質問、状態行（「聞いています…」「考えています…」）。答えを選ばせるチップは M1・N1・E0 の前進なし分岐だけに表示（M2・N3 の一般形 4 つは例示として控えめに置く）。右下に小さなキーボードボタンを常時置く（自動でせり上げない）。「話せない時」モードへの切り替えも同じ場所から。マイク拒否時は画面上部に設定アプリへの導線を出し、昼 N0 では宣言テキストを大きく表示する。会話開始の最初のフレームから、右下のキーボードボタンと「話せない時」トグルを表示する。どちらかをタップした時点で進行中の TTS を `stopSpeaking(at: .immediate)` で停止し、以降のステップを選択肢 + テキスト経路に切り替える | `idle` / `speaking`（TTS） / `listening` / `thinking`（LLM） / `choosing`（チップ） / `recordingDeclaration` / `playback` / `done` / `error(micDenied / assetDownloading)` |
 | `TodayView` | 通知以外から開いたときの入口。今日の宣言カード（再生ボタン + 行動時刻）と「今話す」ボタン。宣言前は朝フロー、宣言後は手動チェックイン（NoonFlow）を開始 | 宣言前 / 宣言後 / 夜完了 |
 | `TimelineView`（記録タブ） | 日ごとのセクションに 🎙️ + 時刻 + 文字起こし + 再生ボタン。**記録がある日だけを並べ、空白日のプレースホルダは置かない**（R4）。上部に Insight カード（3 件目以降は 1 行インサイト、7 日分そろえば週次） | 空 / 通常 / 再生中 |
 | `WeeklyInsightView` | 「あなたが逃げやすいこと」上位 5、理由の割合、振り返り 1 文。達成率と平均縮小回数は出さない | データ不足（3 件未満） / 1 行インサイト（3 件以上・7 日未満） / 通常 |
@@ -292,6 +295,8 @@ public protocol DialogueEngine: Sendable {
 
 - `@Generable` 型（SaydoAI）: `ReasonClassification { category: ReasonCategory; followUp: String }`、`MicroAction { text: String; estimatedMinutes: Int(@Guide(.range(1...5))) }`、`TaskDomain`（enum）。
 - **`@Guide` に文字数制約は書けない。** `@Guide` で表現できるのは自然文の description と `.anyOf` / `.range` / `.count` などの構造的制約だけなので、**文字数（質問 60 文字以内 / 行動文 40 文字以内）・動詞終わり・疑問形は Guardrails の後段検査で強制する**。`@Guide` 側には「短い疑問文」「5 分以内でできる行動」といった description を置くにとどめる。
+- `proposeMicroActions(avoidance:reason:)` は、`reason` が nil の日（短縮版の朝フローで M1 を飛ばした日）は LLM を呼ばず M2 のテンプレート（本人に言わせる形）を使う。
+- `weeklyReflection(stats:)` に渡す `WeeklyStats` は `domainCounts` / `reasonRatios` / `progressDays` / `recordedDays` の 4 プロパティのみを持つ。達成・未達成の件数と縮小回数は渡さない。
 - 入力の検証: 文字起こしが空、または 2 文字未満なら「もう一度、ゆっくりで大丈夫。」と再入力（最大 2 回、その後は選択肢）。
 - エラー処理: `LanguageModelSession.GenerationError` のうち以下を扱う。`exceededContextWindowSize` → 新しい `LanguageModelSession` を作って 1 回だけ再試行。`guardrailViolation` / `refusal` → その場でテンプレート文に置換して会話を続ける（再試行しない）。`unsupportedLanguageOrLocale` → セッション内で Tier B に固定する。タイムアウト 6 秒 → テンプレート置換。ここに挙げていない case 名は、実在を task_003 で確認するまで書かない（`default:` で受けてテンプレート置換に倒す）。
 - プロンプト予算: 指示 600 文字以内、入力 400 文字以内、出力 200 文字以内。合計で 4,096 トークンを大きく下回る。
@@ -301,7 +306,7 @@ public protocol DialogueEngine: Sendable {
 | モデル | 主なプロパティ | 関係 |
 |---|---|---|
 | `AvoidanceItem` | id, title(本人の言葉), domain(TaskDomain), status(open / carriedOver / dropped / done), createdAt, lastTouchedAt | 1 → 多 `Commitment` |
-| `Commitment` | id, dayKey(yyyy-MM-dd), microActionText, plannedPlace, plannedAt, declarationAudioPath, declarationTranscript, isVoiceless(声なし: マイク拒否 or 宣言を後回し), outcome(pending / done / partial / notYet), shrinkCount, progressNote, createdAt | 多 → 1 `AvoidanceItem`、1 → 多 `VoiceEntry` |
+| `Commitment` | id, dayKey(yyyy-MM-dd), microActionText, plannedPlace, plannedAt, declarationAudioPath, declarationTranscript, isVoiceless(声なし: マイク拒否 or 宣言を後回し), outcome(pending / done / partial / notYet), shrinkCount, progressNote, createdAt。`declarationAudioPath` は M4 で作る `VoiceEntry(kind: declaration)` の `audioPath` と同一ファイルを指す（宣言は Timeline にも並ぶ） | 多 → 1 `AvoidanceItem`、1 → 多 `VoiceEntry` |
 | `VoiceEntry` | id, recordedAt, sessionType, kind(avoidance / reason / declaration / status / blocker / progress / tomorrow), audioPath, transcript, durationSec | 多 → 1 `Commitment`（任意） |
 | `SessionLog` | id, sessionType, startedAt, endedAt, completed, tier(A / B), lastStep, guardrailReplacedCount | なし |
 | `Carryover` | id, forDayKey, text, sourceEntryID | なし |
@@ -337,7 +342,7 @@ public protocol DialogueEngine: Sendable {
 | `Packages/SaydoCore/Sources/SaydoCore/Flows/{FlowMachine,MorningFlow,NoonFlow,NightFlow}.swift` | 作成 | 状態機械。副作用を持たず、入力イベント（`interrupted` を含む）から次の状態と命令（発話 / 聞く / 保存 / 通知登録）を返す | task_005 | medium |
 | `Packages/SaydoCore/Sources/SaydoCore/Dialogue/{DialogueEngine,DialogueCopy,Guardrails}.swift` | 作成 | 契約、全文言（主要 8 文言は 5 種以上の言い換えを配列で持つ）、句パターンによる責めないガード | task_005 | medium |
 | `Packages/SaydoCore/Sources/SaydoCore/Dialogue/{TemplateDialogueEngine,ShrinkLadder,JapaneseTimeParser}.swift` | 作成 | Tier B 実装、一般形の段階表（開く → 一部だけ → 1 行だけ → 置くだけ）、日本語時刻パース | task_005b | medium |
-| `Packages/SaydoCore/Sources/SaydoCore/Notifications/{NotificationPlan,NotificationCopy}.swift` | 作成 | 7 日分の非繰り返しトリガー日時と文言の純計算（昼と行動時刻の重複ルール、「今日は休む」を含む） | task_009 | low |
+| `Packages/SaydoCore/Sources/SaydoCore/Notifications/{NotificationPlan,NotificationCopy}.swift` | 作成 | モードに応じた日数分（既定 30 日 / 3 回モード 16 日）の非繰り返しトリガー日時と文言の純計算（昼と行動時刻の重複ルール、「今日は休む」「今は話せない」を含む） | task_009 | low |
 | `Packages/SaydoCore/Sources/SaydoCore/Insight/InsightCalculator.swift` | 作成 | 週次集計（分野別件数・理由別割合）、3 件目の 1 行インサイト、テンプレート振り返り | task_016 | low |
 | `Packages/SaydoCore/Tests/SaydoCoreTests/*.swift` | 作成 | Domain（task_002）、Flow 3 種 / DialogueCopy / Guardrails（task_005）、TemplateDialogueEngine / ShrinkLadder / JapaneseTimeParser（task_005b）、NotificationPlan（task_009）、InsightCalculator（task_016） | task_002 / 005 / 005b / 009 / 016 | low |
 | `Packages/SaydoAI/Package.swift` | 作成 | FoundationModels に依存するパッケージ（iOS 26 / macOS 26）。`project.yml` への登録もここで行う | task_014 | low |
@@ -368,7 +373,7 @@ public protocol DialogueEngine: Sendable {
 1. **Phase 0**: task_001（環境。4 ターゲットを先に作る）→ task_002（SaydoCore 骨格と `project.yml` への SaydoCore 登録）→ task_003（S-A / S-D: fm-probe）と task_004（S-B / S-C: SpeechSpike）は並行可（task_004 は task_001 の完了だけを待つ）。
 2. **Phase 1**: task_005（Flow + 文言 + Guardrails）→ task_005b（TemplateDialogueEngine + ShrinkLadder + JapaneseTimeParser）→ task_006（SwiftData + AppSettings）→ task_007（音声スタック）→ task_008（朝の SessionView）→ task_009（通知）→ **task_010（昼。完了時点で TestFlight 内部配布 #1 を本人のみに出す。オンボーディングは権限要求だけの状態でよい）** → task_011（夜 + 引き継ぎ）→ task_012（Timeline）→ task_013（Onboarding / Settings / Today 導線）→ task_013b（TestFlight 内部配布 #2 と `docs/dogfood/week1.md` の作成。人間の作業を含む）。
 3. **Phase 1.5**: 7 日間ドッグフーディング（`docs/dogfood/week1.md`）。並行して Phase 2 に着手。
-4. **Phase 2**: task_014（SaydoAI。`project.yml` への SaydoAI 登録を含む）→ task_015（Tier 切替と各ステップへの組み込み）→ task_016（週次分析。**Tier B 経路で成立するため task_013b を待てば着手でき、task_015 は「あれば使う」**）→ task_017（AI 品質回帰ハーネス。**S-A が No-Go の場合はスキップ可**）。
+4. **Phase 2**: task_014（SaydoAI。`project.yml` への SaydoAI 登録を含む）→ task_015（Tier 切替と各ステップへの組み込み）→ task_016（週次分析。**Tier B 経路で成立するため task_013b を待てば着手でき、task_015 は「あれば使う」**）→ task_017（AI 品質回帰ハーネス。**S-A が No-Go の場合はスキップ可**）。S-A が No-Go の場合、Phase 2 は task_016（Tier B のテンプレート振り返りのみ）だけになる。
 5. **Phase 3**: task_018（アクセシビリティと視覚仕上げ）→ task_019（データ管理と復元確認。**復元テストはドッグフーディング 7 日間の後に行う**）→ task_020（審査準備・提出）。task_021（本人の声を通知音にする）は任意。
 6. `project.yml` を変更するタスク（task_001 / 002 / 003 / 004 / 006 / 007 / 014 / 020）は main で `xcodegen generate` を実行する。worktree では `.xcodeproj` を再生成しない。
 
@@ -386,7 +391,7 @@ task_001 完了前にこれらを実行しないこと。
 
 ## 14. Acceptance Criteria
 
-1. オンボーディング完了後、通知をタップしてから **M1 と N1 のチップ以外のタップがゼロ** のまま TTS の質問が始まり、話し始めると自動で録音・認識され、無音で自動終了する（M0・M3・M4 にチップは出ず、M2・N3 の例示は任意）。
+1. オンボーディング完了後、通知をタップしてから **M1 と N1 のチップ以外のタップがゼロ** のまま TTS の質問が始まり、話し始めると自動で録音・認識され、無音で自動終了する（M0・M2・M3・M4 にチップは出ない。「話せない時」モードとマイク拒否時を除く）。
 2. 朝フローで宣言音声が保存され、行動時刻に「朝のあなたからです。」通知が届き、タップすると本人の宣言音声がそのまま再生される。
 3. 昼フローで「まだ」を選ぶと行動がさらに小さくなり、`Commitment` が更新される。
 4. 夜フローの「明日はどうする？」の回答が翌朝の M0 に引き継がれる。

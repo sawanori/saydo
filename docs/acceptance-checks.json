@@ -5,7 +5,7 @@
       "id": "check_001",
       "target": "朝フロー（通知起点）",
       "rule": "オンボーディング完了後、朝の通知をタップしてから宣言保存まで、M1（理由）と N1（状態）のチップ以外のタップがゼロ（マイクボタン・送信・次へ・キーボードのいずれもタップしない）",
-      "expected_result": "TTS の質問が自動で始まり、発話が自動で録音・認識され、無音で自動終了し、M0〜M4 が完走して Commitment と宣言 m4a が保存される。M0・M3・M4 にはチップが出ない",
+      "expected_result": "TTS の質問が自動で始まり、発話が自動で録音・認識され、無音で自動終了し、M0〜M4 が完走して Commitment と宣言 m4a が保存される。M0・M2・M3・M4 にはチップが出ない（「話せない時」モードを除く）",
       "manual_or_automated": "manual",
       "verification_method": "実機で朝通知をタップし、画面録画でタップ回数を数える。M1 と N1 のチップ以外のタップが 0 回であることを確認する（キーボードは常時右下の小ボタンのままで自動表示されない）"
     },
@@ -13,7 +13,7 @@
       "id": "check_002",
       "target": "本人の声を本人に返す",
       "rule": "行動時刻に『朝のあなたからです。』通知が届き、タップすると朝に録音した宣言音声がそのまま再生される",
-      "expected_result": "再生される音声が朝の録音と一致し、再生後に自動で『どうだった？』へ進む",
+      "expected_result": "再生される音声が朝の録音と一致し、再生後に自動で『どうだった？』へ進む。イヤホン接続時はイヤホンから再生され、端末スピーカーからは鳴らない",
       "manual_or_automated": "manual",
       "verification_method": "実機で朝フロー完了後、行動時刻を 3 分後に設定して通知を待ち、再生内容を確認"
     },
@@ -36,8 +36,8 @@
     {
       "id": "check_005",
       "target": "責めない（ガードレール）",
-      "rule": "TTS 文言・通知文言・空状態文言・LLM 出力のいずれにも禁止語（未達成/連続/サボ/怠/ダメ/なぜやらない/失敗/遅い/甘え/言い訳/また逃げ）が含まれない",
-      "expected_result": "DialogueCopy と NotificationCopy の全文言が Guardrails を通過し、LLM 出力は違反時にテンプレートへ置換される",
+      "rule": "TTS 文言・通知文言・空状態文言・LLM 出力のいずれにも禁止句が含まれない。禁止句は「未達成」「N 日連続」（数字 + 日連続）「なぜやらない」「また逃げ」と、断定・非難形の「失敗です／失敗した／ダメです／ダメだ／サボった／サボってる／言い訳だ／甘えだ／甘えてる／怠けてる」。判定は単語の部分一致ではなく句パターンで行い、ユーザーの文字起こしには一切適用しない",
+      "expected_result": "DialogueCopy と NotificationCopy の全文言が Guardrails を通過し、LLM 出力は違反時にテンプレートへ置換される。本人の言葉を受け止める生成文（「失敗してもいい」「ダメでもいい」「遅くていい」「サボってもいい」「言い訳しなくていい」「まず開くだけにしよう」）はすべて Guardrails を通過する",
       "manual_or_automated": "automated",
       "verification_method": "Packages/SaydoCore/Tests/SaydoCoreTests/GuardrailsTests.swift（task_005）と Packages/SaydoAI/Tests/SaydoAITests/FoundationModelsDialogueEngineTests.swift のフォールバックテスト（task_014、scripts/test-core.sh）"
     },
@@ -101,17 +101,17 @@
       "id": "check_013",
       "target": "Voice Timeline",
       "rule": "当日の全 VoiceEntry が時刻順に表示され、各エントリを再生できる",
-      "expected_result": "🎙️ + 時刻 + 文字起こし + 再生が並び、再生は同時に 1 件だけ",
+      "expected_result": "🎙️ + 時刻 + 文字起こし + 再生が並び、再生は同時に 1 件だけ。朝・昼（まだ経路）・夜をすべて通した日は 7 件（avoidance / reason / declaration / status / blocker / progress / tomorrow）が時刻順に並ぶ",
       "manual_or_automated": "manual",
-      "verification_method": "実機で朝・昼・夜を通した後に記録タブを確認"
+      "verification_method": "実機で朝・昼・夜を通した後に記録タブを確認。7 件の kind と並び順を目視で照合する"
     },
     {
       "id": "check_014",
       "target": "週次分析",
-      "rule": "7 日分の固定データで、分野上位と理由の割合が集計と一致する",
+      "rule": "7 日分の固定データで、分野上位と理由の割合が集計と一致する。あわせて、生成された振り返り 1 文に結果数値（件数・％・回数）が含まれないことを検証する",
       "expected_result": "企画書 §11 の例（気まずさ 38% / 完璧主義 27% / 面倒 21% / 不安 14%）を再現するフィクスチャで割合が一致",
       "manual_or_automated": "automated",
-      "verification_method": "Packages/SaydoCore/Tests/SaydoCoreTests/InsightCalculatorTests.swift（scripts/test-core.sh）"
+      "verification_method": "Packages/SaydoCore/Tests/SaydoCoreTests/InsightCalculatorTests.swift（scripts/test-core.sh）、および Packages/SaydoCore/Tests/SaydoCoreTests/GuardrailsTests.swift の振り返り文テスト"
     },
     {
       "id": "check_015",
@@ -140,7 +140,7 @@
     {
       "id": "check_018",
       "target": "モバイルレイアウト",
-      "rule": "iPhone SE（3 世代）と iPhone 17 Pro Max、Dynamic Type xxxLarge で全画面が崩れない",
+      "rule": "iPhone SE（3 世代）と iPhone 17 Pro Max、Dynamic Type xxxLarge で全画面が崩れない。M1 の理由チップ 7 個が iPhone SE（3 世代）× Dynamic Type xxxLarge で、波形と質問文と同じ画面にスクロール無しで収まる",
       "expected_result": "文字の切れ・重なり・横スクロールがない。波形と質問文が 1 画面に収まる",
       "manual_or_automated": "manual",
       "verification_method": "2 サイズ × 2 段階のスクリーンショットを docs/screenshots/ に保存して目視"
@@ -159,7 +159,7 @@
       "rule": "朝は 3 分、昼と夜は 1 分を超えない",
       "expected_result": "ドッグフーディング 7 日間の SessionLog（endedAt - startedAt）の中央値が上限内",
       "manual_or_automated": "manual",
-      "verification_method": "docs/dogfood/week1.md（task_013b で作成）に日別の所要時間を記録して集計"
+      "verification_method": "先行ゲート: task_008 完了時に Tier B、task_015 完了時に Tier A で、それぞれ実機 3 回の朝フローの中央値が 3 分以内であることを docs/PROGRESS.md に記録する。docs/dogfood/week1.md の 7 日間中央値はその後の確認とする。docs/dogfood/week1.md（task_013b で作成）に日別の所要時間を記録して集計"
     },
     {
       "id": "check_021",
@@ -212,7 +212,7 @@
     {
       "id": "check_027",
       "target": "昼フローの入口: 当日の宣言が完了済み",
-      "rule": "Commitment.outcome が done になった時点で当日の固定の昼通知と行動時刻通知が取り消される。完了後に手動で起動した場合は「今日はもう動けてる。」で終了する",
+      "rule": "Commitment.outcome が done または partial になった時点で当日の固定の昼通知と行動時刻通知が取り消される。完了後に手動で起動した場合は「今日はもう動けてる。」で終了する",
       "expected_result": "pending 通知の一覧から当日の昼・行動時刻の識別子が消える。手動起動では質問も再生も出さずに 1 文で終わる",
       "manual_or_automated": "automated",
       "verification_method": "Packages/SaydoCore/Tests/SaydoCoreTests/NotificationPlanTests.swift の当日分取り消しテスト（task_009）と NoonFlowTests.swift の done 分岐（task_005、scripts/test-core.sh）。実機では pending 一覧のデバッグ表示で識別子が消えていることを確認"
@@ -243,11 +243,11 @@
     },
     {
       "id": "check_031",
-      "target": "再生前の確認（イヤホン未接続 + 消音）",
-      "rule": "通知タップ時にイヤホンが未接続で消音スイッチが ON の場合、TTS と宣言音声の再生を始める前に「イヤホンで聞く / 文字で読む」を出す",
-      "expected_result": "確認の前に音が鳴らない（消音スイッチを無視して再生しない）。「文字で読む」を選んだ場合も昼フローが最後まで成立する",
+      "target": "再生前の確認（イヤホン未接続 + 大音量）",
+      "rule": "通知タップ時にイヤホンが未接続で AVAudioSession.outputVolume が 0.3 を超える場合、TTS と宣言音声の再生を始める前に「イヤホンで聞く / 文字で読む」を出す",
+      "expected_result": "確認の前に音が鳴らない（判定を経ずに再生しない）。「文字で読む」を選んだ場合も昼フローが最後まで成立する",
       "manual_or_automated": "manual",
-      "verification_method": "実機で消音スイッチ ON・イヤホン未接続にして行動時刻通知をタップし、音が出る前に確認が表示されることを画面録画で確認する。「文字で読む」経路も 1 回通す"
+      "verification_method": "実機でイヤホン未接続・音量を大きめ（outputVolume > 0.3）にして行動時刻通知をタップし、音が出る前に確認が表示されることを画面録画で確認する。「文字で読む」経路も 1 回通す"
     },
     {
       "id": "check_032",
@@ -260,10 +260,10 @@
     {
       "id": "check_033",
       "target": "通知の再計画（7 日分の非繰り返しトリガー）",
-      "rule": "起動時と宣言時に、今日から 7 日分の通知が非繰り返しトリガーで再計画される",
-      "expected_result": "pending 通知の識別子が morning-yyyyMMdd 等の日付付き形式で 7 日分並び、繰り返しトリガーが 1 件も無い。当日分だけのスキップ・取り消しができる",
+      "rule": "起動時と宣言時に、今日からモードに応じた日数分（既定 30 日 / 3 回モード 16 日）の通知が非繰り返しトリガーで登録される",
+      "expected_result": "pending 通知の識別子が morning-yyyyMMdd 等の日付付き形式でモードに応じた日数分並び、繰り返しトリガーが 1 件も無い。当日分だけのスキップ・取り消しができる",
       "manual_or_automated": "automated",
-      "verification_method": "Packages/SaydoCore/Tests/SaydoCoreTests/NotificationPlanTests.swift の 7 日分再計画テスト（task_009、scripts/test-core.sh）。実機では pending 一覧のデバッグ表示で識別子の日付と repeats = false を確認"
+      "verification_method": "Packages/SaydoCore/Tests/SaydoCoreTests/NotificationPlanTests.swift のモード別日数の再計画テスト（task_009、scripts/test-core.sh）。実機では pending 一覧のデバッグ表示で識別子の日付と repeats = false を確認"
     },
     {
       "id": "check_034",
@@ -312,6 +312,22 @@
       "expected_result": "LLM への入力は分野別件数と理由別割合のみ。結果内訳と平均縮小回数は設定画面の開発者向け節にだけ表示され、振り返り文は「何から、なぜ逃げるか」に限定される",
       "manual_or_automated": "automated",
       "verification_method": "Packages/SaydoCore/Tests/SaydoCoreTests/InsightCalculatorTests.swift の LLM 入力生成テスト（task_016）と Packages/SaydoAI/Tests/SaydoAITests/FoundationModelsDialogueEngineTests.swift のプロンプト検査（task_014、scripts/test-core.sh）。WeeklyInsightView の表示項目は実機で確認"
+    },
+    {
+      "id": "check_040",
+      "target": "出力経路（イヤホン優先）",
+      "rule": "行動時刻通知を AirPods 接続状態でタップすると、宣言音声と TTS が AirPods から鳴り、端末スピーカーからは鳴らない",
+      "expected_result": "AVAudioSession に .defaultToSpeaker が付いておらず、接続中のアクセサリがそのまま出力先になる。有線イヤホンでも同じ結果になる",
+      "manual_or_automated": "manual",
+      "verification_method": "実機で AirPods を接続して行動時刻通知をタップし、音の出所を確認する（task_007 / task_010）。有線イヤホンでも 1 回通す"
+    },
+    {
+      "id": "check_041",
+      "target": "通知アクション「今は話せない」",
+      "rule": "通知の「今は話せない」アクションを選ぶと、同種の通知が 60 分後に 1 件だけ再登録され、Commitment に未達が記録されない。3 回目は登録されない（同日 2 回まで）",
+      "expected_result": "pending 一覧に 60 分後の通知が 1 件だけ増え、Commitment.outcome が変化しない。同日 3 回目の選択では再登録が行われない",
+      "manual_or_automated": "automated",
+      "verification_method": "Packages/SaydoCore/Tests/SaydoCoreTests/NotificationPlanTests.swift の再登録テスト（task_009、scripts/test-core.sh）と、実機の pending 一覧のデバッグ表示"
     }
   ]
 }

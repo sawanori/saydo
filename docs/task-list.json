@@ -90,7 +90,7 @@
       "scope": [
         "Packages/SaydoCore/Package.swift（platforms: iOS 26, macOS 26、Swift 6 strict concurrency）",
         "project.yml に packages.SaydoCore（path: Packages/SaydoCore）を追加し、Saydo / SaydoTests ターゲットの dependencies に package: SaydoCore を登録する",
-        "Domain: SessionType, FlowStep, ReasonCategory(7 種), TaskDomain(7 種), MicroAction, ReasonClassification, DialogueContext, WeeklyStats, CommitmentOutcome",
+        "Domain: SessionType, FlowStep, ReasonCategory(7 種), TaskDomain(7 種), MicroAction, ReasonClassification, DialogueContext, WeeklyStats, CommitmentOutcome。`Commitment` が持つ `ReasonCategory` は optional。`WeeklyStats` は domainCounts / reasonRatios / progressDays / recordedDays の 4 プロパティのみを持つ（達成・未達成の件数と縮小回数は持たない）",
         "各 enum の日本語表示名（displayName）",
         "最小のテスト（enum の網羅と displayName）"
       ],
@@ -173,14 +173,14 @@
         "availability が .available であることを表示。unavailable の場合は理由を記録して S-D の結論とする",
         "supportsLocale(ja_JP) の実在と結果（または代替判定）を記録する",
         "20 件を流し、出力・時間・exceededContextWindowSize の有無を記録",
-        "禁止句（「未達成」「N 日連続」「サボ」「怠け」「言い訳」「甘え」「なぜやらない」「また逃げ」、および断定形の「失敗です」「ダメです」）を含んだ出力の件数を数える",
+        "禁止句（「未達成」「N 日連続」「なぜやらない」「また逃げ」、および断定・非難形の「失敗です」「失敗した」「ダメです」「ダメだ」「サボった」「サボってる」「言い訳だ」「甘えだ」「甘えてる」「怠けてる」）を含んだ出力の件数を数える",
         "docs/spikes/fm-probe.md に Go / No-Go と、No-Go 時の代替（Tier B 固定 / iOS 27 PrivateCloudCompute / Claude API + プロキシ）を記入"
       ],
       "done_definition": [
         "docs/spikes/fm-probe.md に 20 件の入力・出力・所要時間・採点が表になっている",
         "S-A の数値基準に対する判定が書かれている: 20 件中 16 件以上が採用可、禁止句 0 件、1 呼び出しの所要時間 p50 が 4 秒以内。3 つすべてを満たせば Go",
         "supportsLocale(ja_JP) の実在可否と判定結果（または代替判定の内容）が記録されている",
-        "Go / No-Go が明記され、No-Go の場合は Phase 2 の扱い（Tier B 固定）が書かれている",
+        "Go / No-Go が明記されている。No-Go の場合は同じセッション内で docs/task-list.json を編集し、task_014・task_015・task_017 に \"skipped_reason\": \"S-A No-Go\" を付け、task_016 の Tier A 項目を落とすところまでを完了条件とする",
         "シミュレータでの可否が記録されている"
       ],
       "verify_commands": [
@@ -199,7 +199,8 @@
         "AVAudioFile への AAC 書き込みと SpeechAnalyzer への供給を同一タップで行う。SpeechAnalyzer 側へは SpeechAnalyzer.bestAvailableAudioFormat(compatibleWith:) が返す形式へ AVAudioConverter で変換し、AnalyzerInput(buffer:) を生成して AsyncStream に流す（AnalyzerInputConverter は iOS 26.2 SDK に無い前提。実在した場合は差し替え可否を記録する）",
         "マイク権限のみで動くこと（音声認識権限ダイアログが出ないこと）の確認",
         "ローカル通知を 10 秒後に登録し、タップから TTS 開始までの時間を 5 回計測",
-        "AVAudioSession のカテゴリ・モード・Bluetooth オプションの iOS 26.2 SDK での正式名を確認して記録"
+        "AVAudioSession のカテゴリ・モード・Bluetooth オプションの iOS 26.2 SDK での正式名を確認して記録",
+        "AirPods / Bluetooth ヘッドセット接続時に確立される経路（HFP か、A2DP + 内蔵マイクか）を currentRoute で記録し、その経路での 10 文正答数と宣言録音の聴感品質を、内蔵マイク時の値と並べて計測する"
       ],
       "non_scope": [
         "本番 UI",
@@ -232,7 +233,8 @@
         "docs/spikes/speech-spike.md に、ja-JP 対応可否、権限ダイアログの種類、認識精度の所感（10 文の正答数）、無音停止の推奨秒数、通知タップから TTS 開始までの 5 回の計測値、採用する AVAudioSession 設定が記録されている",
         "S-B の数値基準に対する判定が書かれている: 10 文中 8 文が意味の通る文字起こし、無音停止の誤作動が 10 回中 1 回以下、通知タップから TTS 開始まで 1.5 秒以内が 5 回中 4 回。3 つすべてを満たせば Go",
         "AnalyzerInputConverter を使わず AVAudioConverter + AnalyzerInput(buffer:) で供給できたことが記録されている",
-        "Go / No-Go が明記され、No-Go なら SFSpeechRecognizer フォールバックの採用を記述している"
+        "Go / No-Go が明記され、No-Go なら SFSpeechRecognizer フォールバックの採用を記述している",
+        "docs/spikes/speech-spike.md に Bluetooth 経路と内蔵マイク経路の 2 条件の正答数が並んで記録されている"
       ],
       "verify_commands": [
         "scripts/build-ios.sh SpeechSpike"
@@ -254,10 +256,11 @@
         "昼フローの入口 3 状態を FlowMachine の入口分岐として持つ: (1) 当日の Commitment が無い → 短縮版の朝フロー（M0 → M2 → M4、理由は聞かない）、(2) outcome == done 済み → 「今日はもう動けてる。」で終了、(3) 現在時刻 < plannedAt → 「◯時の約束、まだ生きてる？」（はい / 時間を変える）",
         "NightFlow（E0〜E1）。E0 の前進なし分岐は「今日はそういう日。明日、もっと小さくしよう。」+ チップ 2 つ（もっと小さくする / 明日に回す）のみ。6 選択肢は昼 N3（再縮小）と翌朝 M0 の引き継ぎ確認で使う",
         "DialogueCopy: 企画書 §6〜§9・§15 の全文言を定数化。主要 8 文言は 5 種類以上の言い換えを配列で持ち、直近 3 日に使った文言を避けて選ぶ関数を用意する。ユーザー自身の名詞（「見積書」「クライアント」）を差し込める形にする（retention R5）",
-        "チップの表示範囲: M1（理由）・N1（状態）・E0 の前進なし分岐のみ。M0 / M3 / M4 はチップ無し。無音 5 秒で出すのは「長く考えなくていい。10 秒で答えて。」の一言だけ",
-        "Guardrails: 禁止語は単語の部分一致ではなく句パターン（「未達成」「N 日連続」「サボ」「怠け」「言い訳」「甘え」「なぜやらない」「また逃げ」）で検査する。「失敗」「ダメ」は「失敗です」「ダメです」などの断定形のみ対象。生成文にのみ適用し、ユーザーの文字起こしには適用しない。形式規則（質問は 60 文字以内で疑問形、行動文は 40 文字以内で動詞終わり）と違反時のテンプレート置換",
+        "チップの表示範囲: M1（理由）・N1（状態）・E0 の前進なし分岐のみ。M0 / M2 / M3 / M4 はチップ無し（「話せない時」モードとマイク拒否時を除く）。無音 5 秒で出すのは「長く考えなくていい。10 秒で答えて。」の一言だけ",
+        "Guardrails: 禁止語は単語の部分一致ではなく句パターン（「未達成」「N 日連続」「なぜやらない」「また逃げ」）で検査する。「失敗」「ダメ」「サボ」「言い訳」「甘え」「怠け」は「失敗です」「失敗した」「ダメです」「ダメだ」「サボった」「サボってる」「言い訳だ」「甘えだ」「甘えてる」「怠けてる」の断定・非難形のみを対象にする。生成文にのみ適用し、ユーザーの文字起こしには適用しない。形式規則（質問は 60 文字以内で疑問形、行動文は 40 文字以内で動詞終わり、振り返り 1 文は 80 文字以内の平叙文で数字を含まない）と違反時のテンプレート置換",
         ".claude/workflows/copy-audit.js を実行し、指摘された文言を修正する",
-        "各コンポーネントのテスト"
+        "各コンポーネントのテスト",
+        "MorningFlow は M1 で save(VoiceEntry(kind: reason))、NoonFlow は N1 で save(VoiceEntry(kind: status)) の命令を返す。M2 / M3 / N3 は save 命令を返さない"
       ],
       "non_scope": [
         "音声・UI・SwiftData",
@@ -300,7 +303,9 @@
         "DialogueCopy と NotificationCopy 相当の全文言が Guardrails を通過するテストがある",
         "主要 8 文言に 5 種以上のバリエーションがあり、3 日以内に同じ文言が繰り返されないことのテストがある",
         "interrupted で中断した後、同じ FlowStep から再開できるテストがある",
-        "copy-audit.js の実行結果が指摘 0 件（指摘があった場合は修正して再実行し 0 件にした記録がある）"
+        "copy-audit.js の実行結果が指摘 0 件（指摘があった場合は修正して再実行し 0 件にした記録がある）",
+        "MorningFlowTests / NoonFlowTests / NightFlowTests で、各フローが save 命令を出すステップが M0・M1・M4 / N1・N2 / E0・E1 の 7 つだけであることを固定するテストがある",
+        "GuardrailsTests に false positive 固定フィクスチャ（「失敗してもいい」「ダメでもいい」「遅くていい」「サボってもいい」「言い訳しなくていい」「まず開くだけにしよう」）があり、いずれも通過することをテストで固定している"
       ],
       "verify_commands": [
         "scripts/test-core.sh"
@@ -423,14 +428,15 @@
       "title": "音声スタック（録音 + SpeechAnalyzer + 無音停止 + TTS + 再生 + 波形）",
       "goal": "SpeechSpike の成果をアプリ本体の再利用可能なサービス群に昇格させる",
       "scope": [
-        "AudioSessionController: カテゴリ/モード/オプションの一元管理、割り込み・経路変更の処理、消音スイッチを尊重する（`.ambient` 相当の挙動は使わず、再生前に確認する）",
+        "AudioSessionController: カテゴリ/モード/オプションの一元管理（`.defaultToSpeaker` は付けず、再生直前に currentRoute.outputs で出力経路を判定して accessory / speaker / receiver を返す）、割り込み・経路変更の処理。`.ambient` / `.soloAmbient` は Ring/Silent スイッチで消音されるカテゴリであり押し通す側ではない。本アプリが使う `.playAndRecord` はスイッチの影響を受けないため、消音の尊重は OS ではなくアプリ側の確認 UI で行う",
         "VoiceCapture: 1 タップから AVAudioFile(AAC) と AnalyzerInput と RMS へ分配。start/stop、最大 20 秒（宣言は 30 秒）。installTap のクロージャは nonisolated のまま扱い、クロージャ内では AsyncStream の continuation に yield するだけにする（actor 化はしない）。状態変更はすべて @MainActor 側で行う",
         "SilenceDetector: 設定秒数の無音で終了イベント",
         "TranscriptionService: SpeechTranscriber のライフサイクル、ja-JP アセットの確認とダウンロード、確定結果の取得",
         "SpeechSynthesisService: ja-JP 音声の選択（enhanced/premium を優先）、発話完了の async 待機、発話中フラグ",
         "VoicePlayer: m4a 再生と完了通知",
         "WaveformSampler: 描画用のレベル履歴（@Observable）",
-        "UI なしの結合テスト（録音ファイルが生成され再生できる）は実機で手動確認"
+        "UI なしの結合テスト（録音ファイルが生成され再生できる）は実機で手動確認",
+        "SpeechSynthesisService と VoicePlayer は発話・再生の直前に AudioSessionController へ出力経路の判定を要求し、その戻り値（accessory / speaker / receiver）に従う"
       ],
       "non_scope": [
         "画面",
@@ -486,10 +492,11 @@
         "状態: idle / speaking / listening / thinking / choosing / recordingDeclaration / done / error",
         "タイムボックス（朝 3 分）と 5 秒無音の催促、さらに 10 秒でその質問をスキップ",
         "SessionLog の記録（開始・終了・完走・tier・lastStep）",
-        "M1（理由の発話）を VoiceEntry(kind: reason) として保存する（音声で答えた場合。選択肢のみの場合は保存しない）",
+        "M1（理由の発話）を VoiceEntry(kind: reason) として保存する（入力方式に依らず保存する。チップ回答は audioPath なし・transcript にチップの文言）",
         "『話せない時』モードの UI: M0〜M3 を選択肢 + 短いテキスト入力で完走でき、M4 の宣言だけを『後で声で』に回せる（retention R1。後回し時の 1 回通知の登録は task_009）",
         "M0 の文字起こし訂正動線（retention R7）: 文字起こしを 1 行だけ表示し、違えば 1 タップで再録音できる。音声ファイルが主で文字起こしは従とし、分類に失敗しても会話を止めない",
-        "マイク拒否時: テキストで完走できるが Commitment に『声なし』フラグを付け、設定アプリへの導線を出す"
+        "マイク拒否時: テキストで完走できるが Commitment に『声なし』フラグを付け、設定アプリへの導線を出す",
+        "会話開始の最初のフレームから、右下のキーボードボタンと「話せない時」トグルを表示する。どちらかをタップした時点で進行中の TTS を stopSpeaking(at: .immediate) で停止し、以降のステップを選択肢 + テキスト経路に切り替える"
       ],
       "non_scope": [
         "通知登録（task_009）",
@@ -530,7 +537,10 @@
         "M4 完了時に m4a と Commitment が保存されている",
         "SessionLog に開始・終了・完走・tier・lastStep が記録されている",
         "M0 の文字起こしが 1 行表示され、1 タップで再録音できる",
-        "SessionViewModelTests が緑"
+        "SessionViewModelTests が緑",
+        "朝フロー完走後、当日の VoiceEntry が 3 件（avoidance / reason / declaration）保存されている（入力方式に依らず 3 件）",
+        "M1 の理由チップ 7 個が iPhone SE（3 世代）× Dynamic Type xxxLarge で、波形と質問文と同じ画面にスクロール無しで収まる",
+        "実機で朝フロー（Tier B）を 3 回通し、SessionLog の endedAt - startedAt の中央値が 3 分以内である。超えた場合はどのステップで何秒使ったかを docs/PROGRESS.md に記録し、DialogueCopy の短縮で対処してから再計測する"
       ],
       "verify_commands": [
         "scripts/build-ios.sh",
@@ -543,16 +553,18 @@
       "title": "ローカル通知（既定 2 回 + 行動時刻 / 任意 3 回モード）とディープリンク起動",
       "goal": "通知をタップするだけで該当フローが自動開始する経路を作る",
       "scope": [
-        "SaydoCore/Notifications: NotificationPlan（今日から 7 日分のトリガー日時の純計算、昼と行動時刻が 30 分以内なら昼をスキップ、週末オフ）、NotificationCopy（§15 の文言、昼は日替わり交互）",
+        "SaydoCore/Notifications: NotificationPlan（今日からモードに応じた日数分〈既定 2 回モードなら 30 日分、3 回モードなら 16 日分〉のトリガー日時の純計算、昼と行動時刻が 30 分以内なら昼をスキップ、週末オフ）、NotificationCopy（§15 の文言、昼は日替わり交互）",
         "既定の通知は朝 + 行動時刻の 2 回。昼の固定通知と夜の通知は設定で追加する『3 回モード』にする。週末は既定でオフにできる（retention R2。設定 UI は task_013）",
-        "繰り返し UNCalendarNotificationTrigger では当日分のスキップができないため、毎回の起動時と宣言時に、今日から 7 日分を非繰り返しトリガーで再計画する（識別子は morning-yyyyMMdd 等の規約に従う）",
+        "繰り返し UNCalendarNotificationTrigger では当日分のスキップができないため、毎回の起動時と宣言時に、今日からモードに応じた日数分（1 日あたりの固定通知本数 × 日数 ≤ 50 件に収まる最長日数。既定 2 回モードなら 30 日分、3 回モードなら 16 日分）を非繰り返しトリガーで再計画する（識別子は morning-yyyyMMdd 等の規約に従う）",
         "通知アクション『今日は休む』（UNNotificationAction）を追加し、長押しから 1 タップで休める。休みは記録上『失敗』にせず、Timeline にも表示しない（retention R3）",
         "起動ごとに通知許可状態と pending 一覧を確認し、拒否・失効時は Today 画面に再許可の導線を出す",
         "行動時刻通知は Time Sensitive エンタイトルメントを追加して `.timeSensitive` にする",
         "NotificationScheduler: 再計画（設定変更時・起動時・宣言時）、行動時刻の 1 回通知、識別子規約、古い識別子の除去",
         "AppDelegate: UNUserNotificationCenterDelegate。フォアグラウンド受信時の表示方針、didReceive → AppRouter、通知アクションの処理",
         "AppRouter: sessionType と commitmentID から SessionView を直接表示",
-        "NotificationPlan / NotificationCopy のテスト（Guardrails 通過を含む）"
+        "NotificationPlan / NotificationCopy のテスト（Guardrails 通過を含む）",
+        "実機で pendingNotificationRequests の件数を確認し、登録できた上限を docs/PROGRESS.md に記録する",
+        "UNNotificationCategory / UNNotificationAction の登録と didReceive の actionIdentifier 分岐。アクションは「今日は休む」と「今は話せない」の 2 つ。「今は話せない」は同じ通知を 60 分後に 1 件だけ再登録し（同日 2 回まで）、Commitment には未達を記録しない"
       ],
       "non_scope": [
         "プッシュ通知",
@@ -580,8 +592,8 @@
         "task_008"
       ],
       "implementation_steps": [
-        "NotificationPlan を純関数で実装しテスト（7 日分の非繰り返し計画、重複ルール、週末オフ、翌日繰り越し、時刻変更、3 回モードの増減）",
-        "NotificationScheduler を実装し、起動時と宣言時に 7 日分を再計画。朝の M4 完了で行動時刻通知（.timeSensitive）を登録",
+        "NotificationPlan を純関数で実装しテスト（モードに応じた日数分（既定 30 日 / 3 回モード 16 日）の非繰り返し計画、重複ルール、週末オフ、翌日繰り越し、時刻変更、3 回モードの増減）",
+        "NotificationScheduler を実装し、起動時と宣言時にモードに応じた日数分（既定 30 日 / 3 回モード 16 日）を再計画。朝の M4 完了で行動時刻通知（.timeSensitive）を登録",
         "『今日は休む』アクションを登録し、タップ時に当日分の残りの通知を取り消して休みとして記録する",
         "起動時に notificationSettings と pendingNotificationRequests を確認し、拒否・失効時のフラグを Today 画面に渡す",
         "AppDelegate と AppRouter を実装し、通知タップ → SessionView 直行を実機で確認",
@@ -589,7 +601,7 @@
       ],
       "done_definition": [
         "実機で既定の 2 通知（朝 + 行動時刻）が届き、3 回モードに切り替えると昼・夜も届く。いずれもタップで該当フローが自動開始する",
-        "pending 一覧に今日から 7 日分の非繰り返しトリガーが登録されており、当日分だけをスキップできる",
+        "pending 一覧に今日からモードに応じた日数分（既定 30 日 / 3 回モード 16 日）の非繰り返しトリガーが登録されており、当日分だけをスキップできる",
         "通知の長押しから『今日は休む』が選べ、休んだ日が Timeline に表示されない",
         "通知許可が拒否・失効した状態で起動すると Today 画面に再許可の導線が出る",
         "行動時刻通知が朝の宣言後に .timeSensitive で登録される",
@@ -608,14 +620,15 @@
       "goal": "『朝のあなたからです』の象徴体験を完成させ、本人の実機に最初のビルドを入れる",
       "scope": [
         "PlaybackCardView: 『朝のあなたからです。』表示 → 宣言音声再生 → 『どうだった？』",
-        "再生前の配慮（retention R8）: イヤホン未接続かつ消音スイッチ ON の場合、TTS と再生を始める前に『イヤホンで聞く / 文字で読む』を出す。『文字で読む』でも体験が成立する",
+        "再生前の配慮（retention R8）: イヤホン未接続かつ AVAudioSession.outputVolume が 0.3 を超える場合、TTS と再生を始める前に『イヤホンで聞く / 文字で読む』を出す。『文字で読む』でも体験が成立する",
         "声なし Commitment（マイク拒否でテキスト完走した宣言）の場合は、TTS で読み上げず、本人の宣言テキストを画面に大きく表示して『朝のあなたからです。』を添える",
-        "昼フローの入口 3 状態の配線: (1) 当日の Commitment が無い → 短縮版の朝フロー（M0 → M2 → M4）を開く、(2) outcome == done 済み → 固定の昼通知と行動時刻通知を取り消し、手動起動時は『今日はもう動けてる。』で終了、(3) 現在時刻 < plannedAt → 『どうだった？』を出さず、固定の昼通知は送らず行動時刻通知だけを送る。手動起動時は『◯時の約束、まだ生きてる？』（はい / 時間を変える）",
-        "N1（状態の発話）を VoiceEntry(kind: status) として保存する（音声で答えた場合）",
+        "昼フローの入口 3 状態の配線: (1) 当日の Commitment が無い → 短縮版の朝フロー（M0 → M2 → M4）を開く、(2) outcome == done / partial 済み → その日の noon-yyyyMMdd と action-yyyyMMdd を取り消し、手動起動時は『今日はもう動けてる。』で終了、(3) 現在時刻 < plannedAt → 『どうだった？』を出さず、固定の昼通知は送らず行動時刻通知だけを送る。手動起動時は『◯時の約束、まだ生きてる？』（はい / 時間を変える）",
+        "N1（状態の発話）を VoiceEntry(kind: status) として保存する（入力方式に依らず保存する。チップ回答は audioPath なし・transcript にチップの文言）",
         "N1〜N3 の配線（やった / 少しやった / まだ、blocker 録音、ShrinkLadder での再縮小、Commitment 更新、通知の再登録）。『少しやった』は前進として扱い『それを今日の前進として残すね。』で終了する（outcome = partial、N2 に進まない）",
         "TodayView からの手動チェックイン（adhoc）でも同じフローを使う",
         "昼フローが 1 分を超えない",
-        "TestFlight 内部配布 #1（本人のみ。オンボーディングは権限要求だけの最小構成でよい）"
+        "TestFlight 内部配布 #1（本人のみ。オンボーディングは権限要求だけの最小構成でよい）",
+        "PlaybackCardView は宣言テキストを常に画面に表示し、「耳に当てて聞く」（受話口 + 近接検知）を「聞く」と並べて置く"
       ],
       "non_scope": [
         "AI による再縮小（task_015）",
@@ -643,7 +656,7 @@
       ],
       "implementation_steps": [
         "SessionViewModel に NoonFlow の命令（play / 選択肢 / shrink / reschedule）と入口 3 状態の分岐を配線",
-        "出力経路と消音スイッチの状態を見て『イヤホンで聞く / 文字で読む』を出す ListenModeSheet を実装",
+        "出力経路と AVAudioSession.outputVolume を見て『イヤホンで聞く / 文字で読む』を出す ListenModeSheet を実装",
         "PlaybackCardView を実装し、再生完了後に自動で『どうだった？』へ進める。声なし Commitment はテキスト表示に切り替える",
         "TodayView を実装（宣言カード + 今話す + 通知再許可の導線）",
         "テスト: まだ → blocker → 縮小 → shrinkCount が 1 増える。少しやった → outcome = partial で終了。入口 3 状態それぞれの分岐",
@@ -651,11 +664,12 @@
       ],
       "done_definition": [
         "行動時刻通知をタップすると本人の宣言音声が再生され、その後の状態確認が完走する",
-        "イヤホン未接続かつ消音スイッチ ON のとき、再生前に『イヤホンで聞く / 文字で読む』が出る",
+        "イヤホン未接続かつ AVAudioSession.outputVolume が 0.3 を超えるとき、再生前に『イヤホンで聞く / 文字で読む』が出る",
         "声なし Commitment では宣言テキストが大きく表示され、TTS で読み上げない",
         "『まだ』で行動文が更新され Commitment.shrinkCount が増える。『少しやった』は outcome = partial で終了する",
         "SessionViewModelTests に昼フローの 3 分岐と入口 3 状態のテストがある",
-        "TestFlight 内部配布 #1 が完了し、ビルド番号が docs/PROGRESS.md に記録されている"
+        "TestFlight 内部配布 #1 が完了し、ビルド番号が docs/PROGRESS.md に記録されている",
+        "昼フローの「まだ」経路を完走すると当日の VoiceEntry が 2 件（status / blocker）増える"
       ],
       "verify_commands": [
         "scripts/build-ios.sh",
@@ -720,7 +734,8 @@
         "記録がある日だけを表示し、空白日のプレースホルダを置かない。『今日は休む』を選んだ日も表示しない（retention R4 / R3）",
         "再生中の行の強調、同時再生の禁止",
         "空状態の文言（責めない）",
-        "TabView（今日 / 記録）の導入"
+        "TabView（今日 / 記録）の導入",
+        "audioPath が nil のエントリ（チップ回答）は再生ボタンを出さず文字起こしだけを表示する"
       ],
       "non_scope": [
         "編集・削除 UI（全削除は task_019）",
@@ -769,7 +784,8 @@
         "SettingsView: 通知時刻、通知の『3 回モード』切替（既定は朝 + 行動時刻の 2 回）、週末オフ、『一人で話せる時間』、TTS 音声選択（高品質音声の案内）、無音秒数、開発者向け節（SessionLog 由来の完走率・宣言の結果内訳・平均縮小回数）、（書き出し・全削除は task_019 のプレースホルダ）",
         "iCloud バックアップが無効な場合は音声が端末のみに残る旨を、オンボーディングと設定画面に表示する",
         "AppSettings（task_006 で作成済み）を読み書きする UI のみを作る",
-        ".claude/workflows/phase-gate.js を実行し、Phase 1 の合格条件を満たすまで修正する"
+        ".claude/workflows/phase-gate.js を実行し、Phase 1 の合格条件を満たすまで修正する",
+        "SettingsView に「話せない時を自動で使う時間帯」（既定オフ、オンにした場合の既定 9:00–18:00）を追加。その時間帯に開いたセッションは最初から選択肢 + テキスト経路で始め、TTS を文字表示 + 短いハプティクスに置換し、マイクは自動で開かない"
       ],
       "non_scope": [
         "AppSettings 自体の作成（task_006）",
@@ -824,13 +840,14 @@
       "goal": "Phase 1 の全機能が入ったビルドを本人の実機に入れ、7 日間の観察記録の雛形を用意する",
       "scope": [
         "TestFlight 内部配布 #2（Archive → App Store Connect → 内部テスト）。task_010 の配布 #1 の後継",
-        "docs/dogfood/week1.md の雛形作成: 日付、所要時間、詰まった箇所、文言の違和感、修正案の記入欄に加えて、retention-strategy.md §5 の仮説 H1〜H5 の記入欄を持つ",
+        "docs/dogfood/week1.md の雛形作成: 日付、所要時間、詰まった箇所、文言の違和感、修正案の記入欄に加えて、retention-strategy.md §5 の仮説 H1〜H5 と H6 の記入欄を持つ",
         "H1: 朝セッションは自宅で出発前に収まる（3 分以内、7 日中 5 日以上）",
         "H2: 行動時刻の『朝のあなたからです』は、聞いて嫌にならない（7 日中、嫌だった日を記録）",
         "H3: 声を出せなかった日が何日あり、R1 の代替で完走できたか",
         "H4: 3 日目のインサイト 1 行に『なるほど』があったか",
         "H5: 空白日の翌日に、再入場の文言で戻れたか",
-        "7 日間のドッグフーディング開始（人間の作業。Phase 2 は並行して進める）"
+        "7 日間のドッグフーディング開始（人間の作業。Phase 2 は並行して進める）",
+        "H6: ja-JP の既定音声のままで「相棒の声」として 7 日間使えたか（機械音が気になった日を記録し、気になる日が 3 日以上なら SettingsView の高品質音声案内を先頭に出す）"
       ],
       "non_scope": [
         "外部テスター配布（task_020）",
@@ -851,13 +868,13 @@
         "task_013"
       ],
       "implementation_steps": [
-        "docs/dogfood/week1.md を H1〜H5 の記入欄付きで作成する",
+        "docs/dogfood/week1.md を H1〜H6 の記入欄付きで作成する",
         "Archive し TestFlight 内部テストに配布する（人間の作業）",
         "ビルド番号を docs/dogfood/week1.md と docs/PROGRESS.md に記載し、7 日間のドッグフーディングを開始する"
       ],
       "done_definition": [
         "TestFlight 内部ビルド #2 が配布済みで、ビルド番号が docs/dogfood/week1.md に記載されている",
-        "docs/dogfood/week1.md に H1〜H5 の仮説と日々の記入欄がある",
+        "docs/dogfood/week1.md に H1〜H6 の仮説と日々の記入欄がある",
         "ドッグフーディングの開始日が記録されている"
       ],
       "verify_commands": [
@@ -931,7 +948,7 @@
       "goal": "対応端末では AI が追加質問・細分化・再縮小を担い、非対応端末では従来どおり動く",
       "scope": [
         "起動時に ModelAvailability で Tier を決定し SessionLog.tier に記録",
-        "M1: AI の追加質問（Tier A）/ 選択肢（Tier B）。AI 回答後も『一番近いのはどれ？』の選択肢を補助表示",
+        "M1: AI の追加質問（Tier A）/ 選択肢（Tier B）。Tier A では AI の質問と同時にチップを出さず、5 秒の催促を挟んでも音声入力が無い場合にだけ ReasonCategory 7 種のチップを出す",
         "M2: AI の 3 案から 1 案目を読み上げ、選択肢で他案と『もっと小さく』",
         "N3: blocker を踏まえた AI 再縮小",
         "thinking 状態の表示（『考えています…』、6 秒でテンプレートに切替）",
@@ -964,7 +981,8 @@
       "done_definition": [
         "対応機で AI の追加質問と 3 案が出る。非対応機では Tier B のまま完走する",
         "AI 失敗時にも会話が止まらないテストが緑",
-        "SessionLog に tier と置換件数が記録される"
+        "SessionLog に tier と置換件数が原因別（禁止句 / 形式 / タイムアウト / refusal・コンテキスト超過）に記録され、実機 5 回で禁止句由来の置換が 0 件である",
+        "Tier A の実機で朝フローを 3 回通し、中央値が 3 分以内である（M1・M2 の thinking 待ちを含めても超えない）。超える場合は M2 の LLM 呼び出しだけを Tier B に固定する"
       ],
       "verify_commands": [
         "scripts/build-ios.sh",
@@ -977,11 +995,11 @@
       "title": "週次分析（InsightCalculator + WeeklyInsightView）",
       "goal": "『何から逃げているか』を分野と理由で可視化し、1 文の振り返りを出す",
       "scope": [
-        "SaydoCore/Insight/InsightCalculator: 分野別件数、理由別割合、テンプレート振り返り。宣言の結果内訳と平均縮小回数は WeeklyStats（LLM に渡す型）から除き、設定画面の開発者向け節にだけ表示する",
+        "SaydoCore/Insight/InsightCalculator: 分野別件数、理由別割合、前進（VoiceEntry(kind: progress)）が記録された日数、記録日数、テンプレート振り返り。理由別割合は reason != nil の Commitment だけを母数にする。宣言の結果内訳と平均縮小回数は WeeklyStats（LLM に渡す型）から除き、設定画面の開発者向け節にだけ表示する",
         "Repository.weeklyStats の実装（LLM に渡すのは分野別件数と理由別割合のみ）",
         "WeeklyInsightView: 上位 5 分野、理由の割合、振り返り 1 文。3 日未満はデータ不足表示",
         "初回インサイトを 3 件目で出す（retention R9）: 「3 回のうち 2 回が『人への返信』」のような 1 行を、週次を待たずに Timeline 上部に出す",
-        "Tier A では weeklyReflection を AI で生成（集計値のみ渡す）。振り返り文の目的は「何から、なぜ逃げるか」の理解に限定する",
+        "Tier A（task_015 を実施した場合のみ）では weeklyReflection を AI で生成する（集計値のみ渡す）。task_015 未実施の場合は InsightCalculator のテンプレート振り返りだけで足りる。振り返り文の目的は「何から、なぜ逃げるか」の理解に限定する",
         "InsightCalculator のテスト"
       ],
       "non_scope": [
@@ -1019,7 +1037,10 @@
         "WeeklyStats に結果内訳と平均縮小回数が含まれず、設定の開発者向け節にだけ表示される",
         "3 件目のデータで 1 行インサイトが Timeline 上部に出る",
         "実機で Insight カードが表示される",
-        "データ不足時の文言が責めない"
+        "データ不足時の文言が責めない",
+        "WeeklyStats に done / partial / notYet の件数と縮小回数の平均を表すプロパティが存在しないことをテストで固定する",
+        "Tier A / Tier B の振り返り文がいずれも数字を含まないことを GuardrailsTests で固定する",
+        "S-A が No-Go で task_015 を実施しない場合は、テンプレート振り返りのみで完了と判定する"
       ],
       "verify_commands": [
         "scripts/test-core.sh",
