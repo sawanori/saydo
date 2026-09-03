@@ -1,0 +1,97 @@
+[0/1] Planning build
+Building for debugging...
+[0/2] Write swift-version--58304C5D6DBC2206.txt
+[1/3] Write Objects.LinkFileList
+[2/3] Linking SaydoAIPackageTests
+Build complete! (0.67s)
+Test Suite 'All tests' started at 2026-09-04 06:28:47.764.
+Test Suite 'SaydoAIPackageTests.xctest' started at 2026-09-04 06:28:47.765.
+Test Suite 'FoundationModelsDialogueEngineFallbackTests' started at 2026-09-04 06:28:47.765.
+Test Case '-[SaydoAITests.FoundationModelsDialogueEngineFallbackTests testClassifyDomainFallsBackToTemplate]' started.
+Test Case '-[SaydoAITests.FoundationModelsDialogueEngineFallbackTests testClassifyDomainFallsBackToTemplate]' passed (0.006 seconds).
+Test Case '-[SaydoAITests.FoundationModelsDialogueEngineFallbackTests testClassifyReasonFallsBackToTemplate]' started.
+Test Case '-[SaydoAITests.FoundationModelsDialogueEngineFallbackTests testClassifyReasonFallsBackToTemplate]' passed (0.004 seconds).
+Test Case '-[SaydoAITests.FoundationModelsDialogueEngineFallbackTests testExceededContextWindowSizeRetriesOnce]' started.
+Test Case '-[SaydoAITests.FoundationModelsDialogueEngineFallbackTests testExceededContextWindowSizeRetriesOnce]' passed (0.003 seconds).
+Test Case '-[SaydoAITests.FoundationModelsDialogueEngineFallbackTests testFallbackCauseIsRecorded]' started.
+Test Case '-[SaydoAITests.FoundationModelsDialogueEngineFallbackTests testFallbackCauseIsRecorded]' passed (0.004 seconds).
+Test Case '-[SaydoAITests.FoundationModelsDialogueEngineFallbackTests testFallbackFailurePropagates]' started.
+Test Case '-[SaydoAITests.FoundationModelsDialogueEngineFallbackTests testFallbackFailurePropagates]' passed (0.004 seconds).
+Test Case '-[SaydoAITests.FoundationModelsDialogueEngineFallbackTests testFollowUpQuestionFallsBackToTemplate]' started.
+Test Case '-[SaydoAITests.FoundationModelsDialogueEngineFallbackTests testFollowUpQuestionFallsBackToTemplate]' passed (0.004 seconds).
+Test Case '-[SaydoAITests.FoundationModelsDialogueEngineFallbackTests testGenerationErrorPolicy]' started.
+Test Case '-[SaydoAITests.FoundationModelsDialogueEngineFallbackTests testGenerationErrorPolicy]' passed (0.000 seconds).
+Test Case '-[SaydoAITests.FoundationModelsDialogueEngineFallbackTests testGuardrailViolationFallsBackWithoutRetry]' started.
+Test Case '-[SaydoAITests.FoundationModelsDialogueEngineFallbackTests testGuardrailViolationFallsBackWithoutRetry]' passed (0.001 seconds).
+Test Case '-[SaydoAITests.FoundationModelsDialogueEngineFallbackTests testProposeMicroActionsFallsBackToTemplate]' started.
+Test Case '-[SaydoAITests.FoundationModelsDialogueEngineFallbackTests testProposeMicroActionsFallsBackToTemplate]' passed (0.004 seconds).
+Test Case '-[SaydoAITests.FoundationModelsDialogueEngineFallbackTests testRefusalFallsBackWithoutRetry]' started.
+Test Case '-[SaydoAITests.FoundationModelsDialogueEngineFallbackTests testRefusalFallsBackWithoutRetry]' passed (0.001 seconds).
+Test Case '-[SaydoAITests.FoundationModelsDialogueEngineFallbackTests testShrinkFallsBackToTemplate]' started.
+Test Case '-[SaydoAITests.FoundationModelsDialogueEngineFallbackTests testShrinkFallsBackToTemplate]' passed (0.004 seconds).
+Test Case '-[SaydoAITests.FoundationModelsDialogueEngineFallbackTests testStatsAccumulateAndReset]' started.
+Test Case '-[SaydoAITests.FoundationModelsDialogueEngineFallbackTests testStatsAccumulateAndReset]' passed (0.006 seconds).
+Test Case '-[SaydoAITests.FoundationModelsDialogueEngineFallbackTests testTimeoutIsHonoured]' started.
+Test Case '-[SaydoAITests.FoundationModelsDialogueEngineFallbackTests testTimeoutIsHonoured]' passed (0.203 seconds).
+Test Case '-[SaydoAITests.FoundationModelsDialogueEngineFallbackTests testUnsupportedLanguageOrLocaleLocksToTemplate]' started.
+Test Case '-[SaydoAITests.FoundationModelsDialogueEngineFallbackTests testUnsupportedLanguageOrLocaleLocksToTemplate]' passed (0.001 seconds).
+Test Case '-[SaydoAITests.FoundationModelsDialogueEngineFallbackTests testWeeklyReflectionFallsBackToTemplate]' started.
+Test Case '-[SaydoAITests.FoundationModelsDialogueEngineFallbackTests testWeeklyReflectionFallsBackToTemplate]' passed (0.004 seconds).
+Test Suite 'FoundationModelsDialogueEngineFallbackTests' passed at 2026-09-04 06:28:48.016.
+	 Executed 15 tests, with 0 failures (0 unexpected) in 0.249 (0.251) seconds
+Test Suite 'FoundationModelsDialogueEngineIntegrationTests' started at 2026-09-04 06:28:48.016.
+Test Case '-[SaydoAITests.FoundationModelsDialogueEngineIntegrationTests testEveryReturnedTextPassesGuardrails]' started.
+Test Case '-[SaydoAITests.FoundationModelsDialogueEngineIntegrationTests testEveryReturnedTextPassesGuardrails]' passed (17.772 seconds).
+Test Case '-[SaydoAITests.FoundationModelsDialogueEngineIntegrationTests testWeeklyReflectionPassesReflectionRule]' started.
+Test Case '-[SaydoAITests.FoundationModelsDialogueEngineIntegrationTests testWeeklyReflectionPassesReflectionRule]' passed (0.685 seconds).
+Test Suite 'FoundationModelsDialogueEngineIntegrationTests' passed at 2026-09-04 06:29:06.473.
+	 Executed 2 tests, with 0 failures (0 unexpected) in 18.457 (18.457) seconds
+Test Suite 'ModelAvailabilityTests' started at 2026-09-04 06:29:06.473.
+Test Case '-[SaydoAITests.ModelAvailabilityTests testJapaneseIsTheConfiguredLocale]' started.
+Test Case '-[SaydoAITests.ModelAvailabilityTests testJapaneseIsTheConfiguredLocale]' passed (0.000 seconds).
+Test Case '-[SaydoAITests.ModelAvailabilityTests testUnsupportedLocaleFallsBackToTierB]' started.
+Test Case '-[SaydoAITests.ModelAvailabilityTests testUnsupportedLocaleFallsBackToTierB]' passed (0.001 seconds).
+Test Case '-[SaydoAITests.ModelAvailabilityTests testVerdictIsLoggable]' started.
+Test Case '-[SaydoAITests.ModelAvailabilityTests testVerdictIsLoggable]' passed (0.002 seconds).
+Test Suite 'ModelAvailabilityTests' passed at 2026-09-04 06:29:06.477.
+	 Executed 3 tests, with 0 failures (0 unexpected) in 0.003 (0.003) seconds
+Test Suite 'PromptBuilderTests' started at 2026-09-04 06:29:06.477.
+Test Case '-[SaydoAITests.PromptBuilderTests testEveryInstructionCoversAllCases]' started.
+Test Case '-[SaydoAITests.PromptBuilderTests testEveryInstructionCoversAllCases]' passed (0.000 seconds).
+Test Case '-[SaydoAITests.PromptBuilderTests testEveryInstructionIsWithinBudget]' started.
+Test Case '-[SaydoAITests.PromptBuilderTests testEveryInstructionIsWithinBudget]' passed (0.000 seconds).
+Test Case '-[SaydoAITests.PromptBuilderTests testInputCollapsesNewlines]' started.
+Test Case '-[SaydoAITests.PromptBuilderTests testInputCollapsesNewlines]' passed (0.000 seconds).
+Test Case '-[SaydoAITests.PromptBuilderTests testInputsAreClampedTo400Characters]' started.
+Test Case '-[SaydoAITests.PromptBuilderTests testInputsAreClampedTo400Characters]' passed (0.001 seconds).
+Test Case '-[SaydoAITests.PromptBuilderTests testInstructionLengthsAreFixed]' started.
+Test Case '-[SaydoAITests.PromptBuilderTests testInstructionLengthsAreFixed]' passed (0.000 seconds).
+Test Case '-[SaydoAITests.PromptBuilderTests testReflectionInputCarriesOnlyRankedAggregates]' started.
+Test Case '-[SaydoAITests.PromptBuilderTests testReflectionInputCarriesOnlyRankedAggregates]' passed (0.000 seconds).
+Test Case '-[SaydoAITests.PromptBuilderTests testReflectionInputHandlesEmptyStats]' started.
+Test Case '-[SaydoAITests.PromptBuilderTests testReflectionInputHandlesEmptyStats]' passed (0.000 seconds).
+Test Suite 'PromptBuilderTests' passed at 2026-09-04 06:29:06.478.
+	 Executed 7 tests, with 0 failures (0 unexpected) in 0.001 (0.002) seconds
+Test Suite 'ReflectionRuleTests' started at 2026-09-04 06:29:06.478.
+Test Case '-[SaydoAITests.ReflectionRuleTests testAcceptsAPlainSentence]' started.
+Test Case '-[SaydoAITests.ReflectionRuleTests testAcceptsAPlainSentence]' passed (0.000 seconds).
+Test Case '-[SaydoAITests.ReflectionRuleTests testRejectsBlamingSentence]' started.
+Test Case '-[SaydoAITests.ReflectionRuleTests testRejectsBlamingSentence]' passed (0.000 seconds).
+Test Case '-[SaydoAITests.ReflectionRuleTests testRejectsEmpty]' started.
+Test Case '-[SaydoAITests.ReflectionRuleTests testRejectsEmpty]' passed (0.000 seconds).
+Test Case '-[SaydoAITests.ReflectionRuleTests testRejectsLinkAndEnglishOnly]' started.
+Test Case '-[SaydoAITests.ReflectionRuleTests testRejectsLinkAndEnglishOnly]' passed (0.000 seconds).
+Test Case '-[SaydoAITests.ReflectionRuleTests testRejectsNumbers]' started.
+Test Case '-[SaydoAITests.ReflectionRuleTests testRejectsNumbers]' passed (0.000 seconds).
+Test Case '-[SaydoAITests.ReflectionRuleTests testRejectsTooLongSentence]' started.
+Test Case '-[SaydoAITests.ReflectionRuleTests testRejectsTooLongSentence]' passed (0.001 seconds).
+Test Suite 'ReflectionRuleTests' passed at 2026-09-04 06:29:06.480.
+	 Executed 6 tests, with 0 failures (0 unexpected) in 0.002 (0.002) seconds
+Test Suite 'SaydoAIPackageTests.xctest' passed at 2026-09-04 06:29:06.480.
+	 Executed 33 tests, with 0 failures (0 unexpected) in 18.712 (18.715) seconds
+Test Suite 'All tests' passed at 2026-09-04 06:29:06.480.
+	 Executed 33 tests, with 0 failures (0 unexpected) in 18.712 (18.716) seconds
+◇ Test run started.
+↳ Testing Library Version: 1501
+↳ Target Platform: arm64e-apple-macos14.0
+✔ Test run with 0 tests in 0 suites passed after 0.001 seconds.
