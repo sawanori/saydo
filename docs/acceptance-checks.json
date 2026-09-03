@@ -4,10 +4,10 @@
     {
       "id": "check_001",
       "target": "朝フロー（通知起点）",
-      "rule": "オンボーディング完了後、朝の通知をタップしてから宣言保存まで、ユーザーがマイクボタン・送信・次へをタップしない",
-      "expected_result": "TTS の質問が自動で始まり、発話が自動で録音・認識され、無音で自動終了し、M0〜M4 が完走して Commitment と宣言 m4a が保存される",
+      "rule": "オンボーディング完了後、朝の通知をタップしてから宣言保存まで、M1（理由）と N1（状態）のチップ以外のタップがゼロ（マイクボタン・送信・次へ・キーボードのいずれもタップしない）",
+      "expected_result": "TTS の質問が自動で始まり、発話が自動で録音・認識され、無音で自動終了し、M0〜M4 が完走して Commitment と宣言 m4a が保存される。M0・M3・M4 にはチップが出ない",
       "manual_or_automated": "manual",
-      "verification_method": "実機で朝通知をタップし、画面録画で操作回数を数える（選択肢チップの任意タップは除く）"
+      "verification_method": "実機で朝通知をタップし、画面録画でタップ回数を数える。M1 と N1 のチップ以外のタップが 0 回であることを確認する（キーボードは常時右下の小ボタンのままで自動表示されない）"
     },
     {
       "id": "check_002",
@@ -23,7 +23,7 @@
       "rule": "『まだ』を選ぶと『何が止めてる？』の後に行動がより小さい文に置き換わる",
       "expected_result": "Commitment.microActionText が更新され shrinkCount が 1 増える。文は 40 文字以内で動詞で終わる",
       "manual_or_automated": "automated",
-      "verification_method": "Tests/SaydoTests/SessionViewModelTests.swift の昼フロー分岐テスト（scripts/test-ios.sh）"
+      "verification_method": "Packages/SaydoCore/Tests/SaydoCoreTests/NoonFlowTests.swift の再縮小分岐（task_005）と TemplateDialogueEngineTests.swift の ShrinkLadder テスト（task_005b、scripts/test-core.sh）、Tests/SaydoTests/SessionViewModelTests.swift の昼フロー分岐テスト（scripts/test-ios.sh）"
     },
     {
       "id": "check_004",
@@ -31,7 +31,7 @@
       "rule": "夜の『明日はどうする？』の回答が翌朝の最初の発話に含まれる",
       "expected_result": "翌朝の M0 が『昨日の夜『◯◯』って言ってたね。今日はそれでいく？』で始まる",
       "manual_or_automated": "automated",
-      "verification_method": "SessionViewModelTests の引き継ぎテストと、実機で日付をまたいだ手動確認"
+      "verification_method": "Packages/SaydoCore/Tests/SaydoCoreTests/MorningFlowTests.swift の前夜引き継ぎ分岐（task_005、scripts/test-core.sh）と Tests/SaydoTests/SessionViewModelTests.swift の引き継ぎテスト（scripts/test-ios.sh）、実機で日付をまたいだ手動確認"
     },
     {
       "id": "check_005",
@@ -39,7 +39,7 @@
       "rule": "TTS 文言・通知文言・空状態文言・LLM 出力のいずれにも禁止語（未達成/連続/サボ/怠/ダメ/なぜやらない/失敗/遅い/甘え/言い訳/また逃げ）が含まれない",
       "expected_result": "DialogueCopy と NotificationCopy の全文言が Guardrails を通過し、LLM 出力は違反時にテンプレートへ置換される",
       "manual_or_automated": "automated",
-      "verification_method": "Packages/SaydoCore/Tests/SaydoCoreTests/GuardrailsTests.swift と SaydoAI のフォールバックテスト（scripts/test-core.sh）"
+      "verification_method": "Packages/SaydoCore/Tests/SaydoCoreTests/GuardrailsTests.swift（task_005）と Packages/SaydoAI/Tests/SaydoAITests/FoundationModelsDialogueEngineTests.swift のフォールバックテスト（task_014、scripts/test-core.sh）"
     },
     {
       "id": "check_006",
@@ -67,11 +67,11 @@
     },
     {
       "id": "check_009",
-      "target": "権限拒否時",
-      "rule": "マイク権限を拒否しても、テキスト入力で朝フローを完走できる",
-      "expected_result": "設定アプリへの導線が表示され、キーボード入力で Commitment が保存される（宣言音声はなし）",
+      "target": "権限拒否時（声なし Commitment）",
+      "rule": "マイク権限を拒否してもテキスト入力で朝フローを完走でき、その Commitment には「声なし」フラグが付く。その日の昼 N0 は宣言テキストを画面に大きく表示し、TTS は「朝のあなたからです。」だけを読む（宣言テキストを読み上げない）",
+      "expected_result": "設定アプリへの導線が表示され、キーボード入力で Commitment が保存される（宣言 m4a はなし・isVoiceless = true）。昼は再生の代わりに本人の宣言テキストが大きく表示され、合成音声が本人の言葉を代読しない。その後は通常どおり「どうだった？」へ進む",
       "manual_or_automated": "manual",
-      "verification_method": "実機でマイク権限を拒否して朝フローを実行"
+      "verification_method": "実機でマイク権限を拒否して朝フローを実行し、同じ日の昼フローまで通して画面と音声を録画で確認する。分岐のロジックは Packages/SaydoCore/Tests/SaydoCoreTests/NoonFlowTests.swift の声なし分岐テスト（task_005、scripts/test-core.sh）"
     },
     {
       "id": "check_010",
@@ -87,7 +87,7 @@
       "rule": "通知タップから TTS の最初の音が出るまで 1.5 秒以内",
       "expected_result": "5 回計測の中央値が 1.5 秒以内",
       "manual_or_automated": "manual",
-      "verification_method": "実機で画面録画し、タップから音声開始までのフレームを数える。結果を docs/spikes/speech-spike.md に記録"
+      "verification_method": "計測方法は画面録画のフレーム数に統一する。実機で 60 fps の画面録画を撮り、通知をタップしたフレームから TTS の最初の音が出たフレームまでのフレーム数を数えて秒に換算する（ストップウォッチやログ時刻は使わない）。5 回分の値と中央値を docs/spikes/speech-spike.md に記録"
     },
     {
       "id": "check_012",
@@ -127,7 +127,7 @@
       "rule": "アプリにネットワークアクセスのコード（URLSession 等）が存在しない。App Store のプライバシー表示は『データを収集しない』",
       "expected_result": "リポジトリ検索で URLSession / Network の使用が 0 件（Foundation Models と Speech のアセットダウンロードは OS 側の処理）",
       "manual_or_automated": "automated",
-      "verification_method": "grep -rn \"URLSession\\|import Network\" App Packages が 0 件"
+      "verification_method": "grep -rn \"URLSession\\|import Network\" App Packages が 0 件。scripts/lint-principles.sh（task_001 で作成）を毎タスクの task-review で実行し、exit 0 を確認する"
     },
     {
       "id": "check_017",
@@ -159,7 +159,7 @@
       "rule": "朝は 3 分、昼と夜は 1 分を超えない",
       "expected_result": "ドッグフーディング 7 日間の SessionLog（endedAt - startedAt）の中央値が上限内",
       "manual_or_automated": "manual",
-      "verification_method": "docs/dogfood/week1.md に日別の所要時間を記録して集計"
+      "verification_method": "docs/dogfood/week1.md（task_013b で作成）に日別の所要時間を記録して集計"
     },
     {
       "id": "check_021",
@@ -196,10 +196,122 @@
     {
       "id": "check_025",
       "target": "Swift 6 並行性",
-      "rule": "strict concurrency でビルド警告・エラーがない",
-      "expected_result": "xcodebuild のログに concurrency 関連の警告が 0 件",
+      "rule": "strict concurrency（-warnings-as-errors 相当）でビルドし、concurrency 警告が 0 件",
+      "expected_result": "scripts/build-ios.sh の出力に対する grep -c \"warning:\" の結果が 0 で、その数値が docs/PROGRESS.md に記録されている",
       "manual_or_automated": "automated",
-      "verification_method": "scripts/build-ios.sh の出力を grep -c \"warning:\" で確認"
+      "verification_method": "scripts/build-ios.sh の出力を grep -c \"warning:\" で数え、結果の数値をそのまま記録する。あわせて scripts/lint-principles.sh（task_001 で作成）を毎タスクの task-review で実行し、@unchecked Sendable / nonisolated(unsafe) による黙らせがないことを確認する"
+    },
+    {
+      "id": "check_026",
+      "target": "昼フローの入口: 当日の宣言がない",
+      "rule": "当日の Commitment が無い状態で昼または夜の通知をタップすると、短縮版の朝フロー（M0 → M2 → M4）が開き、理由（M1）を聞かない",
+      "expected_result": "「どうだった？」も宣言音声の再生も起きず、その場で当日の Commitment が作られる。M1 のステップが一度も現れない",
+      "manual_or_automated": "automated",
+      "verification_method": "Packages/SaydoCore/Tests/SaydoCoreTests/NoonFlowTests.swift と NightFlowTests.swift の「当日の Commitment 無し」入口テスト（task_005、scripts/test-core.sh）、Tests/SaydoTests/SessionViewModelTests.swift（scripts/test-ios.sh）"
+    },
+    {
+      "id": "check_027",
+      "target": "昼フローの入口: 当日の宣言が完了済み",
+      "rule": "Commitment.outcome が done になった時点で当日の固定の昼通知と行動時刻通知が取り消される。完了後に手動で起動した場合は「今日はもう動けてる。」で終了する",
+      "expected_result": "pending 通知の一覧から当日の昼・行動時刻の識別子が消える。手動起動では質問も再生も出さずに 1 文で終わる",
+      "manual_or_automated": "automated",
+      "verification_method": "Packages/SaydoCore/Tests/SaydoCoreTests/NotificationPlanTests.swift の当日分取り消しテスト（task_009）と NoonFlowTests.swift の done 分岐（task_005、scripts/test-core.sh）。実機では pending 一覧のデバッグ表示で識別子が消えていることを確認"
+    },
+    {
+      "id": "check_028",
+      "target": "昼フローの入口: 行動時刻より前",
+      "rule": "現在時刻が Commitment.plannedAt より前の場合、「どうだった？」を出さない。固定の昼通知は送らず行動時刻通知だけを送る。手動起動時は「◯時の約束、まだ生きてる？」（はい / 時間を変える）で終わる",
+      "expected_result": "行動時刻前の昼セッションで結果を問う質問が一度も現れず、選択肢は「はい」「時間を変える」の 2 つだけ。当日の固定昼通知が pending に無い",
+      "manual_or_automated": "automated",
+      "verification_method": "Packages/SaydoCore/Tests/SaydoCoreTests/NoonFlowTests.swift の時刻分岐テスト（task_005）と NotificationPlanTests.swift の昼通知抑止テスト（task_009、scripts/test-core.sh）"
+    },
+    {
+      "id": "check_029",
+      "target": "「少しやった」を前進として扱う",
+      "rule": "昼 N1 で「少しやった」を選ぶと再縮小（N2 / N3）に進まず、「それを今日の前進として残すね。」で終了する",
+      "expected_result": "Commitment.outcome が partial になり shrinkCount は増えない。Timeline に前進として残り、未達として扱われない",
+      "manual_or_automated": "automated",
+      "verification_method": "Packages/SaydoCore/Tests/SaydoCoreTests/NoonFlowTests.swift の partial 分岐テスト（task_005、scripts/test-core.sh）と Tests/SaydoTests/SessionViewModelTests.swift（scripts/test-ios.sh）"
+    },
+    {
+      "id": "check_030",
+      "target": "「話せない時」モード",
+      "rule": "「話せない時」モードでは M0〜M3 を選択肢と短いテキスト入力だけで完走でき、M4（宣言）だけを「後で声で」に回せる。後回しにした場合の催促通知は 1 回だけ",
+      "expected_result": "録音なしで Commitment が保存され、オンボーディングで設定した「一人になれる時刻」に「30 秒だけ、声で約束して」が 1 件だけ登録される。2 件目以降の催促は登録されない",
+      "manual_or_automated": "automated",
+      "verification_method": "Packages/SaydoCore/Tests/SaydoCoreTests/MorningFlowTests.swift の deferDeclaration 分岐（task_005、scripts/test-core.sh）と NotificationPlanTests.swift の催促通知が 1 件だけになるテスト（task_009）。実機で 1 日分を無音のまま完走させて確認"
+    },
+    {
+      "id": "check_031",
+      "target": "再生前の確認（イヤホン未接続 + 消音）",
+      "rule": "通知タップ時にイヤホンが未接続で消音スイッチが ON の場合、TTS と宣言音声の再生を始める前に「イヤホンで聞く / 文字で読む」を出す",
+      "expected_result": "確認の前に音が鳴らない（消音スイッチを無視して再生しない）。「文字で読む」を選んだ場合も昼フローが最後まで成立する",
+      "manual_or_automated": "manual",
+      "verification_method": "実機で消音スイッチ ON・イヤホン未接続にして行動時刻通知をタップし、音が出る前に確認が表示されることを画面録画で確認する。「文字で読む」経路も 1 回通す"
+    },
+    {
+      "id": "check_032",
+      "target": "割り込みからの再開",
+      "rule": "会話中の着信・Siri 起動・オーディオ経路変更で中断しても、途中状態が保存され、同じセッションを続きから再開できる",
+      "expected_result": "FlowMachine が interrupted イベントを受けて lastStep を保存し、復帰時にその質問から再開する。録音済みの VoiceEntry が失われない",
+      "manual_or_automated": "automated",
+      "verification_method": "Packages/SaydoCore/Tests/SaydoCoreTests/MorningFlowTests.swift の interrupted イベントのテスト（task_005、scripts/test-core.sh）と Tests/SaydoTests/SessionViewModelTests.swift の中断・再開テスト（scripts/test-ios.sh）。実機で着信・Siri 起動・イヤホン抜き差しを 1 回ずつ実施して再開を確認"
+    },
+    {
+      "id": "check_033",
+      "target": "通知の再計画（7 日分の非繰り返しトリガー）",
+      "rule": "起動時と宣言時に、今日から 7 日分の通知が非繰り返しトリガーで再計画される",
+      "expected_result": "pending 通知の識別子が morning-yyyyMMdd 等の日付付き形式で 7 日分並び、繰り返しトリガーが 1 件も無い。当日分だけのスキップ・取り消しができる",
+      "manual_or_automated": "automated",
+      "verification_method": "Packages/SaydoCore/Tests/SaydoCoreTests/NotificationPlanTests.swift の 7 日分再計画テスト（task_009、scripts/test-core.sh）。実機では pending 一覧のデバッグ表示で識別子の日付と repeats = false を確認"
+    },
+    {
+      "id": "check_034",
+      "target": "通知の既定回数",
+      "rule": "既定の設定で登録される固定通知は朝の 1 回だけで、宣言後の行動時刻通知を加えて 1 日最大 2 回になる。昼の固定通知と夜の通知は設定で「3 回モード」を選んだ時だけ登録される",
+      "expected_result": "オンボーディング直後の pending 通知に昼・夜の固定通知が 0 件。宣言後に行動時刻通知が 1 件だけ加わる",
+      "manual_or_automated": "automated",
+      "verification_method": "Packages/SaydoCore/Tests/SaydoCoreTests/NotificationPlanTests.swift の既定値テスト（task_009、scripts/test-core.sh）と、実機の pending 一覧のデバッグ表示"
+    },
+    {
+      "id": "check_035",
+      "target": "通知アクション「今日は休む」",
+      "rule": "通知を長押しして「今日は休む」を選ぶと 1 タップで当日を終えられ、記録上は失敗にならず Timeline にも表示されない",
+      "expected_result": "当日の Commitment に未達・失敗が記録されず、SessionLog には休みとして残る。Timeline に空白日や未達の行が出ない",
+      "manual_or_automated": "manual",
+      "verification_method": "実機で通知を長押しして「今日は休む」を実行し、記録タブと設定画面の開発者向け節（休みの回数）を確認する。記録側の分岐は Tests/SaydoTests/RepositoryTests.swift の休み記録テスト（scripts/test-ios.sh）"
+    },
+    {
+      "id": "check_036",
+      "target": "空白の後の再入場",
+      "rule": "2 日以上記録が無い後の最初の朝フローは、M0 が「おかえり。今日から、また一つだけ。」に差し替わり、空白に言及しない",
+      "expected_result": "空白日数・中断・連続に触れる語が現れない。Timeline も記録がある日だけを表示し、空白日のプレースホルダを置かない",
+      "manual_or_automated": "automated",
+      "verification_method": "Packages/SaydoCore/Tests/SaydoCoreTests/MorningFlowTests.swift の再入場分岐テストと GuardrailsTests.swift（task_005、scripts/test-core.sh）"
+    },
+    {
+      "id": "check_037",
+      "target": "「特にない」を正解にする",
+      "rule": "M0 で「特にない」と答えると「それは良い日。10 秒で終わるね。」で終了し、逃げたいことを作らせない",
+      "expected_result": "追加の質問が出ずにセッションが終わり、Timeline に良い日として残る（未達・欠測として扱わない）",
+      "manual_or_automated": "automated",
+      "verification_method": "Packages/SaydoCore/Tests/SaydoCoreTests/MorningFlowTests.swift の「特にない」分岐テスト（task_005、scripts/test-core.sh）"
+    },
+    {
+      "id": "check_038",
+      "target": "3 件目でのインサイト",
+      "rule": "記録が 3 件たまった時点で、週次を待たずに 1 行のインサイトが Timeline 上部に出る",
+      "expected_result": "「3 回のうち 2 回が『人への返信』」のような 1 行が出る。3 件未満では出さず、文言が Guardrails を通過する",
+      "manual_or_automated": "automated",
+      "verification_method": "Packages/SaydoCore/Tests/SaydoCoreTests/InsightCalculatorTests.swift の 3 件フィクスチャのテスト（task_016、scripts/test-core.sh）と、実機での表示確認"
+    },
+    {
+      "id": "check_039",
+      "target": "週次分析の入力と表示の範囲",
+      "rule": "LLM に渡す WeeklyStats と WeeklyInsightView の表示のどちらにも「宣言の結果内訳」と「平均縮小回数」が含まれない",
+      "expected_result": "LLM への入力は分野別件数と理由別割合のみ。結果内訳と平均縮小回数は設定画面の開発者向け節にだけ表示され、振り返り文は「何から、なぜ逃げるか」に限定される",
+      "manual_or_automated": "automated",
+      "verification_method": "Packages/SaydoCore/Tests/SaydoCoreTests/InsightCalculatorTests.swift の LLM 入力生成テスト（task_016）と Packages/SaydoAI/Tests/SaydoAITests/FoundationModelsDialogueEngineTests.swift のプロンプト検査（task_014、scripts/test-core.sh）。WeeklyInsightView の表示項目は実機で確認"
     }
   ]
 }
