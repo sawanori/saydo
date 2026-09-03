@@ -1283,12 +1283,14 @@
     },
     {
       "task_id": "task_023",
-      "title": "行動時刻アラーム（AlarmKit、Commitment ごとの opt-in）",
+      "title": "行動時刻アラーム（AlarmKit、Commitment ごとの opt-in。停止はアプリ内のスライダーのみ）",
       "goal": "宣言した行動時刻に、時計アプリと同等のアラーム（消音・集中モードを突破し、ロック画面に全画面表示）を鳴らし、アプリを開くまで鳴り続ける体験を iOS が許す範囲で実現する",
       "scope": [
         "スパイク S-E（先行、実機必須）: AlarmKit の `AlarmManager.shared.requestAuthorization()`、`AlarmManager.AlarmConfiguration.alarm(schedule:attributes:stopIntent:secondaryIntent:sound:)`、`AlertConfiguration.AlertSound.named` がアプリバンドル外の音声（Library/Sounds など。本人の宣言音声を IMA4 .caf に変換したもの）を再生できるか、`secondaryButtonBehavior = .custom`（Open）でアプリが SessionView に直行できるか、アプリを強制終了した状態でも鳴るか、連鎖アラーム（1 分間隔 × 5 件）で「停止しても次が鳴り、アプリを開いたら残りを取り消す」が成立するか、音量は端末のアラーム音量（設定 > サウンドと触覚）に従うか、を docs/spikes/alarm-spike.md に記録する",
         "SaydoCore/Notifications/AlarmPlan.swift（純関数）: plannedAt から連鎖アラームの発火時刻列（1 分間隔 × 5、設定で 3 / 5 / 10 分間隔）と識別子を生成。既存の action-yyyyMMdd 通知との併用ルール（アラーム ON の日は通知を出さない）",
-        "App/Alarms/AlarmScheduler.swift: AlarmKit への登録・取り消し、権限状態の取得。App/Alarms/AlarmIntents.swift: Open（secondaryIntent、LiveActivityIntent）でアプリを開き NoonFlow N0 に直行するとともに残りの連鎖アラームを全て取り消す。停止ボタンは AlarmKit 仕様上必ず存在するため、連鎖で「開くまで鳴り続ける」を代替する",
+        "App/Alarms/AlarmScheduler.swift: AlarmKit への連鎖登録・取り消し、権限状態の取得。App/Alarms/AlarmIntents.swift: Open（secondaryIntent、LiveActivityIntent、supportedModes は `.foreground`）でアプリを開き AlarmStopView へ直行する。**Open を押しただけでは連鎖を取り消さない**",
+        "App/Features/Session/AlarmStopView.swift: アプリを開くと全画面で表示。本人の宣言音声をフォアグラウンドでループ再生し、画面下部の『スライドして止める』（横スワイプのスライダー。タップでは止まらない）を最後まで動かした時だけ、残りの連鎖アラームを全て取り消し、再生を止め、NoonFlow N0 → N1 に進む。途中でアプリを閉じた場合は連鎖アラームがそのまま続く",
+        "連鎖の長さ: 既定 1 分間隔 × 10 件（設定で 5 / 10 / 20 分）。システムの停止ボタンは 1 件ずつしか止められないため、連鎖が尽きるまでは『アプリを開いてスライドする』以外に鳴り止む手段がない。AlarmKit の登録上限はスパイクで確認し、超える場合は件数を上限に合わせる",
         "M4 の宣言後に「この約束、アラームで鳴らす？」（既定オフ、Commitment ごとの opt-in。Commitment に `alarmEnabled` を追加）。設定に「アラームの間隔」と「アラーム音量は iOS の設定 > サウンドと触覚に従う」の案内",
         "アラーム音: スパイクで本人の宣言音声が使えれば宣言音声（30 秒以内、IMA4 .caf）。使えない場合は固定のチャイムにし、Open でアプリを開いた瞬間に本人の宣言音声を再生する",
         "権限: Info に `NSAlarmKitUsageDescription`。許可ダイアログはオンボーディングではなく初回に opt-in した時に出す",
@@ -1314,7 +1316,9 @@
         "Packages/SaydoCore/Sources/SaydoCore/Notifications/AlarmPlan.swift",
         "Packages/SaydoCore/Tests/SaydoCoreTests/AlarmPlanTests.swift",
         "App/Alarms/AlarmScheduler.swift",
-        "App/Alarms/AlarmIntents.swift"
+        "App/Alarms/AlarmIntents.swift",
+        "App/Features/Session/AlarmStopView.swift",
+        "App/Features/Session/SlideToStopControl.swift"
       ],
       "files_to_modify": [
         "project.yml",
@@ -1334,7 +1338,7 @@
       ],
       "done_definition": [
         "docs/spikes/alarm-spike.md に 6 項目の実測結果と Go / No-Go がある",
-        "アラーム ON の Commitment で、実機の消音 + 集中モード時に行動時刻にアラームが鳴り、停止しても 1 分後に次が鳴り、Open でアプリが N0 に直行して残りのアラームが取り消される",
+        "アラーム ON の Commitment で、実機の消音 + 集中モード時に行動時刻にアラームが鳴り、システムの停止ボタンを押しても 1 分後に次が鳴る。Open またはアイコンからアプリを開くと AlarmStopView が本人の宣言音声をループ再生し、スライダーを最後まで動かした時だけ残りのアラームが全て取り消されて N0 に進む。スライドせずに閉じると連鎖が続く",
         "既定はオフで、Commitment ごとに選べる",
         "scripts/test-core.sh が緑（AlarmPlanTests を含む）"
       ],
