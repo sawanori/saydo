@@ -1268,3 +1268,108 @@ EXIT 0
   導入後に `scripts/test-ios.sh` を実行し、`DataExporterTests` の 11 件が通ることを確かめて上表を更新すること。
 - **`docs/backup-restore-check.md` の記入欄**（1〜6 節）。task_013b の 7 日間ドッグフーディングが終わった後に、
   実機で書き出し・全削除・iCloud バックアップ復元・ファイル保護属性・容量実測を行い、結果を書き込む。
+## task_014 — SaydoAI: Foundation Models による DialogueEngine 実装
+
+- 日時: 2026-09-04
+- 状態: done（`scripts/build-ios.sh` のみ環境要因で未達。task_001 と同じ）
+- ブランチ: `task/014-saydo-ai`（`task/005-flows` から分岐）
+
+### 証拠
+
+| コマンド | exit code | ログ |
+|---|---|---|
+| `swift build --package-path Packages/SaydoAI` | **0** | `docs/logs/task_014-1.txt` |
+| `swift test --package-path Packages/SaydoAI` | **0**（33 tests / 0 failures） | `docs/logs/task_014-2.txt` |
+| `scripts/test-core.sh` | **0**（SaydoCore 101 + SaydoAI 33 + lint OK） | `docs/logs/task_014-3.txt` |
+| `scripts/build-ios.sh` | **70**（iOS 26.2 シミュレータ未導入。task_001 から未解消） | `docs/logs/task_014-4.txt` |
+| `xcodegen generate --spec project.yml --project <一時ディレクトリ>` | **0**（`SaydoAI` が pbxproj に 10 箇所） | — |
+
+`swift test --package-path Packages/SaydoAI`（末尾 20 行）:
+
+```
+Test Case '-[SaydoAITests.ReflectionRuleTests testRejectsBlamingSentence]' started.
+Test Case '-[SaydoAITests.ReflectionRuleTests testRejectsBlamingSentence]' passed (0.000 seconds).
+Test Case '-[SaydoAITests.ReflectionRuleTests testRejectsEmpty]' started.
+Test Case '-[SaydoAITests.ReflectionRuleTests testRejectsEmpty]' passed (0.000 seconds).
+Test Case '-[SaydoAITests.ReflectionRuleTests testRejectsLinkAndEnglishOnly]' started.
+Test Case '-[SaydoAITests.ReflectionRuleTests testRejectsLinkAndEnglishOnly]' passed (0.000 seconds).
+Test Case '-[SaydoAITests.ReflectionRuleTests testRejectsNumbers]' started.
+Test Case '-[SaydoAITests.ReflectionRuleTests testRejectsNumbers]' passed (0.000 seconds).
+Test Case '-[SaydoAITests.ReflectionRuleTests testRejectsTooLongSentence]' started.
+Test Case '-[SaydoAITests.ReflectionRuleTests testRejectsTooLongSentence]' passed (0.001 seconds).
+Test Suite 'ReflectionRuleTests' passed at 2026-09-04 06:29:06.480.
+	 Executed 6 tests, with 0 failures (0 unexpected) in 0.002 (0.002) seconds
+Test Suite 'SaydoAIPackageTests.xctest' passed at 2026-09-04 06:29:06.480.
+	 Executed 33 tests, with 0 failures (0 unexpected) in 18.712 (18.715) seconds
+Test Suite 'All tests' passed at 2026-09-04 06:29:06.480.
+	 Executed 33 tests, with 0 failures (0 unexpected) in 18.712 (18.716) seconds
+```
+
+`scripts/build-ios.sh`（末尾。**失敗は project.yml の変更とは無関係**。destination 解決の時点で落ちており、コンパイルまで到達していない）:
+
+```
+xcodebuild: error: Unable to find a destination matching the provided destination specifier:
+		{ generic:1, platform:iOS Simulator }
+
+	Ineligible destinations for the "Saydo" scheme:
+		{ platform:iOS, id:dvtdevice-DVTiPhonePlaceholder-iphoneos:placeholder, name:Any iOS Device,
+		  error:iOS 26.2 is not installed. Please download and install the platform from Xcode > Settings > Components. }
+```
+
+### 本機（macOS 26.5 / Apple M4 / Xcode 26.2）での実測
+
+- `SystemLanguageModel.default.availability` = `available`、`supportsLocale(Locale(identifier: "ja_JP"))` = `true`。
+  結合テストは **スキップされず実際に走った**。
+- **`GenerationOptions(maximumResponseTokens: 200)` が無いと 6 秒予算が成立しない。**
+  上限なしで 24 呼び出しを流したところ、`followUpQuestion` / `classifyReason` / `weeklyReflection` で
+  生成が暴走し `exceededContextWindowSize`（"Content contains 4089 tokens ... maximum 4096"）まで
+  **53〜56 秒**走る呼び出しが 6 件出た。上限 200 では 30 呼び出し中 **6 秒超過 0 件**（最長 3.95 秒）で、
+  暴走は `decodingFailure` として 3 秒前後で返り `default` 経路でテンプレートに落ちる。
+- **`withThrowingTaskGroup` でタイムアウトを組むと上限が効かない。**
+  時間切れで抜けるときグループが子タスクの終了を待つため、キャンセルに応じない生成では意味を失う。
+  最初の実装で `classifyDomain` が 6 秒指定にもかかわらず **44 秒** 返らずテストが落ちた。
+  現在は「先に届いた結果だけを通し、放棄した生成の完了を待たない」実装に差し替えている。
+- 出力品質: `weeklyReflection` が `... 逃げちゃうんだ。」}``` ```js -import` のように JSON/コードの断片を漏らす例、
+  `followUpQuestion` が YouTube の URL を含む例を観測した。いずれも Guardrails / ReflectionRule で弾かれる。
+
+### done_definition の自己監査
+
+| 項目 | 結果 | 証拠 |
+|---|---|---|
+| `project.yml` に `packages.SaydoAI` がある | 満たす | `project.yml`。`Saydo` ターゲットの dependencies にも登録済み |
+| `scripts/build-ios.sh` が exit 0 | **満たさない（環境要因）** | 上表。iOS 26.2 シミュレータランタイム未導入。人間の作業待ち |
+| Apple Intelligence 有効な Mac で結合テストが緑、無効環境ではスキップ | 満たす | 本機は available。`FoundationModelsDialogueEngineIntegrationTests` 2 件が実走して緑。無効時は `XCTSkipUnless` |
+| 全メソッドにタイムアウトと Guardrails 置換がある | 満たす | 6 メソッドすべてが `generate`（6 秒上限）を通り、`classifyDomain` 以外は Guardrails / ReflectionRule を通す。`classifyDomain` は列挙のみで検査対象の文が無い |
+| `guardrailViolation` / `refusal` / `exceededContextWindowSize` / `unsupportedLanguageOrLocale` の扱いが実装とテストで固定 | 満たす | `FoundationModelsDialogueEngine.policy(for:)` と `testGenerationErrorPolicy` / `testGuardrailViolationFallsBackWithoutRetry` / `testRefusalFallsBackWithoutRetry` / `testExceededContextWindowSizeRetriesOnce` / `testUnsupportedLanguageOrLocaleLocksToTemplate`。実際の `GenerationError` 値を作って踏んでいる |
+| `@Guide` に文字数制約を使っていない | 満たす | `GenerableTypes.swift` の `@Guide` は description と `.range(1...5)` / `.count(3)` のみ |
+| 指示文が 600 文字以内であることをテストで固定 | 満たす | `testInstructionLengthsAreFixed`（234 / 353 / 305 / 285 / 186 / 241 文字を等値で固定）と `testEveryInstructionIsWithinBudget` |
+
+### 未解決
+
+- **`exceededContextWindowSize` の再試行は 6 秒運用では実質踏まれない。** 4,096 トークンに達するまで 50 秒以上かかるため、
+  必ずタイムアウトが先に成立する。分岐は仕様どおり実装し、`handle` を直接呼ぶテストで固定してあるが、
+  実運用の経路としては死に枝であることを task_015 の計測時に踏まえること。
+- **放棄した生成がモデルを占有する。** 6 秒で打ち切っても生成自体は走り続けるため、
+  直後の呼び出しがその裏で待たされてタイムアウトし、連鎖してテンプレートに落ちることがある。
+  結合テスト 10 呼び出しで所要 15〜47 秒とばらついたのはこれが原因。
+  会話を止めないことを優先した設計上の割り切りで、緩和策（`prewarm` / 呼び出し間隔）は task_015 の判断に委ねる。
+- **プロセス内の初回呼び出しが遅い。** 上限なしの計測では初回だけ 30 秒級だった。
+  `LanguageModelSession.prewarm(promptPrefix:)` が SDK に実在することは確認済み。使うかどうかは task_015 で決める。
+- `TemplateDialogueEngine`（task_005b）がまだ無い。エンジンは `fallback: any DialogueEngine` を注入で受け、
+  テストでは `TemplateStub` を使っている。task_005b 完了後に実体を差し込むのは task_015 の配線作業。
+- `Guardrails.Form.statement` は「80 文字以内」「数字を含まない」を課さない（§7.5 の振り返り固有の規則）。
+  SaydoCore は本タスクで変更しない方針のため、`SaydoAI.ReflectionRule` として上乗せしている。
+  SaydoCore 側に寄せるかどうかは task_016（週次分析）で再検討する。
+- `SaydoAI.PromptBuilder` は `FoundationModels.PromptBuilder`（result builder）と名前が衝突する。
+  両方を import するファイルでは `SaydoAI.PromptBuilder` と修飾する必要がある（テストで実際に踏んだ）。
+- `lint-principles.sh` が SaydoAI の日本語リテラルを 14 件警告する。プロンプトと `@Guide` の description で、
+  利用者に見せる文言ではないため `DialogueCopy` に移していない。exit code には影響しない。
+- `Saydo.xcodeproj` は再生成していない（worktree では再生成しない方針。実装計画 §12-6）。
+  `project.yml` の妥当性は一時ディレクトリへの `xcodegen generate` で確認した。**main での再生成が必要**。
+
+### 人間の確認待ち
+
+- iOS 26.2 シミュレータランタイムの導入（空き容量 9 GB 以上を確保して `xcodebuild -downloadPlatform iOS`）。
+  これが済むまで `scripts/build-ios.sh` は SaydoAI と無関係に落ち続ける。
+- main で `xcodegen generate` を実行して `Saydo.xcodeproj` に SaydoAI を反映すること。
+- 実機（Apple Intelligence 対応 iPhone）での Tier A 検証は未実施。本タスクの検証はすべて macOS 上。
