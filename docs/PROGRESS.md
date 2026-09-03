@@ -920,3 +920,134 @@ macOS 非対応 API を持つ 4 ファイル（`AudioSessionController` / `Speec
    朝フロー 3 回の所要時間の中央値（3 分以内）。いずれも画面録画が要る。
 3. main へのマージ後に `xcodegen generate` を実行し、`App/Features/Session/SessionViewModel.swift` と
    `Tests/SaydoTests/SessionViewModelTests.swift` を `Saydo.xcodeproj` に取り込む。
+
+---
+
+## task_009-core — 通知の純ロジック（NotificationPlan / NotificationCopy）
+
+- 日時: 2026-09-04
+- 状態: done（SaydoCore の純ロジック部分のみ。task_009 の App 側は未着手）
+- ブランチ / コミット: `task/009-notification-core` / （このコミット）
+
+### スコープ
+
+task_009 のうち **SaydoCore に置く純計算だけ**。`NotificationScheduler` / `AppDelegate` / `AppRouter` /
+`UNUserNotificationCenter` / SwiftData には触れていない。
+
+### 証拠
+
+| コマンド | exit code | ログ |
+|---|---|---|
+| `scripts/test-core.sh` | **0**（47 tests, 0 failures） | `docs/logs/task_009-core-1.txt` |
+
+```
+Test Suite 'NotificationCopyTests' passed at 2026-09-04 05:59.
+	 Executed 9 tests, with 0 failures (0 unexpected)
+Test Suite 'NotificationPlanTests' passed at 2026-09-04 05:59.
+	 Executed 23 tests, with 0 failures (0 unexpected)
+Test Suite 'All tests' passed
+	 Executed 47 tests, with 0 failures (0 unexpected) in 0.010 (0.012) seconds
+lint-principles: OK
+EXIT=0
+```
+
+`scripts/build-ios.sh` は未実行（この差分に iOS ターゲットのファイルが無く、task_001 の環境要因で
+どのみち exit 70 になるため）。
+
+### 確定した通知の契約（App 側の task_009 はこの名前を使う）
+
+| 型 | 内容 |
+|---|---|
+| `TimeOfDay` | `hour` / `minute`。`minutesFromMidnight`、`Comparable` |
+| `NotificationSlot` | morning / noon / night / action。識別子の接頭辞。`sessionType` は action → `.noon`（行動時刻通知も NoonFlow に入る） |
+| `NotificationMode` | twice（既定・朝のみ固定）/ thrice（朝昼夜）。`fixedSlots`・`fixedNotificationsPerDay` |
+| `NotificationSettings` | `morning` / `noon` / `night` / `mode` / `weekendEnabled`（false = 週末オフ） |
+| `DayCommitment` | `plannedAt?` / `outcome`。`.noCommitment` が宣言前 |
+| `NotificationRegistration` | `identifier`（`<slot>-yyyyMMdd`）/ `fireDate` / `slot` / `copyKey` / `sessionType` |
+| `NotificationPlan` | `registrations`（発火日時の昇順）/ `cancelledIdentifiers`。`make(now:settings:today:calendar:)` |
+| `NotificationCopyKey` | morning / noonRemember / noonAvoiding / night / action / declarationReminder |
+| `NotificationCopy` | `body(for:)`、`noonKey(for:calendar:)`（日替わり交互）、`restTodayActionTitle` = 「今日は休む」、`categoryIdentifier` |
+
+先読み日数は `min(maxHorizonDays 30, pendingBudget 50 / 1 日あたりの固定本数)`。
+2 回モード = 30 日（30 本）、3 回モード = 16 日（48 本）。行動時刻通知を足しても保留 50 本を超えない。
+
+昼をスキップする規則（当日のみ・`cancelledIdentifiers` にも入る）:
+(a) 固定の昼通知が `plannedAt` と 30 分以内、(b) 計画時点で `now < plannedAt`、
+(c) `outcome` が `done` / `partial`（このとき `action-yyyyMMdd` も取り消す）。
+
+### 未解決
+
+- `Guardrails`（task_005）が別ブランチのため、禁止句リストを `NotificationCopyTests` に直接持っている。
+  task_005 が入ったら `Guardrails` 側のリストへ寄せる（テストのコメントに明記済み）。
+- App 側（`NotificationScheduler` / `AppDelegate` / `AppRouter` / 通知カテゴリ登録 / ディープリンク）は未実装。
+  `NotificationCopy.restTodayActionIdentifier` と `categoryIdentifier` は App 側が使う前提の定数。
+- `declarationReminder`（retention R1 の「30 秒だけ、声で約束して」）は文言だけ用意した。
+  発火時刻は「一人になれる時刻」の設定（task_013）に依存するため、`NotificationPlan` は生成しない。
+
+### 人間の確認待ち
+
+- task_001 と同じ（iOS 26.x シミュレータランタイムの導入）。追加はなし。
+
+---
+
+## task_016-core — 週次分析の純ロジック（InsightCalculator）
+
+- 日時: 2026-09-04
+- 状態: done（SaydoCore の純ロジック部分のみ。`WeeklyInsightView` と `Repository.weeklyStats` は未着手）
+- ブランチ / コミット: `task/009-notification-core` / （このコミット）
+
+### スコープ
+
+task_016 のうち **SaydoCore に置く純計算だけ**。SwiftUI / SwiftData には触れていない。
+
+### 証拠
+
+| コマンド | exit code | ログ |
+|---|---|---|
+| `scripts/test-core.sh` | **0**（62 tests, 0 failures） | `docs/logs/task_016-core-1.txt` |
+
+```
+Test Suite 'InsightCalculatorTests' passed at 2026-09-04 06:05.
+	 Executed 15 tests, with 0 failures (0 unexpected)
+Test Suite 'All tests' passed
+	 Executed 62 tests, with 0 failures (0 unexpected) in 0.014 (0.017) seconds
+lint-principles: OK
+EXIT=0
+```
+
+### 確定した週次分析の契約
+
+| 型 | 内容 |
+|---|---|
+| `InsightInput` | `date` / `domain?` / `reason?` / `outcome`。App 側の `Repository` が `Commitment` + `AvoidanceItem` から詰め替える |
+| `InsightCalculator.weeklyStats(from:weekStart:)` | 与えられた入力をそのまま集計。期間の切り出しは呼び出し側 |
+| `InsightCalculator.weeklyStats(from:weekContaining:calendar:)` | 暦の週で切り出してから集計 |
+| `InsightCalculator.firstInsight(from:)` | 3 件目で出す 1 行（retention R9）。件数不足・最多が 1 件のときは nil |
+| `InsightCalculator.weeklyReflection(for:)` | テンプレートの振り返り 1 文。3 件未満は `InsightCopy.notEnoughData` |
+| `InsightCopy` | データ不足の文言、初回インサイト、理由 × 分野の組み合わせ表（7 理由 × 7 分野） |
+
+集計の規則:
+
+- 分野別件数は `domain != nil` の件数。理由別割合の母数は `reason != nil` の件数。
+- 結果内訳（done / partial / notYet）と平均縮小回数は**持たない**（`WeeklyStats` が持たない。
+  達成率の表示に使わせないため。企画原則 §22-8）。
+
+企画メモ §11 の例を再現するフィクスチャ（`InsightCalculatorTests.conceptMemoFixture`）:
+
+- 分野 56 件 = 人への返信 18 / お金 14 / 大きなタスク 11 / 営業 8 / 書類 5（上位 5 の並びが §11 と一致）
+- 理由 56 件 = 気まずさ 21 / 完璧主義 15 / 面倒 12 / 不安 8
+  → 38% / 27% / 21% / 14%（§11 の数字と一致）
+
+### 未解決
+
+- `scripts/lint-principles.sh` が `Insight/InsightCopy.swift` の日本語リテラルを WARN で列挙する
+  （task_002 の Domain `displayName` と同じ扱い。exit code には影響しない）。
+  文言を Copy ファイルに集約する規約自体は守っている。許可リストに `InsightCopy.swift` を足すかは
+  レビューの判断に委ねる。**WARN を消すために文言を `InsightCalculator` へ戻さないこと。**
+- `Repository.weeklyStats`・`WeeklyInsightView`・Tier A の `weeklyReflection`（task_014）は未実装。
+- 分野の判定（Tier B のキーワード辞書 / Tier A の `classifyDomain`）は task_005 / task_014 の担当。
+  `InsightCalculator` は `domain` が入っている前提で数えるだけ。
+
+### 人間の確認待ち
+
+- task_001 と同じ（iOS 26.x シミュレータランタイムの導入）。追加はなし。
