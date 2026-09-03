@@ -12,6 +12,9 @@ if [ $# -lt 1 ]; then
 fi
 SCHEME="$1"
 
+# Saydo.xcodeproj は project.yml からの生成物（コミットしない）。毎回作り直す。
+"$ROOT/scripts/generate-project.sh"
+
 echo "build-mac: scheme=${SCHEME}"
 xcodebuild build \
   -project Saydo.xcodeproj \

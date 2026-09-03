@@ -20,8 +20,9 @@ xcuserdata/
 *.dSYM
 *.dSYM.zip
 
-# XcodeGen の生成物である *.xcodeproj は「無視しない」。
-# 生成物だがコミットして、Xcode を開かなくても構成が読めるようにする。
+# XcodeGen の生成物。project.yml が唯一の定義で、
+# scripts/*.sh が実行のたびに xcodegen generate で作り直す。
+*.xcodeproj
 
 # Swift Package Manager
 .build/

@@ -16,7 +16,7 @@ SAYDO は「逃げていることを、自分の声で認めて、一歩だけ�
 ```
 SAYDO/
   project.yml                      XcodeGen 定義（App / Tests / Spikes の 4 ターゲット）
-  Saydo.xcodeproj                  XcodeGen の生成物。生成物だがコミットする
+  Saydo.xcodeproj                  XcodeGen の生成物。コミットしない（scripts が毎回生成する）
   App/                             iOS アプリ本体（SwiftUI）
     SaydoApp.swift, AppDelegate.swift, AppRouter.swift
     Audio/        AudioSessionController, VoiceCapture, SilenceDetector,
@@ -52,7 +52,7 @@ SAYDO/
 | `scripts/test-core.sh` | `swift test --package-path Packages/SaydoCore` → 続けて lint-principles.sh |
 | `scripts/lint-principles.sh` | `App/` と `Packages/*/Sources` から URLSession / import Network / @unchecked Sendable / nonisolated(unsafe) を検出して exit 1。Copy 以外の日本語リテラルは警告 |
 
-`project.yml` を変更したら `xcodegen generate` を実行してから検証する（worktree では再生成せず、main で行う）。
+`Saydo.xcodeproj` は `project.yml` からの生成物で、リポジトリには含めない。`build-ios.sh` / `test-ios.sh` / `build-mac.sh` が先頭で `scripts/generate-project.sh` を呼んで毎回作り直す（xcodegen が無ければ exit 3）。手で作りたいときは `xcodegen generate`。
 
 ### 現在の環境制約（task_001 時点・未解消）
 

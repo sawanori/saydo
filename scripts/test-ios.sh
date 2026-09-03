@@ -7,6 +7,9 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
+# Saydo.xcodeproj は project.yml からの生成物（コミットしない）。毎回作り直す。
+"$ROOT/scripts/generate-project.sh"
+
 SCHEME="${1:-Saydo}"
 
 SELECTED="$(xcrun simctl list devices available -j | python3 -c '
