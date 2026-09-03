@@ -213,3 +213,77 @@ EXIT=0
 ### 人間の確認待ち
 
 - task_001 と同じ（iOS 26.x シミュレータランタイムの導入）。追加はなし。
+
+---
+
+## task_005 — 会話状態機械（Morning / Noon / Night）と文言・ガードレール
+
+- 日時: 2026-09-04
+- 状態: done
+- ブランチ: `task/005-flows`
+
+### 証拠
+
+| コマンド | exit code | ログ |
+|---|---|---|
+| `scripts/test-core.sh` | **0** | `docs/logs/task_005-1.txt` |
+
+テスト件数: 101（DomainTests 15 / DialogueCopyTests 15 / GuardrailsTests 13 / MorningFlowTests 23 / NightFlowTests 12 / NoonFlowTests 23）。
+
+`scripts/test-core.sh`（末尾 30 行）:
+
+```
+    Packages/SaydoCore/Sources/SaydoCore/Domain/FlowStep.swift:64: "もっと小さく"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/FlowStep.swift:65: "今日の前進"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/FlowStep.swift:66: "明日のこと"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/FlowStep.swift:67: "終わり"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/ReasonCategory.swift:22: "気まずい"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/ReasonCategory.swift:23: "完璧にやりたい"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/ReasonCategory.swift:24: "面倒"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/ReasonCategory.swift:25: "不安・怖い"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/ReasonCategory.swift:26: "量が多い"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/ReasonCategory.swift:27: "何から始めるかわからない"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/ReasonCategory.swift:28: "期限が怖い"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/SessionType.swift:15: "朝"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/SessionType.swift:16: "昼"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/SessionType.swift:17: "夜"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/SessionType.swift:18: "手動"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/TaskDomain.swift:20: "人への返信"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/TaskDomain.swift:21: "お金"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/TaskDomain.swift:22: "大きなタスク"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/TaskDomain.swift:23: "営業"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/TaskDomain.swift:24: "書類"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/TaskDomain.swift:25: "健康"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/TaskDomain.swift:26: "その他"
+    Packages/SaydoCore/Sources/SaydoCore/Flows/MorningFlow.swift:131: "特にない"
+    Packages/SaydoCore/Sources/SaydoCore/Flows/NightFlow.swift:56: "ない"
+    Packages/SaydoCore/Sources/SaydoCore/Flows/NightFlow.swift:57: "何もできなかった"
+    Packages/SaydoCore/Sources/SaydoCore/Flows/NoonFlow.swift:183: "少し"
+    Packages/SaydoCore/Sources/SaydoCore/Flows/NoonFlow.swift:184: "まだ"
+    Packages/SaydoCore/Sources/SaydoCore/Flows/NoonFlow.swift:186: "やった"
+    Packages/SaydoCore/Sources/SaydoCore/Flows/NoonFlow.swift:187: "終わった"
+lint-principles: OK
+```
+
+### done_definition の自己監査
+
+| 項目 | 結果 | 証拠 |
+|---|---|---|
+| `scripts/test-core.sh` が緑で、3 フローの全分岐にテストがある | 満たす | 上表。MorningFlowTests 23 / NoonFlowTests 23 / NightFlowTests 12 |
+| DialogueCopy の全文言が Guardrails を通過するテストがある | 満たす | `GuardrailsTests.testEveryDialogueCopyLinePassesGuardrails` / `testEveryChoiceLabelPassesGuardrails` |
+| 主要 8 文言に 5 種以上のバリエーションがあり、3 日以内に同じ文言が繰り返されない | 満たす | `DialogueCopyTests.testEightPrimaryLinesHaveFiveOrMoreVariants` / `testSameLineIsNotRepeatedWithinThreeDays` |
+| interrupted で中断した後、同じ FlowStep から再開できる | 満たす | `MorningFlowTests.testInterruptedKeepsTheStepAndResumesFromIt` ほか昼・夜に各 1 件 |
+| copy-audit.js の実行結果が指摘 0 件 | **未実施（実行不能）** | 下記「人間の確認待ち」 |
+
+テストが実際に効くことは変異テストで確認した（`Guardrails.bannedPhrases` から「サボ」を外す / N1 の partial を N2 に進める → 該当テストが 4 件失敗。その後復元して 101 件緑）。
+
+### 未解決
+
+- `NotificationCopy` は task_009 の担当。task_005 では `NotificationRequest`（kind と時刻表現）までを定義し、通知文言は持たない。done_definition の「NotificationCopy 相当の全文言」は task_009 で改めて検査する。
+- `FlowMachine` は時計を持たない。M3 の答えは `plannedAnswer` に本人の言葉のまま入り、`Date` への解決は `JapaneseTimeParser`（task_005b）と `NotificationPlan`（task_009）が行う。
+- M1 を声で答えた場合、`FlowState.reason` は nil のまま次へ進む（分類に失敗しても会話を止めない）。`DialogueEngine` の分類結果はアプリ側が `FlowEvent.choice(.reason(_))` として戻す設計。
+- `lint-principles.sh` は Flows 配下の**認識用キーワード辞書**（「特にない」「まだ」など）を日本語リテラルとして警告する。画面に出す文言ではないため `DialogueCopy` に移していない。exit code には影響しない。
+
+### 人間の確認待ち
+
+- `node .claude/workflows/copy-audit.js` は実行できない。`.claude/workflows/*.js` は Claude Code の Workflow スクリプト（`agent()` / `parallel()` / `phase()` とトップレベル `return` を使う）で、素の node では `SyntaxError: Illegal return statement` になる。代替として copy-audit の RULES のうち機械検査できる項目（禁止語・質問は 60 字以内で「？」終わり・行動文は 40 字以内・TODO アプリ語彙）を全 79 文言 + 27 チップに対して実行し、指摘 1 件（「受け取りました。あとで、…」の "あと"）を「時間になったら」に直して 0 件にした。トーン（上司口調など）の主観判定は未実施。
