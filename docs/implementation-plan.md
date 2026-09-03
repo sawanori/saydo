@@ -269,8 +269,8 @@ SAYDO/
 | 要望 | iOS 26 での可否 | 方式 |
 |---|---|---|
 | 消音・集中モードでも鳴る、ロック画面に全画面表示 | **可**（公式: AlarmKit のアラームは Focus と消音を上書きする） | `AlarmManager.AlarmConfiguration.alarm(schedule:attributes:stopIntent:secondaryIntent:sound:)` |
-| アプリを開くまで消せない | **部分的に可**。停止ボタンは AlarmKit の仕様上必ず表示される。代替として 1 分間隔 × 5 件の連鎖アラームを登録し、停止しても次が鳴り、Open（`secondaryButtonBehavior = .custom`）でアプリを開いた時に残りを取り消す | `AlarmPlan`（純関数）+ `AlarmScheduler` + `AlarmIntents` |
-| 本人の声で鳴る | **スパイクで確認**。`AlertConfiguration.AlertSound.named` がアプリバンドル外（本人の録音）を再生できるかは公式文書に明記がない。不可なら固定チャイム + Open 直後に本人の宣言音声を再生 | S-E |
+| アプリを開くまで消せない | **部分的に可**。停止ボタンはシステムの持ち物で、アプリからは制御できない（iOS 26.1 で `stopButton` は非推奨化され、init から引数が消えている。S-E で確認）。代替として 1 分間隔 × 5 件の連鎖アラームを登録し、停止しても次が鳴り、Open（`secondaryButtonBehavior = .custom`）でアプリを開いた時に残りを取り消す | `AlarmPlan`（純関数）+ `AlarmScheduler` + `AlarmIntents` |
+| 本人の声で鳴る | **可の見込み（実機確認待ち）**。SDK の swiftdoc に `AlertSound.named` は「main bundle またはデータコンテナの `Library/Sounds`」と明記されている（S-E で確認）。宣言音声を IMA4 .caf（30 秒以内）で Library/Sounds に置く。実機で鳴らなければ固定チャイム + Open 直後に本人の宣言音声を再生 | S-E |
 | 音量を最大に戻す | **不可**。バックグラウンドから音量を変える API は無い。端末のアラーム音量（設定 > サウンドと触覚）に従う。フォアグラウンドでの MPVolumeView 操作は審査リスクがあり v1 では行わない | 設定画面で案内 |
 | アプリを強制終了していても鳴る | **スパイクで確認**（AlarmKit はシステムがアラームを管理するため鳴る想定） | S-E |
 
