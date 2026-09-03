@@ -1,0 +1,809 @@
+build-ios: scheme=Saydo
+build-ios: 注意 — iOS シミュレータのランタイムが未導入で generic/platform=iOS Simulator を解決できない。
+build-ios: destination を使わず -target Saydo でビルドする（コンパイルとリンクだけの検証。実行はできない）。
+build-ios: 解消するには空き容量を 9 GB 以上確保して xcodebuild -downloadPlatform iOS を実行する。
+Command line invocation:
+    /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild build -project Saydo.xcodeproj -target Saydo -configuration Debug -sdk iphonesimulator CODE_SIGNING_ALLOWED=NO
+
+Build settings from command line:
+    CODE_SIGNING_ALLOWED = NO
+    SDKROOT = iphonesimulator26.2
+
+Resolve Package Graph
+
+
+Resolved source packages:
+  SaydoCore: /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore
+
+ComputePackagePrebuildTargetDependencyGraph
+
+Prepare packages
+
+CreateBuildRequest
+
+SendProjectDescription
+
+CreateBuildOperation
+
+ComputeTargetDependencyGraph
+note: Building targets in dependency order
+note: Target dependency graph (3 targets)
+    Target 'Saydo' in project 'Saydo'
+        ➜ Explicit dependency on target 'SaydoCore' in project 'SaydoCore'
+    Target 'SaydoCore' in project 'SaydoCore'
+        ➜ Explicit dependency on target 'SaydoCore' in project 'SaydoCore'
+    Target 'SaydoCore' in project 'SaydoCore' (no dependencies)
+
+GatherProvisioningInputs
+
+CreateBuildDescription
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -v -E -dM -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.2.sdk -x c -c /dev/null
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc --version
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/usr/bin/actool --print-asset-tag-combinations --output-format xml1 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/App/Resources/Assets.xcassets
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ld -version_details
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/usr/bin/actool --version --output-format xml1
+
+Build description signature: bbf64996b9590bf702d61afc116c31c7
+Build description path: /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/XCBuildData/bbf64996b9590bf702d61afc116c31c7.xcbuilddata
+ClangStatCache /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.2.sdk /var/folders/h6/2q0crwpx3zx94d5zxclh_f5c0000gn/C/com.apple.DeveloperTools/26.2-17C52/Xcode/SDKStatCaches.noindex/iphonesimulator26.2-23C53-7d00a8b37fbd7999ea79df8ebc024bf0.sdkstatcache
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Saydo.xcodeproj
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.2.sdk -o /var/folders/h6/2q0crwpx3zx94d5zxclh_f5c0000gn/C/com.apple.DeveloperTools/26.2-17C52/Xcode/SDKStatCaches.noindex/iphonesimulator26.2-23C53-7d00a8b37fbd7999ea79df8ebc024bf0.sdkstatcache
+Resolve Package Graph
+
+
+CreateBuildDirectory /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Saydo.xcodeproj
+    builtin-create-build-directory /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build
+
+CreateBuildDirectory /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Saydo.xcodeproj
+    builtin-create-build-directory /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build
+
+CreateBuildDirectory /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Debug-iphonesimulator
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Saydo.xcodeproj
+    builtin-create-build-directory /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Debug-iphonesimulator
+
+CreateBuildDirectory /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/SwiftExplicitPrecompiledModules
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Saydo.xcodeproj
+    builtin-create-build-directory /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/SwiftExplicitPrecompiledModules
+
+CreateBuildDirectory /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/ExplicitPrecompiledModules
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Saydo.xcodeproj
+    builtin-create-build-directory /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/ExplicitPrecompiledModules
+
+CreateBuildDirectory /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/EagerLinkingTBDs/Debug-iphonesimulator
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Saydo.xcodeproj
+    builtin-create-build-directory /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/EagerLinkingTBDs/Debug-iphonesimulator
+
+WriteAuxiliaryFile /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Saydo.build/Debug-iphonesimulator/Saydo-6ca381a8fee1c498b948e65025eed0c5-VFS-iphonesimulator/all-product-headers.yaml
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Saydo.xcodeproj
+    write-file /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Saydo.build/Debug-iphonesimulator/Saydo-6ca381a8fee1c498b948e65025eed0c5-VFS-iphonesimulator/all-product-headers.yaml
+
+CreateBuildDirectory /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/ExplicitPrecompiledModules
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Saydo.xcodeproj
+    builtin-create-build-directory /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/ExplicitPrecompiledModules
+
+CreateBuildDirectory /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SwiftExplicitPrecompiledModules
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Saydo.xcodeproj
+    builtin-create-build-directory /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SwiftExplicitPrecompiledModules
+
+CreateBuildDirectory /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/Debug-iphonesimulator
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Saydo.xcodeproj
+    builtin-create-build-directory /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/Debug-iphonesimulator
+
+CreateBuildDirectory /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/EagerLinkingTBDs/Debug-iphonesimulator
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Saydo.xcodeproj
+    builtin-create-build-directory /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/EagerLinkingTBDs/Debug-iphonesimulator
+
+CreateBuildDirectory /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Debug-iphonesimulator/PackageFrameworks
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Saydo.xcodeproj
+    builtin-create-build-directory /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Debug-iphonesimulator/PackageFrameworks
+
+WriteAuxiliaryFile /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Saydo.build/Debug-iphonesimulator/Saydo.build/Saydo-all-target-headers.hmap (in target 'Saydo' from project 'Saydo')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008
+    write-file /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Saydo.build/Debug-iphonesimulator/Saydo.build/Saydo-all-target-headers.hmap
+
+WriteAuxiliaryFile /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Saydo.build/Debug-iphonesimulator/Saydo.build/Saydo-all-non-framework-target-headers.hmap (in target 'Saydo' from project 'Saydo')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008
+    write-file /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Saydo.build/Debug-iphonesimulator/Saydo.build/Saydo-all-non-framework-target-headers.hmap
+
+WriteAuxiliaryFile /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Saydo.build/Debug-iphonesimulator/Saydo.build/Saydo-project-headers.hmap (in target 'Saydo' from project 'Saydo')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008
+    write-file /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Saydo.build/Debug-iphonesimulator/Saydo.build/Saydo-project-headers.hmap
+
+WriteAuxiliaryFile /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Saydo.build/Debug-iphonesimulator/Saydo.build/Saydo-generated-files.hmap (in target 'Saydo' from project 'Saydo')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008
+    write-file /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Saydo.build/Debug-iphonesimulator/Saydo.build/Saydo-generated-files.hmap
+
+WriteAuxiliaryFile /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Saydo.build/Debug-iphonesimulator/Saydo.build/Saydo-own-target-headers.hmap (in target 'Saydo' from project 'Saydo')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008
+    write-file /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Saydo.build/Debug-iphonesimulator/Saydo.build/Saydo-own-target-headers.hmap
+
+WriteAuxiliaryFile /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Saydo.build/Debug-iphonesimulator/Saydo.build/Saydo.hmap (in target 'Saydo' from project 'Saydo')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008
+    write-file /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Saydo.build/Debug-iphonesimulator/Saydo.build/Saydo.hmap
+
+WriteAuxiliaryFile /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Saydo.build/Debug-iphonesimulator/Saydo.build/Saydo.DependencyStaticMetadataFileList (in target 'Saydo' from project 'Saydo')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008
+    write-file /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Saydo.build/Debug-iphonesimulator/Saydo.build/Saydo.DependencyStaticMetadataFileList
+
+WriteAuxiliaryFile /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Saydo.build/Debug-iphonesimulator/Saydo.build/Saydo.DependencyMetadataFileList (in target 'Saydo' from project 'Saydo')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008
+    write-file /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Saydo.build/Debug-iphonesimulator/Saydo.build/Saydo.DependencyMetadataFileList
+
+WriteAuxiliaryFile /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Saydo.build/Debug-iphonesimulator/Saydo.build/Objects-normal/x86_64/Saydo_const_extract_protocols.json (in target 'Saydo' from project 'Saydo')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008
+    write-file /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Saydo.build/Debug-iphonesimulator/Saydo.build/Objects-normal/x86_64/Saydo_const_extract_protocols.json
+
+WriteAuxiliaryFile /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/SaydoCore.modulemap (in target 'SaydoCore' from project 'SaydoCore')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore
+    write-file /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/SaydoCore.modulemap
+
+WriteAuxiliaryFile /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/SaydoCore.DependencyStaticMetadataFileList (in target 'SaydoCore' from project 'SaydoCore')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore
+    write-file /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/SaydoCore.DependencyStaticMetadataFileList
+
+WriteAuxiliaryFile /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/SaydoCore.DependencyMetadataFileList (in target 'SaydoCore' from project 'SaydoCore')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore
+    write-file /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/SaydoCore.DependencyMetadataFileList
+
+WriteAuxiliaryFile /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/x86_64/SaydoCore-OutputFileMap.json (in target 'SaydoCore' from project 'SaydoCore')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore
+    write-file /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/x86_64/SaydoCore-OutputFileMap.json
+
+WriteAuxiliaryFile /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/x86_64/SaydoCore_const_extract_protocols.json (in target 'SaydoCore' from project 'SaydoCore')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore
+    write-file /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/x86_64/SaydoCore_const_extract_protocols.json
+
+WriteAuxiliaryFile /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/x86_64/SaydoCore.LinkFileList (in target 'SaydoCore' from project 'SaydoCore')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore
+    write-file /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/x86_64/SaydoCore.LinkFileList
+
+WriteAuxiliaryFile /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/x86_64/SaydoCore.SwiftConstValuesFileList (in target 'SaydoCore' from project 'SaydoCore')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore
+    write-file /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/x86_64/SaydoCore.SwiftConstValuesFileList
+
+WriteAuxiliaryFile /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/x86_64/SaydoCore.SwiftFileList (in target 'SaydoCore' from project 'SaydoCore')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore
+    write-file /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/x86_64/SaydoCore.SwiftFileList
+
+WriteAuxiliaryFile /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/arm64/SaydoCore_const_extract_protocols.json (in target 'SaydoCore' from project 'SaydoCore')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore
+    write-file /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/arm64/SaydoCore_const_extract_protocols.json
+
+WriteAuxiliaryFile /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/arm64/SaydoCore.SwiftFileList (in target 'SaydoCore' from project 'SaydoCore')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore
+    write-file /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/arm64/SaydoCore.SwiftFileList
+
+WriteAuxiliaryFile /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/arm64/SaydoCore.SwiftConstValuesFileList (in target 'SaydoCore' from project 'SaydoCore')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore
+    write-file /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/arm64/SaydoCore.SwiftConstValuesFileList
+
+WriteAuxiliaryFile /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/arm64/SaydoCore.LinkFileList (in target 'SaydoCore' from project 'SaydoCore')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore
+    write-file /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/arm64/SaydoCore.LinkFileList
+
+WriteAuxiliaryFile /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/arm64/SaydoCore-OutputFileMap.json (in target 'SaydoCore' from project 'SaydoCore')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore
+    write-file /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/arm64/SaydoCore-OutputFileMap.json
+
+Copy /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/GeneratedModuleMaps-iphonesimulator/SaydoCore.modulemap /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/SaydoCore.modulemap (in target 'SaydoCore' from project 'SaydoCore')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/SaydoCore.modulemap /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/GeneratedModuleMaps-iphonesimulator
+
+WriteAuxiliaryFile /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Saydo.build/Debug-iphonesimulator/Saydo.build/Objects-normal/x86_64/Saydo.SwiftFileList (in target 'Saydo' from project 'Saydo')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008
+    write-file /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Saydo.build/Debug-iphonesimulator/Saydo.build/Objects-normal/x86_64/Saydo.SwiftFileList
+
+WriteAuxiliaryFile /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Saydo.build/Debug-iphonesimulator/Saydo.build/Objects-normal/x86_64/Saydo.SwiftConstValuesFileList (in target 'Saydo' from project 'Saydo')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008
+    write-file /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Saydo.build/Debug-iphonesimulator/Saydo.build/Objects-normal/x86_64/Saydo.SwiftConstValuesFileList
+
+WriteAuxiliaryFile /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Saydo.build/Debug-iphonesimulator/Saydo.build/Objects-normal/x86_64/Saydo.LinkFileList (in target 'Saydo' from project 'Saydo')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008
+    write-file /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Saydo.build/Debug-iphonesimulator/Saydo.build/Objects-normal/x86_64/Saydo.LinkFileList
+
+WriteAuxiliaryFile /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Saydo.build/Debug-iphonesimulator/Saydo.build/Objects-normal/x86_64/Saydo-OutputFileMap.json (in target 'Saydo' from project 'Saydo')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008
+    write-file /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Saydo.build/Debug-iphonesimulator/Saydo.build/Objects-normal/x86_64/Saydo-OutputFileMap.json
+
+WriteAuxiliaryFile /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Saydo.build/Debug-iphonesimulator/Saydo.build/Objects-normal/arm64/Saydo_const_extract_protocols.json (in target 'Saydo' from project 'Saydo')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008
+    write-file /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Saydo.build/Debug-iphonesimulator/Saydo.build/Objects-normal/arm64/Saydo_const_extract_protocols.json
+
+WriteAuxiliaryFile /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Saydo.build/Debug-iphonesimulator/Saydo.build/Objects-normal/arm64/Saydo.SwiftFileList (in target 'Saydo' from project 'Saydo')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008
+    write-file /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Saydo.build/Debug-iphonesimulator/Saydo.build/Objects-normal/arm64/Saydo.SwiftFileList
+
+WriteAuxiliaryFile /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Saydo.build/Debug-iphonesimulator/Saydo.build/Objects-normal/arm64/Saydo.SwiftConstValuesFileList (in target 'Saydo' from project 'Saydo')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008
+    write-file /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Saydo.build/Debug-iphonesimulator/Saydo.build/Objects-normal/arm64/Saydo.SwiftConstValuesFileList
+
+WriteAuxiliaryFile /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Saydo.build/Debug-iphonesimulator/Saydo.build/Objects-normal/arm64/Saydo.LinkFileList (in target 'Saydo' from project 'Saydo')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008
+    write-file /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Saydo.build/Debug-iphonesimulator/Saydo.build/Objects-normal/arm64/Saydo.LinkFileList
+
+WriteAuxiliaryFile /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Saydo.build/Debug-iphonesimulator/Saydo.build/Objects-normal/arm64/Saydo-OutputFileMap.json (in target 'Saydo' from project 'Saydo')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008
+    write-file /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Saydo.build/Debug-iphonesimulator/Saydo.build/Objects-normal/arm64/Saydo-OutputFileMap.json
+
+CreateBuildDirectory /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/Debug-iphonesimulator/PackageFrameworks
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Saydo.xcodeproj
+    builtin-create-build-directory /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/Debug-iphonesimulator/PackageFrameworks
+
+MkDir /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Debug-iphonesimulator/Saydo.app (in target 'Saydo' from project 'Saydo')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008
+    /bin/mkdir -p /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Debug-iphonesimulator/Saydo.app
+
+SwiftDriver SaydoCore normal arm64 com.apple.xcode.tools.swift.compiler (in target 'SaydoCore' from project 'SaydoCore')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Saydo.xcodeproj
+    builtin-SwiftDriver -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name SaydoCore -Onone -enforce-exclusivity\=checked @/Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/arm64/SaydoCore.SwiftFileList -DSWIFT_PACKAGE -DDEBUG -DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE -DXcode -plugin-path /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.2.sdk -target arm64-apple-ios26.0-simulator -g -Xfrontend -serialize-debugging-options -enable-testing -Xcc -D_LIBCPP_HARDENING_MODE\=_LIBCPP_HARDENING_MODE_DEBUG -swift-version 6 -I /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/Debug-iphonesimulator -Isystem /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/lib -F /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/Debug-iphonesimulator -F /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/Library/Frameworks -F /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.2.sdk/Developer/Library/Frameworks -c -j10 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /var/folders/h6/2q0crwpx3zx94d5zxclh_f5c0000gn/C/com.apple.DeveloperTools/26.2-17C52/Xcode/SDKStatCaches.noindex/iphonesimulator26.2-23C53-7d00a8b37fbd7999ea79df8ebc024bf0.sdkstatcache -output-file-map /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/arm64/SaydoCore-OutputFileMap.json -use-frontend-parseable-output -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SwiftExplicitPrecompiledModules -serialize-diagnostics -emit-dependencies -emit-module -emit-module-path /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/arm64/SaydoCore.swiftmodule -validate-clang-modules-once -clang-build-session-file /var/folders/h6/2q0crwpx3zx94d5zxclh_f5c0000gn/C/org.llvm.clang/ModuleCache.noindex/Session.modulevalidation -package-name saydocore -Xcc -I/Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/swift-overrides.hmap -emit-const-values -Xfrontend -const-gather-protocols-file -Xfrontend /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/arm64/SaydoCore_const_extract_protocols.json -Xcc -I/Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/Debug-iphonesimulator/include -Xcc -I/Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/DerivedSources-normal/arm64 -Xcc -I/Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/DerivedSources/arm64 -Xcc -I/Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/DerivedSources -Xcc -DSWIFT_PACKAGE -Xcc -DDEBUG\=1 -emit-objc-header -emit-objc-header-path /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/arm64/SaydoCore-Swift.h -working-directory /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Saydo.xcodeproj -experimental-emit-module-separately -disable-cmo
+
+SwiftDriver SaydoCore normal x86_64 com.apple.xcode.tools.swift.compiler (in target 'SaydoCore' from project 'SaydoCore')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Saydo.xcodeproj
+    builtin-SwiftDriver -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name SaydoCore -Onone -enforce-exclusivity\=checked @/Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/x86_64/SaydoCore.SwiftFileList -DSWIFT_PACKAGE -DDEBUG -DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE -DXcode -plugin-path /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.2.sdk -target x86_64-apple-ios26.0-simulator -g -Xfrontend -serialize-debugging-options -enable-testing -Xcc -D_LIBCPP_HARDENING_MODE\=_LIBCPP_HARDENING_MODE_DEBUG -swift-version 6 -I /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/Debug-iphonesimulator -Isystem /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/lib -F /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/Debug-iphonesimulator -F /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/Library/Frameworks -F /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.2.sdk/Developer/Library/Frameworks -c -j10 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /var/folders/h6/2q0crwpx3zx94d5zxclh_f5c0000gn/C/com.apple.DeveloperTools/26.2-17C52/Xcode/SDKStatCaches.noindex/iphonesimulator26.2-23C53-7d00a8b37fbd7999ea79df8ebc024bf0.sdkstatcache -output-file-map /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/x86_64/SaydoCore-OutputFileMap.json -use-frontend-parseable-output -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SwiftExplicitPrecompiledModules -serialize-diagnostics -emit-dependencies -emit-module -emit-module-path /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/x86_64/SaydoCore.swiftmodule -validate-clang-modules-once -clang-build-session-file /var/folders/h6/2q0crwpx3zx94d5zxclh_f5c0000gn/C/org.llvm.clang/ModuleCache.noindex/Session.modulevalidation -package-name saydocore -Xcc -I/Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/swift-overrides.hmap -emit-const-values -Xfrontend -const-gather-protocols-file -Xfrontend /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/x86_64/SaydoCore_const_extract_protocols.json -Xcc -I/Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/Debug-iphonesimulator/include -Xcc -I/Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/DerivedSources-normal/x86_64 -Xcc -I/Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/DerivedSources/x86_64 -Xcc -I/Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/DerivedSources -Xcc -DSWIFT_PACKAGE -Xcc -DDEBUG\=1 -emit-objc-header -emit-objc-header-path /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/x86_64/SaydoCore-Swift.h -working-directory /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Saydo.xcodeproj -experimental-emit-module-separately -disable-cmo
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SwiftExplicitPrecompiledModules/_Builtin_float-D6GI1IGI0RKXP0TLCHEP0IJN5.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SwiftExplicitPrecompiledModules/_SwiftConcurrencyShims-19VAXKQ8S1E7B5GT9BPLK70S2.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SwiftExplicitPrecompiledModules/_Builtin_stdbool-7XQJBRUMAR3RJUYCA0PAZF1EM.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SwiftExplicitPrecompiledModules/SwiftShims-13UDYDKF2R4C93X63P6KMBMKR.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SwiftExplicitPrecompiledModules/ptrauth-700DQ3C4NFZ02T8GTL660UKCG.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SwiftExplicitPrecompiledModules/_Builtin_stdarg-1D9B2A603FAPNWO7D830TUM5N.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SwiftExplicitPrecompiledModules/ptrcheck-5RRG0USHFTTPH8U226YJCTFL9.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SwiftExplicitPrecompiledModules/_AvailabilityInternal-2Y9GTQQWKVIXCL7EQ06CMCOGF.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SwiftExplicitPrecompiledModules/_Builtin_stddef-7U5PQEWA5S34HXI3J3LC0W6Y0.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SwiftExplicitPrecompiledModules/_Builtin_float-8A55AD6FAOLK9G3AKM3N1JKTH.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SwiftExplicitPrecompiledModules/_Builtin_stdarg-4MJ69XYSP1O9FUH0H9D83ALGR.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SwiftExplicitPrecompiledModules/_AvailabilityInternal-BMCVSHA37SDGN4AZCOP9T0DX5.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SwiftExplicitPrecompiledModules/_Builtin_stdbool-9YUGA79OA77FJ7CFF4BM1XFVA.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SwiftExplicitPrecompiledModules/_Builtin_stddef-CACVSZ5CPGG7186MHH6NWBA85.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SwiftExplicitPrecompiledModules/_SwiftConcurrencyShims-EK2P8QHEIELKCSWK9Q8WL7G9U.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SwiftExplicitPrecompiledModules/SwiftShims-4L5J0T3QG6K9YCCC3GF6CPNNF.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SwiftExplicitPrecompiledModules/ptrcheck-6LCZNRGJU4KS7PQUUY0Q4S6UX.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SwiftExplicitPrecompiledModules/ptrauth-2TCHRPEXTWGQVOEUF7NIRIRG5.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SwiftExplicitPrecompiledModules/_DarwinFoundation1-AAE5VACIFSWZVQ74E3DC2U11L.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SwiftExplicitPrecompiledModules/_DarwinFoundation1-YGAB27ZXKJH7D1O40TBDPCOO.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SwiftExplicitPrecompiledModules/_DarwinFoundation2-15S84XB4LL7KMKBDB3ZDNSR2E.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SwiftExplicitPrecompiledModules/_Builtin_limits-BT53G4LUZ0SY2E05GIU4L16XQ.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SwiftExplicitPrecompiledModules/_DarwinFoundation2-IX3LT52B0MK57DBYPAUYX61X.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SwiftExplicitPrecompiledModules/_Builtin_limits-AL5JGDTT3QFCX8LABQE54VDDA.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SwiftExplicitPrecompiledModules/sys_types-8A9TQSVBUT9LB67OFLZJMQ75Z.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SwiftExplicitPrecompiledModules/_Builtin_stdint-C0IIYW2H6OHVLOYPYBNICURI1.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SwiftExplicitPrecompiledModules/_Builtin_stdint-6PQGOM6OSU3PB4RJSCSE2GCQ0.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SwiftExplicitPrecompiledModules/sys_types-2IMS42UECJ4VGAJKIDUZ50U97.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SwiftExplicitPrecompiledModules/_DarwinFoundation3-91QHTMH3YBXT7YSF48OFTR5M4.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SwiftExplicitPrecompiledModules/_DarwinFoundation3-A8CHBUU0MZKFEX34H4USTCS2R.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SwiftExplicitPrecompiledModules/_Builtin_inttypes-4CXFR64I41IWNPP1U9HU8BT99.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SwiftExplicitPrecompiledModules/Darwin-EWRL58FA2TW92CZQB1M3JS2H4.pcm
+Resolve Package Graph
+
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SwiftExplicitPrecompiledModules/_Builtin_inttypes-1CWCRH7FNRLP3IPV929WKS4OM.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SwiftExplicitPrecompiledModules/Darwin-597PWNLZC21MMKS7YZA4Y6KKN.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SwiftExplicitPrecompiledModules/ObjectiveC-1HIP4EAX8Q6EBHLV9WGTYH9EH.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SwiftExplicitPrecompiledModules/ObjectiveC-7HZJ948VEHKG67Z2HLNVMC2TD.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SwiftExplicitPrecompiledModules/os_object-3EJLL7IL0ESQ43UDYVU1CJBQR.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SwiftExplicitPrecompiledModules/os_workgroup-DS1NP68IV0FJBERBYTHF97JCW.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SwiftExplicitPrecompiledModules/os_object-AAFUQC0J6X8HYFQ360FBH6SBY.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SwiftExplicitPrecompiledModules/Dispatch-AO6UY72GV44VA7WDOZ6F01EZW.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SwiftExplicitPrecompiledModules/os_workgroup-ERRUBUO55H53CM6QVEDJ794BM.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SwiftExplicitPrecompiledModules/XPC-D5D6WV5BWUHYSE6UGOMKQEFL3.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SwiftExplicitPrecompiledModules/Dispatch-1NU6FI39T5KCQDIXT4AT5BVVH.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SwiftExplicitPrecompiledModules/CoreFoundation-11PCG6VT0Q88GVTT7SOUT2QB6.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SwiftExplicitPrecompiledModules/CoreFoundation-3MO6IXD3OAAL97EGG4PAK6QJ2.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SwiftExplicitPrecompiledModules/XPC-8DRL1K6NGS2WSINP4B3VB3WWO.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SwiftExplicitPrecompiledModules/Security-A5KUPU8Z9VW3K13CLRY0BWPYY.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SwiftExplicitPrecompiledModules/CFNetwork-EF2UIH9SSTYQ69LA7AUMH66CT.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SwiftExplicitPrecompiledModules/Security-3VUICECMJFSIJU6W2VTHL4BTB.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SwiftExplicitPrecompiledModules/CFNetwork-7BBF0ZHH3PE2AY72VJPJT8GK.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SwiftExplicitPrecompiledModules/Foundation-AC83LZRU5V73M99HEPE5R7L4O.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SwiftExplicitPrecompiledModules/Foundation-5HG6B3E3O4EX6N6S82ANJJLP5.pcm
+
+SwiftCompile normal x86_64 Compiling\ FlowStep.swift,\ MicroAction.swift /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/Sources/SaydoCore/Domain/FlowStep.swift /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/Sources/SaydoCore/Domain/MicroAction.swift (in target 'SaydoCore' from project 'SaydoCore')
+
+SwiftCompile normal x86_64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/Sources/SaydoCore/Domain/FlowStep.swift (in target 'SaydoCore' from project 'SaydoCore')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Saydo.xcodeproj
+    
+
+SwiftCompile normal x86_64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/Sources/SaydoCore/Domain/MicroAction.swift (in target 'SaydoCore' from project 'SaydoCore')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Saydo.xcodeproj
+    
+
+SwiftCompile normal x86_64 Compiling\ NoonFlow.swift /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/Sources/SaydoCore/Flows/NoonFlow.swift (in target 'SaydoCore' from project 'SaydoCore')
+SwiftCompile normal x86_64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/Sources/SaydoCore/Flows/NoonFlow.swift (in target 'SaydoCore' from project 'SaydoCore')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Saydo.xcodeproj
+    
+Resolve Package Graph
+
+
+SwiftCompile normal x86_64 Compiling\ WeeklyStats.swift,\ FlowMachine.swift /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/Sources/SaydoCore/Domain/WeeklyStats.swift /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/Sources/SaydoCore/Flows/FlowMachine.swift (in target 'SaydoCore' from project 'SaydoCore')
+SwiftCompile normal x86_64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/Sources/SaydoCore/Domain/WeeklyStats.swift (in target 'SaydoCore' from project 'SaydoCore')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Saydo.xcodeproj
+    
+Resolve Package Graph
+
+Resolve Package Graph
+
+
+SwiftCompile normal x86_64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/Sources/SaydoCore/Flows/FlowMachine.swift (in target 'SaydoCore' from project 'SaydoCore')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Saydo.xcodeproj
+    
+
+SwiftCompile normal x86_64 Compiling\ MorningFlow.swift,\ NightFlow.swift /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/Sources/SaydoCore/Flows/MorningFlow.swift /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/Sources/SaydoCore/Flows/NightFlow.swift (in target 'SaydoCore' from project 'SaydoCore')
+
+SwiftCompile normal x86_64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/Sources/SaydoCore/Flows/MorningFlow.swift (in target 'SaydoCore' from project 'SaydoCore')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Saydo.xcodeproj
+    
+
+SwiftCompile normal x86_64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/Sources/SaydoCore/Flows/NightFlow.swift (in target 'SaydoCore' from project 'SaydoCore')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Saydo.xcodeproj
+    
+
+SwiftCompile normal x86_64 Compiling\ SessionType.swift,\ TaskDomain.swift /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/Sources/SaydoCore/Domain/SessionType.swift /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/Sources/SaydoCore/Domain/TaskDomain.swift (in target 'SaydoCore' from project 'SaydoCore')
+
+SwiftCompile normal x86_64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/Sources/SaydoCore/Domain/SessionType.swift (in target 'SaydoCore' from project 'SaydoCore')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Saydo.xcodeproj
+    
+
+SwiftCompile normal x86_64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/Sources/SaydoCore/Domain/TaskDomain.swift (in target 'SaydoCore' from project 'SaydoCore')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Saydo.xcodeproj
+    
+
+SwiftCompile normal x86_64 Compiling\ CommitmentOutcome.swift,\ DialogueContext.swift /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/Sources/SaydoCore/Domain/CommitmentOutcome.swift /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/Sources/SaydoCore/Domain/DialogueContext.swift (in target 'SaydoCore' from project 'SaydoCore')
+
+SwiftCompile normal x86_64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/Sources/SaydoCore/Domain/CommitmentOutcome.swift (in target 'SaydoCore' from project 'SaydoCore')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Saydo.xcodeproj
+    
+
+SwiftCompile normal x86_64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/Sources/SaydoCore/Domain/DialogueContext.swift (in target 'SaydoCore' from project 'SaydoCore')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Saydo.xcodeproj
+    
+
+SwiftCompile normal x86_64 Compiling\ ReasonCategory.swift,\ ReasonClassification.swift /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/Sources/SaydoCore/Domain/ReasonCategory.swift /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/Sources/SaydoCore/Domain/ReasonClassification.swift (in target 'SaydoCore' from project 'SaydoCore')
+
+SwiftCompile normal x86_64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/Sources/SaydoCore/Domain/ReasonCategory.swift (in target 'SaydoCore' from project 'SaydoCore')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Saydo.xcodeproj
+    
+
+SwiftCompile normal x86_64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/Sources/SaydoCore/Domain/ReasonClassification.swift (in target 'SaydoCore' from project 'SaydoCore')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Saydo.xcodeproj
+    
+
+SwiftEmitModule normal x86_64 Emitting\ module\ for\ SaydoCore (in target 'SaydoCore' from project 'SaydoCore')
+
+EmitSwiftModule normal x86_64 (in target 'SaydoCore' from project 'SaydoCore')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Saydo.xcodeproj
+    
+
+SwiftCompile normal x86_64 Compiling\ DialogueCopy.swift,\ DialogueEngine.swift /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/Sources/SaydoCore/Dialogue/DialogueCopy.swift /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/Sources/SaydoCore/Dialogue/DialogueEngine.swift (in target 'SaydoCore' from project 'SaydoCore')
+
+SwiftCompile normal x86_64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/Sources/SaydoCore/Dialogue/DialogueCopy.swift (in target 'SaydoCore' from project 'SaydoCore')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Saydo.xcodeproj
+    
+
+SwiftCompile normal x86_64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/Sources/SaydoCore/Dialogue/DialogueEngine.swift (in target 'SaydoCore' from project 'SaydoCore')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Saydo.xcodeproj
+    
+
+SwiftCompile normal x86_64 Compiling\ ShrinkLadder.swift,\ TemplateDialogueEngine.swift /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/Sources/SaydoCore/Dialogue/ShrinkLadder.swift /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/Sources/SaydoCore/Dialogue/TemplateDialogueEngine.swift (in target 'SaydoCore' from project 'SaydoCore')
+
+SwiftCompile normal x86_64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/Sources/SaydoCore/Dialogue/ShrinkLadder.swift (in target 'SaydoCore' from project 'SaydoCore')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Saydo.xcodeproj
+    
+
+SwiftCompile normal x86_64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/Sources/SaydoCore/Dialogue/TemplateDialogueEngine.swift (in target 'SaydoCore' from project 'SaydoCore')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Saydo.xcodeproj
+    
+
+SwiftEmitModule normal arm64 Emitting\ module\ for\ SaydoCore (in target 'SaydoCore' from project 'SaydoCore')
+
+EmitSwiftModule normal arm64 (in target 'SaydoCore' from project 'SaydoCore')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Saydo.xcodeproj
+    
+
+SwiftDriverJobDiscovery normal x86_64 Compiling SessionType.swift, TaskDomain.swift (in target 'SaydoCore' from project 'SaydoCore')
+
+SwiftCompile normal arm64 Compiling\ ShrinkLadder.swift,\ TemplateDialogueEngine.swift /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/Sources/SaydoCore/Dialogue/ShrinkLadder.swift /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/Sources/SaydoCore/Dialogue/TemplateDialogueEngine.swift (in target 'SaydoCore' from project 'SaydoCore')
+
+SwiftCompile normal arm64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/Sources/SaydoCore/Dialogue/ShrinkLadder.swift (in target 'SaydoCore' from project 'SaydoCore')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Saydo.xcodeproj
+    
+
+SwiftCompile normal arm64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/Sources/SaydoCore/Dialogue/TemplateDialogueEngine.swift (in target 'SaydoCore' from project 'SaydoCore')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Saydo.xcodeproj
+    
+
+SwiftDriverJobDiscovery normal x86_64 Compiling FlowStep.swift, MicroAction.swift (in target 'SaydoCore' from project 'SaydoCore')
+
+SwiftCompile normal arm64 Compiling\ WeeklyStats.swift,\ FlowMachine.swift /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/Sources/SaydoCore/Domain/WeeklyStats.swift /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/Sources/SaydoCore/Flows/FlowMachine.swift (in target 'SaydoCore' from project 'SaydoCore')
+SwiftCompile normal arm64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/Sources/SaydoCore/Domain/WeeklyStats.swift (in target 'SaydoCore' from project 'SaydoCore')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Saydo.xcodeproj
+    
+
+SwiftCompile normal arm64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/Sources/SaydoCore/Flows/FlowMachine.swift (in target 'SaydoCore' from project 'SaydoCore')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Saydo.xcodeproj
+    
+
+SwiftDriverJobDiscovery normal x86_64 Compiling ReasonCategory.swift, ReasonClassification.swift (in target 'SaydoCore' from project 'SaydoCore')
+
+SwiftCompile normal arm64 Compiling\ MorningFlow.swift,\ NightFlow.swift /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/Sources/SaydoCore/Flows/MorningFlow.swift /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/Sources/SaydoCore/Flows/NightFlow.swift (in target 'SaydoCore' from project 'SaydoCore')
+
+SwiftCompile normal arm64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/Sources/SaydoCore/Flows/MorningFlow.swift (in target 'SaydoCore' from project 'SaydoCore')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Saydo.xcodeproj
+    
+
+SwiftCompile normal arm64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/Sources/SaydoCore/Flows/NightFlow.swift (in target 'SaydoCore' from project 'SaydoCore')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Saydo.xcodeproj
+    
+
+SwiftDriverJobDiscovery normal x86_64 Compiling CommitmentOutcome.swift, DialogueContext.swift (in target 'SaydoCore' from project 'SaydoCore')
+
+SwiftCompile normal arm64 Compiling\ SessionType.swift,\ TaskDomain.swift /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/Sources/SaydoCore/Domain/SessionType.swift /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/Sources/SaydoCore/Domain/TaskDomain.swift (in target 'SaydoCore' from project 'SaydoCore')
+
+SwiftCompile normal arm64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/Sources/SaydoCore/Domain/SessionType.swift (in target 'SaydoCore' from project 'SaydoCore')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Saydo.xcodeproj
+    
+
+SwiftCompile normal arm64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/Sources/SaydoCore/Domain/TaskDomain.swift (in target 'SaydoCore' from project 'SaydoCore')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Saydo.xcodeproj
+    
+
+SwiftDriverJobDiscovery normal x86_64 Compiling NoonFlow.swift (in target 'SaydoCore' from project 'SaydoCore')
+
+SwiftCompile normal arm64 Compiling\ CommitmentOutcome.swift,\ DialogueContext.swift /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/Sources/SaydoCore/Domain/CommitmentOutcome.swift /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/Sources/SaydoCore/Domain/DialogueContext.swift (in target 'SaydoCore' from project 'SaydoCore')
+
+SwiftCompile normal arm64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/Sources/SaydoCore/Domain/CommitmentOutcome.swift (in target 'SaydoCore' from project 'SaydoCore')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Saydo.xcodeproj
+    
+
+SwiftCompile normal arm64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/Sources/SaydoCore/Domain/DialogueContext.swift (in target 'SaydoCore' from project 'SaydoCore')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Saydo.xcodeproj
+    
+
+SwiftDriverJobDiscovery normal x86_64 Compiling ShrinkLadder.swift, TemplateDialogueEngine.swift (in target 'SaydoCore' from project 'SaydoCore')
+
+SwiftCompile normal arm64 Compiling\ NoonFlow.swift /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/Sources/SaydoCore/Flows/NoonFlow.swift (in target 'SaydoCore' from project 'SaydoCore')
+
+SwiftCompile normal arm64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/Sources/SaydoCore/Flows/NoonFlow.swift (in target 'SaydoCore' from project 'SaydoCore')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Saydo.xcodeproj
+    
+
+SwiftDriverJobDiscovery normal x86_64 Compiling MorningFlow.swift, NightFlow.swift (in target 'SaydoCore' from project 'SaydoCore')
+
+SwiftCompile normal arm64 Compiling\ Guardrails.swift,\ JapaneseTimeParser.swift /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/Sources/SaydoCore/Dialogue/Guardrails.swift /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/Sources/SaydoCore/Dialogue/JapaneseTimeParser.swift (in target 'SaydoCore' from project 'SaydoCore')
+
+SwiftCompile normal arm64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/Sources/SaydoCore/Dialogue/Guardrails.swift (in target 'SaydoCore' from project 'SaydoCore')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Saydo.xcodeproj
+    
+
+SwiftCompile normal arm64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/Sources/SaydoCore/Dialogue/JapaneseTimeParser.swift (in target 'SaydoCore' from project 'SaydoCore')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Saydo.xcodeproj
+    
+
+SwiftDriverJobDiscovery normal arm64 Compiling SessionType.swift, TaskDomain.swift (in target 'SaydoCore' from project 'SaydoCore')
+
+SwiftCompile normal arm64 Compiling\ DialogueCopy.swift,\ DialogueEngine.swift /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/Sources/SaydoCore/Dialogue/DialogueCopy.swift /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/Sources/SaydoCore/Dialogue/DialogueEngine.swift (in target 'SaydoCore' from project 'SaydoCore')
+
+SwiftCompile normal arm64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/Sources/SaydoCore/Dialogue/DialogueCopy.swift (in target 'SaydoCore' from project 'SaydoCore')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Saydo.xcodeproj
+    
+
+SwiftCompile normal arm64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/Sources/SaydoCore/Dialogue/DialogueEngine.swift (in target 'SaydoCore' from project 'SaydoCore')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Saydo.xcodeproj
+    
+
+SwiftDriverJobDiscovery normal arm64 Compiling ShrinkLadder.swift, TemplateDialogueEngine.swift (in target 'SaydoCore' from project 'SaydoCore')
+
+SwiftCompile normal x86_64 Compiling\ Guardrails.swift,\ JapaneseTimeParser.swift /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/Sources/SaydoCore/Dialogue/Guardrails.swift /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/Sources/SaydoCore/Dialogue/JapaneseTimeParser.swift (in target 'SaydoCore' from project 'SaydoCore')
+
+SwiftCompile normal x86_64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/Sources/SaydoCore/Dialogue/Guardrails.swift (in target 'SaydoCore' from project 'SaydoCore')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Saydo.xcodeproj
+    
+
+SwiftCompile normal x86_64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/Sources/SaydoCore/Dialogue/JapaneseTimeParser.swift (in target 'SaydoCore' from project 'SaydoCore')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Saydo.xcodeproj
+    
+
+SwiftDriverJobDiscovery normal x86_64 Emitting module for SaydoCore (in target 'SaydoCore' from project 'SaydoCore')
+
+SwiftDriver\ Compilation\ Requirements SaydoCore normal x86_64 com.apple.xcode.tools.swift.compiler (in target 'SaydoCore' from project 'SaydoCore')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Saydo.xcodeproj
+    builtin-Swift-Compilation-Requirements -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name SaydoCore -Onone -enforce-exclusivity\=checked @/Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/x86_64/SaydoCore.SwiftFileList -DSWIFT_PACKAGE -DDEBUG -DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE -DXcode -plugin-path /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.2.sdk -target x86_64-apple-ios26.0-simulator -g -Xfrontend -serialize-debugging-options -enable-testing -Xcc -D_LIBCPP_HARDENING_MODE\=_LIBCPP_HARDENING_MODE_DEBUG -swift-version 6 -I /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/Debug-iphonesimulator -Isystem /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/lib -F /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/Debug-iphonesimulator -F /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/Library/Frameworks -F /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.2.sdk/Developer/Library/Frameworks -c -j10 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /var/folders/h6/2q0crwpx3zx94d5zxclh_f5c0000gn/C/com.apple.DeveloperTools/26.2-17C52/Xcode/SDKStatCaches.noindex/iphonesimulator26.2-23C53-7d00a8b37fbd7999ea79df8ebc024bf0.sdkstatcache -output-file-map /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/x86_64/SaydoCore-OutputFileMap.json -use-frontend-parseable-output -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SwiftExplicitPrecompiledModules -serialize-diagnostics -emit-dependencies -emit-module -emit-module-path /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/x86_64/SaydoCore.swiftmodule -validate-clang-modules-once -clang-build-session-file /var/folders/h6/2q0crwpx3zx94d5zxclh_f5c0000gn/C/org.llvm.clang/ModuleCache.noindex/Session.modulevalidation -package-name saydocore -Xcc -I/Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/swift-overrides.hmap -emit-const-values -Xfrontend -const-gather-protocols-file -Xfrontend /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/x86_64/SaydoCore_const_extract_protocols.json -Xcc -I/Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/Debug-iphonesimulator/include -Xcc -I/Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/DerivedSources-normal/x86_64 -Xcc -I/Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/DerivedSources/x86_64 -Xcc -I/Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/DerivedSources -Xcc -DSWIFT_PACKAGE -Xcc -DDEBUG\=1 -emit-objc-header -emit-objc-header-path /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/x86_64/SaydoCore-Swift.h -working-directory /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Saydo.xcodeproj -experimental-emit-module-separately -disable-cmo
+
+SwiftDriverJobDiscovery normal x86_64 Compiling DialogueCopy.swift, DialogueEngine.swift (in target 'SaydoCore' from project 'SaydoCore')
+
+SwiftCompile normal arm64 Compiling\ ReasonCategory.swift,\ ReasonClassification.swift /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/Sources/SaydoCore/Domain/ReasonCategory.swift /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/Sources/SaydoCore/Domain/ReasonClassification.swift (in target 'SaydoCore' from project 'SaydoCore')
+
+SwiftCompile normal arm64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/Sources/SaydoCore/Domain/ReasonCategory.swift (in target 'SaydoCore' from project 'SaydoCore')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Saydo.xcodeproj
+    
+
+SwiftCompile normal arm64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/Sources/SaydoCore/Domain/ReasonClassification.swift (in target 'SaydoCore' from project 'SaydoCore')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Saydo.xcodeproj
+    
+
+SwiftDriverJobDiscovery normal arm64 Emitting module for SaydoCore (in target 'SaydoCore' from project 'SaydoCore')
+
+SwiftDriver\ Compilation\ Requirements SaydoCore normal arm64 com.apple.xcode.tools.swift.compiler (in target 'SaydoCore' from project 'SaydoCore')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Saydo.xcodeproj
+    builtin-Swift-Compilation-Requirements -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name SaydoCore -Onone -enforce-exclusivity\=checked @/Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/arm64/SaydoCore.SwiftFileList -DSWIFT_PACKAGE -DDEBUG -DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE -DXcode -plugin-path /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.2.sdk -target arm64-apple-ios26.0-simulator -g -Xfrontend -serialize-debugging-options -enable-testing -Xcc -D_LIBCPP_HARDENING_MODE\=_LIBCPP_HARDENING_MODE_DEBUG -swift-version 6 -I /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/Debug-iphonesimulator -Isystem /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/lib -F /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/Debug-iphonesimulator -F /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/Library/Frameworks -F /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.2.sdk/Developer/Library/Frameworks -c -j10 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /var/folders/h6/2q0crwpx3zx94d5zxclh_f5c0000gn/C/com.apple.DeveloperTools/26.2-17C52/Xcode/SDKStatCaches.noindex/iphonesimulator26.2-23C53-7d00a8b37fbd7999ea79df8ebc024bf0.sdkstatcache -output-file-map /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/arm64/SaydoCore-OutputFileMap.json -use-frontend-parseable-output -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SwiftExplicitPrecompiledModules -serialize-diagnostics -emit-dependencies -emit-module -emit-module-path /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/arm64/SaydoCore.swiftmodule -validate-clang-modules-once -clang-build-session-file /var/folders/h6/2q0crwpx3zx94d5zxclh_f5c0000gn/C/org.llvm.clang/ModuleCache.noindex/Session.modulevalidation -package-name saydocore -Xcc -I/Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/swift-overrides.hmap -emit-const-values -Xfrontend -const-gather-protocols-file -Xfrontend /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/arm64/SaydoCore_const_extract_protocols.json -Xcc -I/Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/Debug-iphonesimulator/include -Xcc -I/Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/DerivedSources-normal/arm64 -Xcc -I/Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/DerivedSources/arm64 -Xcc -I/Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/DerivedSources -Xcc -DSWIFT_PACKAGE -Xcc -DDEBUG\=1 -emit-objc-header -emit-objc-header-path /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/arm64/SaydoCore-Swift.h -working-directory /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Saydo.xcodeproj -experimental-emit-module-separately -disable-cmo
+
+Copy /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/Debug-iphonesimulator/SaydoCore.swiftmodule/x86_64-apple-ios-simulator.swiftmodule /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/x86_64/SaydoCore.swiftmodule (in target 'SaydoCore' from project 'SaydoCore')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/x86_64/SaydoCore.swiftmodule /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/Debug-iphonesimulator/SaydoCore.swiftmodule/x86_64-apple-ios-simulator.swiftmodule
+
+SwiftMergeGeneratedHeaders /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/GeneratedModuleMaps-iphonesimulator/SaydoCore-Swift.h /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/arm64/SaydoCore-Swift.h /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/x86_64/SaydoCore-Swift.h (in target 'SaydoCore' from project 'SaydoCore')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore
+    builtin-swiftHeaderTool -arch arm64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/arm64/SaydoCore-Swift.h -arch x86_64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/x86_64/SaydoCore-Swift.h -o /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/GeneratedModuleMaps-iphonesimulator/SaydoCore-Swift.h
+
+Copy /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/Debug-iphonesimulator/SaydoCore.swiftmodule/x86_64-apple-ios-simulator.swiftdoc /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/x86_64/SaydoCore.swiftdoc (in target 'SaydoCore' from project 'SaydoCore')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/x86_64/SaydoCore.swiftdoc /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/Debug-iphonesimulator/SaydoCore.swiftmodule/x86_64-apple-ios-simulator.swiftdoc
+
+Copy /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/Debug-iphonesimulator/SaydoCore.swiftmodule/x86_64-apple-ios-simulator.abi.json /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/x86_64/SaydoCore.abi.json (in target 'SaydoCore' from project 'SaydoCore')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/x86_64/SaydoCore.abi.json /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/Debug-iphonesimulator/SaydoCore.swiftmodule/x86_64-apple-ios-simulator.abi.json
+
+Copy /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/Debug-iphonesimulator/SaydoCore.swiftmodule/arm64-apple-ios-simulator.swiftmodule /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/arm64/SaydoCore.swiftmodule (in target 'SaydoCore' from project 'SaydoCore')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/arm64/SaydoCore.swiftmodule /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/Debug-iphonesimulator/SaydoCore.swiftmodule/arm64-apple-ios-simulator.swiftmodule
+
+SwiftDriverJobDiscovery normal arm64 Compiling CommitmentOutcome.swift, DialogueContext.swift (in target 'SaydoCore' from project 'SaydoCore')
+
+Copy /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/Debug-iphonesimulator/SaydoCore.swiftmodule/arm64-apple-ios-simulator.swiftdoc /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/arm64/SaydoCore.swiftdoc (in target 'SaydoCore' from project 'SaydoCore')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/arm64/SaydoCore.swiftdoc /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/Debug-iphonesimulator/SaydoCore.swiftmodule/arm64-apple-ios-simulator.swiftdoc
+
+Copy /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/Debug-iphonesimulator/SaydoCore.swiftmodule/arm64-apple-ios-simulator.abi.json /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/arm64/SaydoCore.abi.json (in target 'SaydoCore' from project 'SaydoCore')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/arm64/SaydoCore.abi.json /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/Debug-iphonesimulator/SaydoCore.swiftmodule/arm64-apple-ios-simulator.abi.json
+
+Copy /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/Debug-iphonesimulator/SaydoCore.swiftmodule/Project/x86_64-apple-ios-simulator.swiftsourceinfo /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/x86_64/SaydoCore.swiftsourceinfo (in target 'SaydoCore' from project 'SaydoCore')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/x86_64/SaydoCore.swiftsourceinfo /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/Debug-iphonesimulator/SaydoCore.swiftmodule/Project/x86_64-apple-ios-simulator.swiftsourceinfo
+
+Copy /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/Debug-iphonesimulator/SaydoCore.swiftmodule/Project/arm64-apple-ios-simulator.swiftsourceinfo /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/arm64/SaydoCore.swiftsourceinfo (in target 'SaydoCore' from project 'SaydoCore')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/arm64/SaydoCore.swiftsourceinfo /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/Debug-iphonesimulator/SaydoCore.swiftmodule/Project/arm64-apple-ios-simulator.swiftsourceinfo
+
+SwiftCompile normal arm64 Compiling\ FlowStep.swift,\ MicroAction.swift /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/Sources/SaydoCore/Domain/FlowStep.swift /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/Sources/SaydoCore/Domain/MicroAction.swift (in target 'SaydoCore' from project 'SaydoCore')
+
+SwiftCompile normal arm64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/Sources/SaydoCore/Domain/FlowStep.swift (in target 'SaydoCore' from project 'SaydoCore')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Saydo.xcodeproj
+    
+
+SwiftCompile normal arm64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/Sources/SaydoCore/Domain/MicroAction.swift (in target 'SaydoCore' from project 'SaydoCore')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Saydo.xcodeproj
+    
+
+SwiftDriverJobDiscovery normal arm64 Compiling MorningFlow.swift, NightFlow.swift (in target 'SaydoCore' from project 'SaydoCore')
+
+MkDir /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Saydo.build/Debug-iphonesimulator/Saydo.build/assetcatalog_output/thinned (in target 'Saydo' from project 'Saydo')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008
+    /bin/mkdir -p /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Saydo.build/Debug-iphonesimulator/Saydo.build/assetcatalog_output/thinned
+
+MkDir /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Saydo.build/Debug-iphonesimulator/Saydo.build/assetcatalog_output/unthinned (in target 'Saydo' from project 'Saydo')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008
+    /bin/mkdir -p /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Saydo.build/Debug-iphonesimulator/Saydo.build/assetcatalog_output/unthinned
+
+GenerateAssetSymbols /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/App/Resources/Assets.xcassets (in target 'Saydo' from project 'Saydo')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008
+    /Applications/Xcode.app/Contents/Developer/usr/bin/actool /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/App/Resources/Assets.xcassets --compile /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Debug-iphonesimulator/Saydo.app --output-format human-readable-text --notices --warnings --export-dependency-info /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Saydo.build/Debug-iphonesimulator/Saydo.build/assetcatalog_dependencies --output-partial-info-plist /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Saydo.build/Debug-iphonesimulator/Saydo.build/assetcatalog_generated_info.plist --app-icon AppIcon --accent-color AccentColor --compress-pngs --enable-on-demand-resources YES --development-region en --target-device iphone --minimum-deployment-target 26.0 --platform iphonesimulator --bundle-identifier com.nonturn.saydo --generate-swift-asset-symbol-extensions NO --generate-swift-asset-symbols /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Saydo.build/Debug-iphonesimulator/Saydo.build/DerivedSources/GeneratedAssetSymbols.swift --generate-objc-asset-symbols /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Saydo.build/Debug-iphonesimulator/Saydo.build/DerivedSources/GeneratedAssetSymbols.h --generate-asset-symbol-index /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Saydo.build/Debug-iphonesimulator/Saydo.build/DerivedSources/GeneratedAssetSymbols-Index.plist
+/* com.apple.actool.compilation-results */
+/Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Saydo.build/Debug-iphonesimulator/Saydo.build/DerivedSources/GeneratedAssetSymbols-Index.plist
+/Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Saydo.build/Debug-iphonesimulator/Saydo.build/DerivedSources/GeneratedAssetSymbols.h
+/Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Saydo.build/Debug-iphonesimulator/Saydo.build/DerivedSources/GeneratedAssetSymbols.swift
+
+
+CompileAssetCatalogVariant thinned /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Debug-iphonesimulator/Saydo.app /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/App/Resources/Assets.xcassets (in target 'Saydo' from project 'Saydo')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008
+    /Applications/Xcode.app/Contents/Developer/usr/bin/actool /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/App/Resources/Assets.xcassets --compile /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Saydo.build/Debug-iphonesimulator/Saydo.build/assetcatalog_output/thinned --output-format human-readable-text --notices --warnings --export-dependency-info /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Saydo.build/Debug-iphonesimulator/Saydo.build/assetcatalog_dependencies_thinned --output-partial-info-plist /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Saydo.build/Debug-iphonesimulator/Saydo.build/assetcatalog_generated_info.plist_thinned --app-icon AppIcon --accent-color AccentColor --compress-pngs --enable-on-demand-resources YES --development-region en --target-device iphone --minimum-deployment-target 26.0 --platform iphonesimulator
+/* com.apple.actool.errors */
+/Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/App/Resources/Assets.xcassets: error: No simulator runtime version from ["22F77"] available to use with iphonesimulator SDK version 23C53
+/* com.apple.actool.compilation-results */
+/Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Saydo.build/Debug-iphonesimulator/Saydo.build/assetcatalog_generated_info.plist_thinned
+/Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Saydo.build/Debug-iphonesimulator/Saydo.build/assetcatalog_output/thinned/AppIcon60x60@2x.png
+/Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Saydo.build/Debug-iphonesimulator/Saydo.build/assetcatalog_output/thinned/AppIcon76x76@2x~ipad.png
+
+
+SwiftDriverJobDiscovery normal arm64 Compiling NoonFlow.swift (in target 'SaydoCore' from project 'SaydoCore')
+
+SwiftDriver Saydo normal x86_64 com.apple.xcode.tools.swift.compiler (in target 'Saydo' from project 'Saydo')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008
+    builtin-SwiftDriver -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name Saydo -Onone -enforce-exclusivity\=checked @/Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Saydo.build/Debug-iphonesimulator/Saydo.build/Objects-normal/x86_64/Saydo.SwiftFileList -DDEBUG -enable-upcoming-feature ExistentialAny -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.2.sdk -target x86_64-apple-ios26.0-simulator -g -Xfrontend -serialize-debugging-options -enable-testing -Xcc -D_LIBCPP_HARDENING_MODE\=_LIBCPP_HARDENING_MODE_DEBUG -swift-version 6 -I /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Debug-iphonesimulator -F /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Debug-iphonesimulator/PackageFrameworks -F /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Debug-iphonesimulator -emit-localized-strings -emit-localized-strings-path /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Saydo.build/Debug-iphonesimulator/Saydo.build/Objects-normal/x86_64 -c -j10 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /var/folders/h6/2q0crwpx3zx94d5zxclh_f5c0000gn/C/com.apple.DeveloperTools/26.2-17C52/Xcode/SDKStatCaches.noindex/iphonesimulator26.2-23C53-7d00a8b37fbd7999ea79df8ebc024bf0.sdkstatcache -output-file-map /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Saydo.build/Debug-iphonesimulator/Saydo.build/Objects-normal/x86_64/Saydo-OutputFileMap.json -use-frontend-parseable-output -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/SwiftExplicitPrecompiledModules -serialize-diagnostics -emit-dependencies -emit-module -emit-module-path /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Saydo.build/Debug-iphonesimulator/Saydo.build/Objects-normal/x86_64/Saydo.swiftmodule -validate-clang-modules-once -clang-build-session-file /var/folders/h6/2q0crwpx3zx94d5zxclh_f5c0000gn/C/org.llvm.clang/ModuleCache.noindex/Session.modulevalidation -Xcc -I/Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Saydo.build/Debug-iphonesimulator/Saydo.build/swift-overrides.hmap -emit-const-values -Xfrontend -const-gather-protocols-file -Xfrontend /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Saydo.build/Debug-iphonesimulator/Saydo.build/Objects-normal/x86_64/Saydo_const_extract_protocols.json -Xcc -iquote -Xcc /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Saydo.build/Debug-iphonesimulator/Saydo.build/Saydo-generated-files.hmap -Xcc -I/Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Saydo.build/Debug-iphonesimulator/Saydo.build/Saydo-own-target-headers.hmap -Xcc -I/Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Saydo.build/Debug-iphonesimulator/Saydo.build/Saydo-all-non-framework-target-headers.hmap -Xcc -ivfsoverlay -Xcc /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Saydo.build/Debug-iphonesimulator/Saydo-6ca381a8fee1c498b948e65025eed0c5-VFS-iphonesimulator/all-product-headers.yaml -Xcc -iquote -Xcc /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Saydo.build/Debug-iphonesimulator/Saydo.build/Saydo-project-headers.hmap -Xcc -I/Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Debug-iphonesimulator/include -Xcc -I/Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Saydo.build/Debug-iphonesimulator/Saydo.build/DerivedSources-normal/x86_64 -Xcc -I/Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Saydo.build/Debug-iphonesimulator/Saydo.build/DerivedSources/x86_64 -Xcc -I/Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Saydo.build/Debug-iphonesimulator/Saydo.build/DerivedSources -Xcc -DDEBUG\=1 -emit-objc-header -emit-objc-header-path /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Saydo.build/Debug-iphonesimulator/Saydo.build/Objects-normal/x86_64/Saydo-Swift.h -working-directory /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008 -experimental-emit-module-separately -disable-cmo
+
+SwiftDriver Saydo normal arm64 com.apple.xcode.tools.swift.compiler (in target 'Saydo' from project 'Saydo')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008
+    builtin-SwiftDriver -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name Saydo -Onone -enforce-exclusivity\=checked @/Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Saydo.build/Debug-iphonesimulator/Saydo.build/Objects-normal/arm64/Saydo.SwiftFileList -DDEBUG -enable-upcoming-feature ExistentialAny -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.2.sdk -target arm64-apple-ios26.0-simulator -g -Xfrontend -serialize-debugging-options -enable-testing -Xcc -D_LIBCPP_HARDENING_MODE\=_LIBCPP_HARDENING_MODE_DEBUG -swift-version 6 -I /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Debug-iphonesimulator -F /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Debug-iphonesimulator/PackageFrameworks -F /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Debug-iphonesimulator -emit-localized-strings -emit-localized-strings-path /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Saydo.build/Debug-iphonesimulator/Saydo.build/Objects-normal/arm64 -c -j10 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /var/folders/h6/2q0crwpx3zx94d5zxclh_f5c0000gn/C/com.apple.DeveloperTools/26.2-17C52/Xcode/SDKStatCaches.noindex/iphonesimulator26.2-23C53-7d00a8b37fbd7999ea79df8ebc024bf0.sdkstatcache -output-file-map /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Saydo.build/Debug-iphonesimulator/Saydo.build/Objects-normal/arm64/Saydo-OutputFileMap.json -use-frontend-parseable-output -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/SwiftExplicitPrecompiledModules -serialize-diagnostics -emit-dependencies -emit-module -emit-module-path /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Saydo.build/Debug-iphonesimulator/Saydo.build/Objects-normal/arm64/Saydo.swiftmodule -validate-clang-modules-once -clang-build-session-file /var/folders/h6/2q0crwpx3zx94d5zxclh_f5c0000gn/C/org.llvm.clang/ModuleCache.noindex/Session.modulevalidation -Xcc -I/Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Saydo.build/Debug-iphonesimulator/Saydo.build/swift-overrides.hmap -emit-const-values -Xfrontend -const-gather-protocols-file -Xfrontend /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Saydo.build/Debug-iphonesimulator/Saydo.build/Objects-normal/arm64/Saydo_const_extract_protocols.json -Xcc -iquote -Xcc /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Saydo.build/Debug-iphonesimulator/Saydo.build/Saydo-generated-files.hmap -Xcc -I/Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Saydo.build/Debug-iphonesimulator/Saydo.build/Saydo-own-target-headers.hmap -Xcc -I/Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Saydo.build/Debug-iphonesimulator/Saydo.build/Saydo-all-non-framework-target-headers.hmap -Xcc -ivfsoverlay -Xcc /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Saydo.build/Debug-iphonesimulator/Saydo-6ca381a8fee1c498b948e65025eed0c5-VFS-iphonesimulator/all-product-headers.yaml -Xcc -iquote -Xcc /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Saydo.build/Debug-iphonesimulator/Saydo.build/Saydo-project-headers.hmap -Xcc -I/Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Debug-iphonesimulator/include -Xcc -I/Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Saydo.build/Debug-iphonesimulator/Saydo.build/DerivedSources-normal/arm64 -Xcc -I/Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Saydo.build/Debug-iphonesimulator/Saydo.build/DerivedSources/arm64 -Xcc -I/Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Saydo.build/Debug-iphonesimulator/Saydo.build/DerivedSources -Xcc -DDEBUG\=1 -emit-objc-header -emit-objc-header-path /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Saydo.build/Debug-iphonesimulator/Saydo.build/Objects-normal/arm64/Saydo-Swift.h -working-directory /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008 -experimental-emit-module-separately -disable-cmo
+
+SwiftDriverJobDiscovery normal arm64 Compiling ReasonCategory.swift, ReasonClassification.swift (in target 'SaydoCore' from project 'SaydoCore')
+
+SwiftDriverJobDiscovery normal arm64 Compiling FlowStep.swift, MicroAction.swift (in target 'SaydoCore' from project 'SaydoCore')
+
+SwiftDriverJobDiscovery normal arm64 Compiling DialogueCopy.swift, DialogueEngine.swift (in target 'SaydoCore' from project 'SaydoCore')
+
+SwiftDriverJobDiscovery normal arm64 Compiling Guardrails.swift, JapaneseTimeParser.swift (in target 'SaydoCore' from project 'SaydoCore')
+
+SwiftDriverJobDiscovery normal x86_64 Compiling Guardrails.swift, JapaneseTimeParser.swift (in target 'SaydoCore' from project 'SaydoCore')
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/SwiftExplicitPrecompiledModules/ptrcheck-CP571RC2B86G62HVU4X9EDOSJ.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/SwiftExplicitPrecompiledModules/_Builtin_stdarg-AK2K0OEERRI2E72IGMFE4BWJ0.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/SwiftExplicitPrecompiledModules/DeveloperToolsSupport-DSW0X8GCXRI3DKZX5QM8ETVFH.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/SwiftExplicitPrecompiledModules/_SwiftConcurrencyShims-BZQJ97SENEWOTLKNIWLCWZEGB.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/SwiftExplicitPrecompiledModules/_Builtin_float-4J0GJV33MV5V6PDIL9EEJ8F4H.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/SwiftExplicitPrecompiledModules/SwiftShims-QFTPAYJZW2WST0TFMCUZ9CIY.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/SwiftExplicitPrecompiledModules/_Builtin_stddef-EGP975WVMBG6GA9AL6BMW6MRK.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/SwiftExplicitPrecompiledModules/_Builtin_stdbool-3EK81JKZSRHZY2WZLKIYZSX19.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/SwiftExplicitPrecompiledModules/_Builtin_float-81CN2FBD03HYM1Q8TXL6GCWD2.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/SwiftExplicitPrecompiledModules/SwiftShims-EFK3JU62MVZ6VW408FP3VNV8K.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/SwiftExplicitPrecompiledModules/_Builtin_stdarg-EC6MYAXHB4D82SMKFVWTPR6.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/SwiftExplicitPrecompiledModules/_AvailabilityInternal-47ZU6IVIB9BQHEK1DA70HP16S.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/SwiftExplicitPrecompiledModules/_Builtin_stddef-21U0F8ID1K1N8XV6CLIHXL35O.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/SwiftExplicitPrecompiledModules/ptrauth-15CRUEDWQRM2DY1YIHJS0UW5U.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/SwiftExplicitPrecompiledModules/_AvailabilityInternal-1NXYD33SD4OSHCJWKG4OE1E7O.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/SwiftExplicitPrecompiledModules/ptrauth-DZAVEEAOJHAS0NHL802ANSLZ0.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/SwiftExplicitPrecompiledModules/DeveloperToolsSupport-243AO0K3B7L23D8WJ43BKFM85.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/SwiftExplicitPrecompiledModules/_SwiftConcurrencyShims-4U7KENCX0TPKOATV8UQQLAS7P.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/SwiftExplicitPrecompiledModules/_Builtin_stdbool-AMV3KEINE47OQ5202RGL47XVH.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/SwiftExplicitPrecompiledModules/ptrcheck-419YNS882LEBD5A5UPPN3XAT6.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/SwiftExplicitPrecompiledModules/_DarwinFoundation1-7THMIF5BQOI49P51H01SPJ5PW.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/SwiftExplicitPrecompiledModules/_DarwinFoundation1-65N5A1M0W7DK0UQDFKB2ODGTV.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/SwiftExplicitPrecompiledModules/_Builtin_limits-ACMMT7FC70P8QEAJWN938WK3L.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/SwiftExplicitPrecompiledModules/_DarwinFoundation2-C92WN41PZND6KGD1QKXOWF1W4.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/SwiftExplicitPrecompiledModules/_Builtin_limits-C680S3USSTHFU45SJ65RPIIQW.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/SwiftExplicitPrecompiledModules/_DarwinFoundation2-DOHYWTGKVSV392148VXI02ZJ3.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/SwiftExplicitPrecompiledModules/sys_types-LLY4R7X6XPPHAZTF8AWFQJD8.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/SwiftExplicitPrecompiledModules/_Builtin_stdint-QFZROAI60MIOITPDN0GL07YU.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/SwiftExplicitPrecompiledModules/_Builtin_tgmath-31CG0J4W3QG3HG4Z0GG1JY0AA.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/SwiftExplicitPrecompiledModules/sys_types-83F52VFWBE07GUUV4NM2418EM.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/SwiftExplicitPrecompiledModules/_Builtin_tgmath-4E7M74BATAOMD7IR8JJR2IZMP.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/SwiftExplicitPrecompiledModules/_Builtin_stdint-3QLC4QYYFFJWCHSMS1SJG6ULR.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/SwiftExplicitPrecompiledModules/_Builtin_stdatomic-2102UG3WBLM5PTIIJJHL0DR2O.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/SwiftExplicitPrecompiledModules/_DarwinFoundation3-DFNRF33TKT1S0UYFKSXB2S754.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/SwiftExplicitPrecompiledModules/_DarwinFoundation3-47FSZHCTTL1EMCLVDL6J0TIFI.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/SwiftExplicitPrecompiledModules/_Builtin_intrinsics-77H7C19NBMLZLXCFO2LKE82XX.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/SwiftExplicitPrecompiledModules/_Builtin_stdatomic-3TFEEPWQ9AW915LTZH9OCH7AE.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/SwiftExplicitPrecompiledModules/_Builtin_inttypes-DGQENXZ7212XD67OU7RDH0ZI9.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/SwiftExplicitPrecompiledModules/_Builtin_intrinsics-7NM8Z8PK47KB8QJR69TGUIQ0K.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/SwiftExplicitPrecompiledModules/_Builtin_inttypes-DCJ7EERLAPMS8S17J4M6BIB0Y.pcm
+
+SwiftDriverJobDiscovery normal x86_64 Compiling WeeklyStats.swift, FlowMachine.swift (in target 'SaydoCore' from project 'SaydoCore')
+
+SwiftDriver\ Compilation SaydoCore normal x86_64 com.apple.xcode.tools.swift.compiler (in target 'SaydoCore' from project 'SaydoCore')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Saydo.xcodeproj
+    builtin-Swift-Compilation -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name SaydoCore -Onone -enforce-exclusivity\=checked @/Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/x86_64/SaydoCore.SwiftFileList -DSWIFT_PACKAGE -DDEBUG -DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE -DXcode -plugin-path /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.2.sdk -target x86_64-apple-ios26.0-simulator -g -Xfrontend -serialize-debugging-options -enable-testing -Xcc -D_LIBCPP_HARDENING_MODE\=_LIBCPP_HARDENING_MODE_DEBUG -swift-version 6 -I /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/Debug-iphonesimulator -Isystem /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/lib -F /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/Debug-iphonesimulator -F /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/Library/Frameworks -F /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.2.sdk/Developer/Library/Frameworks -c -j10 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /var/folders/h6/2q0crwpx3zx94d5zxclh_f5c0000gn/C/com.apple.DeveloperTools/26.2-17C52/Xcode/SDKStatCaches.noindex/iphonesimulator26.2-23C53-7d00a8b37fbd7999ea79df8ebc024bf0.sdkstatcache -output-file-map /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/x86_64/SaydoCore-OutputFileMap.json -use-frontend-parseable-output -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SwiftExplicitPrecompiledModules -serialize-diagnostics -emit-dependencies -emit-module -emit-module-path /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/x86_64/SaydoCore.swiftmodule -validate-clang-modules-once -clang-build-session-file /var/folders/h6/2q0crwpx3zx94d5zxclh_f5c0000gn/C/org.llvm.clang/ModuleCache.noindex/Session.modulevalidation -package-name saydocore -Xcc -I/Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/swift-overrides.hmap -emit-const-values -Xfrontend -const-gather-protocols-file -Xfrontend /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/x86_64/SaydoCore_const_extract_protocols.json -Xcc -I/Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/Debug-iphonesimulator/include -Xcc -I/Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/DerivedSources-normal/x86_64 -Xcc -I/Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/DerivedSources/x86_64 -Xcc -I/Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/DerivedSources -Xcc -DSWIFT_PACKAGE -Xcc -DDEBUG\=1 -emit-objc-header -emit-objc-header-path /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/x86_64/SaydoCore-Swift.h -working-directory /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Saydo.xcodeproj -experimental-emit-module-separately -disable-cmo
+
+Ld /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/x86_64/Binary/SaydoCore.o normal x86_64 (in target 'SaydoCore' from project 'SaydoCore')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -Xlinker -reproducible -target x86_64-apple-ios26.0-simulator -r -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.2.sdk -O0 -L/Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/EagerLinkingTBDs/Debug-iphonesimulator -L/Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/Debug-iphonesimulator -L/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/lib -F/Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/EagerLinkingTBDs/Debug-iphonesimulator -F/Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/Debug-iphonesimulator -iframework /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/Library/Frameworks -iframework /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.2.sdk/Developer/Library/Frameworks -filelist /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/x86_64/SaydoCore.LinkFileList -nostdlib -Xlinker -object_path_lto -Xlinker /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/x86_64/SaydoCore_lto.o -rdynamic -Xlinker -no_deduplicate -Xlinker -objc_abi_version -Xlinker 2 -Xlinker -dependency_info -Xlinker /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/x86_64/SaydoCore_dependency_info.dat -fobjc-link-runtime -L/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/iphonesimulator -L/usr/lib/swift -Xlinker -add_ast_path -Xlinker /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/x86_64/SaydoCore.swiftmodule @/Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/x86_64/SaydoCore-linker-args.resp -o /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/x86_64/Binary/SaydoCore.o
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/SwiftExplicitPrecompiledModules/Darwin-6DY94AN53MEG27ZSPKOPEJWX.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/SwiftExplicitPrecompiledModules/Darwin-BRAT420WXVPHVAYXR8D0F4E9F.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/SwiftExplicitPrecompiledModules/simd-63YD5QTIA71E7GRI4G2C3PXB2.pcm
+
+SwiftDriverJobDiscovery normal arm64 Compiling WeeklyStats.swift, FlowMachine.swift (in target 'SaydoCore' from project 'SaydoCore')
+
+SwiftDriver\ Compilation SaydoCore normal arm64 com.apple.xcode.tools.swift.compiler (in target 'SaydoCore' from project 'SaydoCore')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Saydo.xcodeproj
+    builtin-Swift-Compilation -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name SaydoCore -Onone -enforce-exclusivity\=checked @/Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/arm64/SaydoCore.SwiftFileList -DSWIFT_PACKAGE -DDEBUG -DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE -DXcode -plugin-path /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.2.sdk -target arm64-apple-ios26.0-simulator -g -Xfrontend -serialize-debugging-options -enable-testing -Xcc -D_LIBCPP_HARDENING_MODE\=_LIBCPP_HARDENING_MODE_DEBUG -swift-version 6 -I /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/Debug-iphonesimulator -Isystem /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/lib -F /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/Debug-iphonesimulator -F /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/Library/Frameworks -F /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.2.sdk/Developer/Library/Frameworks -c -j10 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /var/folders/h6/2q0crwpx3zx94d5zxclh_f5c0000gn/C/com.apple.DeveloperTools/26.2-17C52/Xcode/SDKStatCaches.noindex/iphonesimulator26.2-23C53-7d00a8b37fbd7999ea79df8ebc024bf0.sdkstatcache -output-file-map /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/arm64/SaydoCore-OutputFileMap.json -use-frontend-parseable-output -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SwiftExplicitPrecompiledModules -serialize-diagnostics -emit-dependencies -emit-module -emit-module-path /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/arm64/SaydoCore.swiftmodule -validate-clang-modules-once -clang-build-session-file /var/folders/h6/2q0crwpx3zx94d5zxclh_f5c0000gn/C/org.llvm.clang/ModuleCache.noindex/Session.modulevalidation -package-name saydocore -Xcc -I/Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/swift-overrides.hmap -emit-const-values -Xfrontend -const-gather-protocols-file -Xfrontend /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/arm64/SaydoCore_const_extract_protocols.json -Xcc -I/Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/Debug-iphonesimulator/include -Xcc -I/Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/DerivedSources-normal/arm64 -Xcc -I/Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/DerivedSources/arm64 -Xcc -I/Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/DerivedSources -Xcc -DSWIFT_PACKAGE -Xcc -DDEBUG\=1 -emit-objc-header -emit-objc-header-path /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/arm64/SaydoCore-Swift.h -working-directory /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Saydo.xcodeproj -experimental-emit-module-separately -disable-cmo
+
+Ld /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/arm64/Binary/SaydoCore.o normal arm64 (in target 'SaydoCore' from project 'SaydoCore')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -Xlinker -reproducible -target arm64-apple-ios26.0-simulator -r -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.2.sdk -O0 -L/Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/EagerLinkingTBDs/Debug-iphonesimulator -L/Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/Debug-iphonesimulator -L/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/lib -F/Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/EagerLinkingTBDs/Debug-iphonesimulator -F/Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/Debug-iphonesimulator -iframework /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/Library/Frameworks -iframework /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.2.sdk/Developer/Library/Frameworks -filelist /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/arm64/SaydoCore.LinkFileList -nostdlib -Xlinker -object_path_lto -Xlinker /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/arm64/SaydoCore_lto.o -rdynamic -Xlinker -no_deduplicate -Xlinker -objc_abi_version -Xlinker 2 -Xlinker -dependency_info -Xlinker /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/arm64/SaydoCore_dependency_info.dat -fobjc-link-runtime -L/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/iphonesimulator -L/usr/lib/swift -Xlinker -add_ast_path -Xlinker /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/arm64/SaydoCore.swiftmodule @/Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/arm64/SaydoCore-linker-args.resp -o /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/arm64/Binary/SaydoCore.o
+
+CreateUniversalBinary /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/Debug-iphonesimulator/SaydoCore.o normal arm64\ x86_64 (in target 'SaydoCore' from project 'SaydoCore')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/lipo -create /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/arm64/Binary/SaydoCore.o /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/x86_64/Binary/SaydoCore.o -output /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/Debug-iphonesimulator/SaydoCore.o
+
+ExtractAppIntentsMetadata (in target 'SaydoCore' from project 'SaydoCore')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/appintentsmetadataprocessor --toolchain-dir /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain --module-name SaydoCore --sdk-root /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.2.sdk --xcode-version 17C52 --platform-family iOS --deployment-target 26.0 --bundle-identifier saydocore.SaydoCore --output /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/Debug-iphonesimulator/SaydoCore.appintents --target-triple arm64-apple-ios26.0-simulator --target-triple x86_64-apple-ios26.0-simulator --binary-file /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/Debug-iphonesimulator/SaydoCore.o --dependency-file /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/arm64/SaydoCore_dependency_info.dat --dependency-file /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/x86_64/SaydoCore_dependency_info.dat --stringsdata-file /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/arm64/ExtractedAppShortcutsMetadata.stringsdata --stringsdata-file /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/x86_64/ExtractedAppShortcutsMetadata.stringsdata --source-file-list /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/arm64/SaydoCore.SwiftFileList --source-file-list /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/x86_64/SaydoCore.SwiftFileList --metadata-file-list /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/SaydoCore.DependencyMetadataFileList --static-metadata-file-list /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/SaydoCore.DependencyStaticMetadataFileList --swift-const-vals-list /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/arm64/SaydoCore.SwiftConstValuesFileList --swift-const-vals-list /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/build/SaydoCore.build/Debug-iphonesimulator/SaydoCore.build/Objects-normal/x86_64/SaydoCore.SwiftConstValuesFileList --force --compile-time-extraction --deployment-aware-processing --validate-assistant-intents --no-app-shortcuts-localization
+2026-09-04 06:38:20.623 appintentsmetadataprocessor[13996:14195290] Starting appintentsmetadataprocessor export
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/SwiftExplicitPrecompiledModules/simd-6UC39QXWA3SNWVGZ39WUX57YT.pcm
+
+warning: ONLY_ACTIVE_ARCH=YES requested with multiple ARCHS and no active architecture could be computed; building for all applicable architectures (in target 'SaydoCore' from project 'SaydoCore')
+warning: ONLY_ACTIVE_ARCH=YES requested with multiple ARCHS and no active architecture could be computed; building for all applicable architectures (in target 'Saydo' from project 'Saydo')
+warning: ONLY_ACTIVE_ARCH=YES requested with multiple ARCHS and no active architecture could be computed; building for all applicable architectures (in target 'SaydoCore' from project 'SaydoCore')
+** BUILD FAILED **
+
+
+The following build commands failed:
+	CompileAssetCatalogVariant thinned /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/build/Debug-iphonesimulator/Saydo.app /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/App/Resources/Assets.xcassets (in target 'Saydo' from project 'Saydo')
+(1 failure)

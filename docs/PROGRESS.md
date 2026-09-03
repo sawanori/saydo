@@ -770,3 +770,153 @@ App/Audio の 7 ファイルをターゲットへ入れた状態で測っても
    録音ファイルが生成されて再生できること、話す → 無音で停止 → 文字起こし → 再生が通ること、
    マイク以外の権限ダイアログが出ないこと。
 3. main へのマージ後に `xcodegen generate` を実行して `Saydo.xcodeproj` を更新する。
+
+---
+
+## task_008-core — SessionViewModel と結合テスト（UI を除く）
+
+- 日時: 2026-09-04
+- 状態: wip（UI 4 ファイルは後続。iOS シミュレータでの実行は環境要因で未検証）
+- ブランチ / コミット: `task/008-session-vm`（`task/005-flows` から分岐し、`task/006-data` と `task/007-audio` をマージ）
+
+### 作ったもの
+
+| ファイル | 中身 |
+|---|---|
+| `App/Features/Session/SessionViewModel.swift` | `@MainActor @Observable`。`FlowMachine` の 9 命令（speak / listen / showChoices / record / play / save / scheduleNotification / cancelNotification / finish）を音声スタック・`Repository`・通知に配線する。状態は `SessionPhase`（idle / speaking / listening / thinking / choosing / recordingDeclaration / playback / done / error(micDenied / assetDownloading)）。あわせて `protocol NotificationScheduling`（task_009-app が実装）、`protocol SessionStore` と `RepositorySessionStore`、`Repository` の `SessionLog` 読み書き拡張を同ファイルに置いた |
+| `Tests/SaydoTests/SessionViewModelTests.swift` | インメモリの `SessionStore`、`Synthesizing` / `VoiceCapturing` / `Transcribing` / `Playing` のモック、通知のスパイを注入した結合テスト 14 件 |
+
+`SessionView` / `WaveformView` / `ChoiceChipsView` / `TextFallbackSheet` と `App/SaydoApp.swift` の更新は
+**このコミットに含まない**（UI は後続）。
+
+### 証拠
+
+| コマンド | exit code | ログ |
+|---|---|---|
+| iOS 26 シミュレータ SDK に対する型検査（SaydoCore / App / Tests の 3 段） | **0 / 0 / 0**（warning 0 件） | `docs/logs/task_008-typecheck.txt` |
+| macOS ハーネスで `Tests/SaydoTests` を実行（代替検証） | **1**（60 件中 59 件成功。失敗 1 件は後述の既知の理由） | `docs/logs/task_008-macos-tests.txt` |
+| `scripts/test-core.sh` | **0**（143 tests） | `docs/logs/task_008-testcore.txt` |
+| `scripts/lint-principles.sh` | **0** | `docs/logs/task_008-lint.txt` |
+| `scripts/build-ios.sh` | **65**（環境要因。**このコミットの Swift は 1 行もコンパイルされていない**。後述） | `docs/logs/task_008-buildios.txt` |
+
+型検査（`docs/logs/task_008-typecheck.txt` 全文）:
+
+```
+# SDK: .../iPhoneSimulator26.2.sdk
+# target: arm64-apple-ios26.0-simulator
+$ xcrun swiftc -emit-module -module-name SaydoCore ... <SaydoCore の全 .swift>
+CORE_EXIT=0
+$ xcrun swiftc -emit-module -module-name Saydo -enable-testing -I <mod> ... <App の全 .swift>
+APP_EXIT=0
+$ xcrun swiftc -typecheck -module-name SaydoTests -I <mod> -I <XCTest lib> -F <XCTest fw> ... <Tests/SaydoTests の全 .swift>
+TESTS_EXIT=0
+warnings: 0
+```
+
+型検査が本当にモジュールを解決していることは、`SessionPhase` に存在しない case を書いた
+使い捨てファイルが `error: type 'SessionPhase' has no member 'nope'` で落ちることで確かめた。
+
+macOS ハーネスでのテスト実行（末尾）:
+
+```
+Test Case '-[SaydoTests.SessionViewModelTests testSilenceNudgesOnceThenSkipsTheQuestion]' passed (0.001 seconds).
+Test Case '-[SaydoTests.SessionViewModelTests testTimeboxExceededEndsSessionAndRecordsLastStep]' started.
+Test Case '-[SaydoTests.SessionViewModelTests testTimeboxExceededEndsSessionAndRecordsLastStep]' passed (0.000 seconds).
+Test Suite 'SessionViewModelTests' passed at 2026-09-04 06:37:28.
+	 Executed 14 tests, with 0 failures (0 unexpected) in 0.013 (0.013) seconds
+...
+Test Case '-[SaydoTests.SmokeTests testBundleIdentifierIsSaydo]' started.
+SmokeTests.swift:5: error: XCTAssertEqual failed: ("Optional("com.apple.dt.xctest.tool")") is not equal to ("Optional("com.nonturn.saydo"))
+Test Case '-[SaydoTests.SmokeTests testBundleIdentifierIsSaydo]' failed (0.045 seconds).
+	 Executed 60 tests, with 1 failure (0 unexpected) in 0.127 (0.130) seconds
+```
+
+**`SessionViewModelTests` は 14 件すべて成功。** 唯一の失敗 `SmokeTests.testBundleIdentifierIsSaydo` は
+アプリのバンドル ID を見るテストで、macOS の `xctest` ツール上では成立しない**ハーネス由来の失敗**。
+iOS ターゲットでは task_001 で成功している。
+
+`scripts/build-ios.sh`（末尾）:
+
+```
+** BUILD FAILED **
+The following build commands failed:
+	CompileAssetCatalogVariant thinned .../Saydo.app .../App/Resources/Assets.xcassets (in target 'Saydo' from project 'Saydo')
+(1 failure)
+```
+
+**この exit 65 は本タスクのコードの証拠にならない。** 理由は 2 つあり、どちらも環境と手順によるもの:
+(a) task_001 から続く `actool` の失敗（iOS 26.x シミュレータランタイム未導入）でアセットカタログが通らない。
+(b) worktree では `xcodegen generate` を実行しない規約のため、`Saydo.xcodeproj` に本タスクの
+新規 2 ファイルが**入っていない**（`grep -c SessionViewModel Saydo.xcodeproj/project.pbxproj` = 0）。
+つまり xcodebuild は本コミットの Swift を 1 行もコンパイルしていない。
+コードの検証は上の型検査と macOS 実行で取っている。
+
+### 代替検証の作り方（リポジトリには入れない）
+
+控えは `docs/logs/task_008-macos-harness-Package.swift.txt`。SwiftPM の macOS パッケージに
+`Packages/SaydoCore/Sources/SaydoCore`・`App/**`・`Tests/SaydoTests/**` を symlink し、
+macOS 非対応 API を持つ 4 ファイル（`AudioSessionController` / `SpeechSynthesisService` /
+`VoicePlayer` / `SaydoApp`）だけを除いて、そのプロトコル面を実ファイルから切り出したものに差し替える。
+`SessionViewModel` はこれらの具象クラスに依存していないので、検証したい経路はそのまま走る。
+
+### done_definition の自己監査
+
+| 条件 | 状況 | 根拠 |
+|---|---|---|
+| M4 完了時に m4a と Commitment が保存されている | 済（テストで） | `testMorningFlowCompletesAndSavesCommitmentWithThreeVoiceEntries`（`declarationAudioPath` が非 nil、宣言 `VoiceEntry.audioPath` と同一） |
+| SessionLog に開始・終了・完走・tier・lastStep が記録されている | 済 | 同テストで 5 項目すべてを検証。`guardrailReplacedCount` は Tier B では常に 0 |
+| M0 の文字起こしが 1 行表示され、1 タップで再録音できる | ViewModel 側は済 | `testAvoidanceTranscriptCanBeRetakenOnce`（誤認識の `VoiceEntry` を消して録り直し、2 回目は不可）。表示は UI（後続） |
+| SessionViewModelTests が緑 | 済（macOS 代替実行） | 14 件成功。iOS シミュレータでの実行は**未検証** |
+| 朝フロー完走後、当日の VoiceEntry が 3 件（入力方式に依らず） | 済 | 声の経路と、マイク拒否のテキスト経路の両方で 3 件を検証 |
+| 通知タップまたは起動から 1.5 秒以内に TTS 開始／タップ 0 回で M4 到達 | **未検証** | 実機の画面録画が要る |
+| M1 の理由チップ 7 個が iPhone SE × Dynamic Type xxxLarge に収まる | **未着手** | UI（後続） |
+| 実機で朝フロー 3 回の SessionLog 中央値が 3 分以内 | **未検証** | 実機が要る |
+
+### 設計上の判断（レビュー対象）
+
+1. **`SessionStore` プロトコルを挟んだ**。`Repository` は `@ModelActor` の具象アクターで、
+   既定引数のあるメソッドはプロトコル要件の witness にならない。`RepositorySessionStore` で
+   引数を明示して転送し、テストにはインメモリ実装を注入する。
+2. **`SessionLog` の読み書きを `Repository` の拡張として足した**（fix-decisions P1.3）。
+   task_006 の `Repository` に無かったため。scope を守って `SessionViewModel.swift` に置いたが、
+   **本来は `App/Data/Repository.swift` に移すべき**。task_010 / 011 が同ファイルを触るときに移す。
+3. **宣言（M4）だけ `appendVoiceEntry` を呼ばない**。`Repository.createCommitment` が
+   宣言音声の `VoiceEntry` を作るので二重書き込みになる。声なしの日は `createCommitment` が
+   作らないため、その場合だけ音声なしの 1 件を後から足して 3 件をそろえる。
+4. **行動時刻の通知を `Commitment` 作成まで遅らせる**。`FlowMachine` は M4 の `save` の直後に
+   `scheduleNotification` を出すが、その時点では `commitmentID` が無い（通知の `userInfo` に
+   載せられない）。朝フローでは命令を溜め、`createCommitment` の直後にまとめて登録する。
+5. **タイムアウトはテスト専用の入口を作らず、実 API（`silenceElapsed()` / `timeboxElapsed()`）に
+   した**。見張りタイマーもテストも同じ経路を通る。待ち時間は `SessionTimer` として注入し、
+   テストは実時間を待たずに要求された待ち秒数（180 / 5 / 10）だけを検証する。
+6. **`error(micDenied)` は行き止まりにしない**。マイクが使えない・録音が始められない場合は
+   掲示（`notice`）を出したうえでテキスト経路に落とし、会話は完走させる（計画 §7.2）。
+7. **タイムボックスの秒数（朝 180 / 昼 60 / 夜 60）は ViewModel に置いた**。SaydoCore の
+   `FlowMachine` は時計に触らない設計なので、時間の値は外に置くのが筋と判断した。
+
+### 未解決
+
+1. **`Commitment` に場所（`plannedPlace`）の保存先が無い**。計画 §10 の表には載っているが
+   task_006 のモデルには無い。M3 で本人が言った場所は `JapaneseTimeParser` で切り出して
+   `SessionViewModel.plannedPlace` に持つだけで、**永続化されていない**。
+   モデルに足すか、計画 §10 から落とすかの判断が要る。
+2. **`CopyPicker` の使用履歴（`copyHistory`）を保存していない**。毎回空で渡しているため、
+   retention R5「3 日以内に同じ文言を繰り返さない」が**セッションをまたいで効かない**。
+   `CopyPicker.Use` の保存先（`UserDefaults` か SwiftData）を決める必要がある。
+3. `guardrailReplacedCount` は Tier B では常に 0。置換が起きるのは Tier A の生成文
+   （task_014 / 015）なので、そこで積む。
+4. `AudioSessionControlling` は ViewModel に配線していない。再生前の
+   「イヤホンで聞く / 文字で読む」（R8）は task_010 の担当。
+5. 昼フローの `MicroAction` は `Commitment` から復元していない（`FlowState.microAction` は
+   `NoonFlow.start` で nil のまま）。N3 で本人が言い直した行動は `Repository.shrink` で
+   書けているが、「今の行動文を読み上げる」には復元が要る。task_010 で入れる。
+
+### 人間の確認待ち
+
+1. **ディスク容量の確保**（task_001 から継続）。9 GB 以上空けて `xcodebuild -downloadPlatform iOS`。
+   導入後に `scripts/test-ios.sh` を実行し、`SessionViewModelTests` 14 件が iOS シミュレータでも
+   緑になることを確認して、この表の「未検証」を更新する。
+2. **実機での確認**: 通知タップから TTS 開始までの時間（1.5 秒以内）、タップ 0 回での M4 到達、
+   朝フロー 3 回の所要時間の中央値（3 分以内）。いずれも画面録画が要る。
+3. main へのマージ後に `xcodegen generate` を実行し、`App/Features/Session/SessionViewModel.swift` と
+   `Tests/SaydoTests/SessionViewModelTests.swift` を `Saydo.xcodeproj` に取り込む。

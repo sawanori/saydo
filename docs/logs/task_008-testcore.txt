@@ -1,0 +1,469 @@
+Building for debugging...
+[0/7] /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-008/Packages/SaydoCore/.build/arm64-apple-macosx/debug/SaydoCorePackageTests.derived/runner.swift
+[1/7] Write sources
+[4/7] Write swift-version--58304C5D6DBC2206.txt
+[6/26] Compiling SaydoCore ReasonCategory.swift
+[7/26] Compiling SaydoCore ReasonClassification.swift
+[8/26] Compiling SaydoCore ShrinkLadder.swift
+[9/26] Compiling SaydoCore TemplateDialogueEngine.swift
+[10/26] Compiling SaydoCore CommitmentOutcome.swift
+[11/26] Compiling SaydoCore DialogueContext.swift
+[12/26] Compiling SaydoCore Guardrails.swift
+[13/26] Compiling SaydoCore JapaneseTimeParser.swift
+[14/26] Compiling SaydoCore DialogueCopy.swift
+[15/26] Compiling SaydoCore DialogueEngine.swift
+[16/26] Compiling SaydoCore WeeklyStats.swift
+[17/26] Compiling SaydoCore FlowMachine.swift
+[18/26] Compiling SaydoCore FlowStep.swift
+[19/26] Compiling SaydoCore MicroAction.swift
+[20/26] Compiling SaydoCore SessionType.swift
+[21/26] Compiling SaydoCore TaskDomain.swift
+[22/26] Compiling SaydoCore MorningFlow.swift
+[23/26] Compiling SaydoCore NightFlow.swift
+[24/26] Emitting module SaydoCore
+[25/27] Compiling SaydoCore NoonFlow.swift
+[26/37] Compiling SaydoCoreTests ShrinkLadderTests.swift
+[27/37] Compiling SaydoCoreTests NoonFlowTests.swift
+[28/37] Compiling SaydoCoreTests TemplateDialogueEngineTests.swift
+[29/37] Compiling SaydoCoreTests GuardrailsTests.swift
+[30/37] Compiling SaydoCoreTests JapaneseTimeParserTests.swift
+[31/37] Emitting module SaydoCoreTests
+[32/37] Compiling SaydoCoreTests DomainTests.swift
+[33/37] Compiling SaydoCoreTests DialogueCopyTests.swift
+[34/37] Compiling SaydoCoreTests NightFlowTests.swift
+[35/37] Compiling SaydoCoreTests MorningFlowTests.swift
+[36/39] Emitting module SaydoCorePackageTests
+[37/39] Compiling SaydoCorePackageTests runner.swift
+[37/39] Write Objects.LinkFileList
+[38/39] Linking SaydoCorePackageTests
+Build complete! (10.32s)
+Test Suite 'All tests' started at 2026-09-04 06:38:05.095.
+Test Suite 'SaydoCorePackageTests.xctest' started at 2026-09-04 06:38:05.095.
+Test Suite 'DialogueCopyTests' started at 2026-09-04 06:38:05.095.
+Test Case '-[SaydoCoreTests.DialogueCopyTests testConceptDocumentLinesArePresent]' started.
+Test Case '-[SaydoCoreTests.DialogueCopyTests testConceptDocumentLinesArePresent]' passed (0.001 seconds).
+Test Case '-[SaydoCoreTests.DialogueCopyTests testEightPrimaryLinesHaveFiveOrMoreVariants]' started.
+Test Case '-[SaydoCoreTests.DialogueCopyTests testEightPrimaryLinesHaveFiveOrMoreVariants]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.DialogueCopyTests testEveryCopyKeyHasAtLeastOneLine]' started.
+Test Case '-[SaydoCoreTests.DialogueCopyTests testEveryCopyKeyHasAtLeastOneLine]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.DialogueCopyTests testFirstThreeDaysUseThreeDifferentLines]' started.
+Test Case '-[SaydoCoreTests.DialogueCopyTests testFirstThreeDaysUseThreeDifferentLines]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.DialogueCopyTests testGeneralExampleChipsAreDomainIndependent]' started.
+Test Case '-[SaydoCoreTests.DialogueCopyTests testGeneralExampleChipsAreDomainIndependent]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.DialogueCopyTests testHistoryIsCarriedThroughTheFlowEntry]' started.
+Test Case '-[SaydoCoreTests.DialogueCopyTests testHistoryIsCarriedThroughTheFlowEntry]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.DialogueCopyTests testNoTaskManagementVocabulary]' started.
+Test Case '-[SaydoCoreTests.DialogueCopyTests testNoTaskManagementVocabulary]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.DialogueCopyTests testOnlyPlaceholderBearingLinesDeclareThem]' started.
+Test Case '-[SaydoCoreTests.DialogueCopyTests testOnlyPlaceholderBearingLinesDeclareThem]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.DialogueCopyTests testPickerFallsBackToTheOldestLineWhenEverythingIsRecent]' started.
+Test Case '-[SaydoCoreTests.DialogueCopyTests testPickerFallsBackToTheOldestLineWhenEverythingIsRecent]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.DialogueCopyTests testPickerIsDeterministic]' started.
+Test Case '-[SaydoCoreTests.DialogueCopyTests testPickerIsDeterministic]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.DialogueCopyTests testPlaceholdersAreFilledWithTheUsersOwnWords]' started.
+Test Case '-[SaydoCoreTests.DialogueCopyTests testPlaceholdersAreFilledWithTheUsersOwnWords]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.DialogueCopyTests testPrimaryKeysCoverTheDailyQuestions]' started.
+Test Case '-[SaydoCoreTests.DialogueCopyTests testPrimaryKeysCoverTheDailyQuestions]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.DialogueCopyTests testSameLineIsNotRepeatedWithinThreeDays]' started.
+Test Case '-[SaydoCoreTests.DialogueCopyTests testSameLineIsNotRepeatedWithinThreeDays]' passed (0.001 seconds).
+Test Case '-[SaydoCoreTests.DialogueCopyTests testSixOptionsMatchTheConceptDocument]' started.
+Test Case '-[SaydoCoreTests.DialogueCopyTests testSixOptionsMatchTheConceptDocument]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.DialogueCopyTests testTimePlaceholderIsFilled]' started.
+Test Case '-[SaydoCoreTests.DialogueCopyTests testTimePlaceholderIsFilled]' passed (0.000 seconds).
+Test Suite 'DialogueCopyTests' passed at 2026-09-04 06:38:05.099.
+	 Executed 15 tests, with 0 failures (0 unexpected) in 0.003 (0.004) seconds
+Test Suite 'DomainTests' started at 2026-09-04 06:38:05.099.
+Test Case '-[SaydoCoreTests.DomainTests testCommitmentOutcomeDisplayNames]' started.
+Test Case '-[SaydoCoreTests.DomainTests testCommitmentOutcomeDisplayNames]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.DomainTests testDomainValuesRoundTripThroughJSON]' started.
+Test Case '-[SaydoCoreTests.DomainTests testDomainValuesRoundTripThroughJSON]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.DomainTests testFlowStepCodesAreUnique]' started.
+Test Case '-[SaydoCoreTests.DomainTests testFlowStepCodesAreUnique]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.DomainTests testFlowStepDisplayNamesAreNotEmpty]' started.
+Test Case '-[SaydoCoreTests.DomainTests testFlowStepDisplayNamesAreNotEmpty]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.DomainTests testFlowStepSessionTypeMapping]' started.
+Test Case '-[SaydoCoreTests.DomainTests testFlowStepSessionTypeMapping]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.DomainTests testFlowStepsPerSession]' started.
+Test Case '-[SaydoCoreTests.DomainTests testFlowStepsPerSession]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.DomainTests testMicroActionDefaultsAndShrink]' started.
+Test Case '-[SaydoCoreTests.DomainTests testMicroActionDefaultsAndShrink]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.DomainTests testPartialCountsAsProgress]' started.
+Test Case '-[SaydoCoreTests.DomainTests testPartialCountsAsProgress]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.DomainTests testReasonCategoryDisplayNames]' started.
+Test Case '-[SaydoCoreTests.DomainTests testReasonCategoryDisplayNames]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.DomainTests testReasonCategoryHasSevenCases]' started.
+Test Case '-[SaydoCoreTests.DomainTests testReasonCategoryHasSevenCases]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.DomainTests testSessionTypeCoversFourSessions]' started.
+Test Case '-[SaydoCoreTests.DomainTests testSessionTypeCoversFourSessions]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.DomainTests testSessionTypeDisplayNames]' started.
+Test Case '-[SaydoCoreTests.DomainTests testSessionTypeDisplayNames]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.DomainTests testTaskDomainDisplayNames]' started.
+Test Case '-[SaydoCoreTests.DomainTests testTaskDomainDisplayNames]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.DomainTests testTaskDomainHasSevenCases]' started.
+Test Case '-[SaydoCoreTests.DomainTests testTaskDomainHasSevenCases]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.DomainTests testWeeklyStatsRanksDomainsAndReasons]' started.
+Test Case '-[SaydoCoreTests.DomainTests testWeeklyStatsRanksDomainsAndReasons]' passed (0.000 seconds).
+Test Suite 'DomainTests' passed at 2026-09-04 06:38:05.101.
+	 Executed 15 tests, with 0 failures (0 unexpected) in 0.001 (0.002) seconds
+Test Suite 'GuardrailsTests' started at 2026-09-04 06:38:05.101.
+Test Case '-[SaydoCoreTests.GuardrailsTests testActionMustBeShortAndEndWithAVerb]' started.
+Test Case '-[SaydoCoreTests.GuardrailsTests testActionMustBeShortAndEndWithAVerb]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.GuardrailsTests testAssertiveFormsOnlyForFailureWords]' started.
+Test Case '-[SaydoCoreTests.GuardrailsTests testAssertiveFormsOnlyForFailureWords]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.GuardrailsTests testBannedPhrasesAreRejected]' started.
+Test Case '-[SaydoCoreTests.GuardrailsTests testBannedPhrasesAreRejected]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.GuardrailsTests testEmptyUrlAndEnglishOnlyAreRejected]' started.
+Test Case '-[SaydoCoreTests.GuardrailsTests testEmptyUrlAndEnglishOnlyAreRejected]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.GuardrailsTests testEveryChoiceLabelPassesGuardrails]' started.
+Test Case '-[SaydoCoreTests.GuardrailsTests testEveryChoiceLabelPassesGuardrails]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.GuardrailsTests testEveryDialogueCopyLinePassesGuardrails]' started.
+Test Case '-[SaydoCoreTests.GuardrailsTests testEveryDialogueCopyLinePassesGuardrails]' passed (0.003 seconds).
+Test Case '-[SaydoCoreTests.GuardrailsTests testExampleActionTextsSatisfyTheActionRule]' started.
+Test Case '-[SaydoCoreTests.GuardrailsTests testExampleActionTextsSatisfyTheActionRule]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.GuardrailsTests testGuardrailsHaveNoEntryPointForUserTranscripts]' started.
+Test Case '-[SaydoCoreTests.GuardrailsTests testGuardrailsHaveNoEntryPointForUserTranscripts]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.GuardrailsTests testHarmlessSentencesWithPartialMatchesPass]' started.
+Test Case '-[SaydoCoreTests.GuardrailsTests testHarmlessSentencesWithPartialMatchesPass]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.GuardrailsTests testQuestionMustBeShortAndEndWithAQuestionMark]' started.
+Test Case '-[SaydoCoreTests.GuardrailsTests testQuestionMustBeShortAndEndWithAQuestionMark]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.GuardrailsTests testSanitizeReplacesViolatingOutputWithTheTemplate]' started.
+Test Case '-[SaydoCoreTests.GuardrailsTests testSanitizeReplacesViolatingOutputWithTheTemplate]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.GuardrailsTests testStatementHasNoLengthOrEndingRule]' started.
+Test Case '-[SaydoCoreTests.GuardrailsTests testStatementHasNoLengthOrEndingRule]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.GuardrailsTests testStreakPhraseNeedsANumberBeforeIt]' started.
+Test Case '-[SaydoCoreTests.GuardrailsTests testStreakPhraseNeedsANumberBeforeIt]' passed (0.000 seconds).
+Test Suite 'GuardrailsTests' passed at 2026-09-04 06:38:05.106.
+	 Executed 13 tests, with 0 failures (0 unexpected) in 0.005 (0.005) seconds
+Test Suite 'JapaneseTimeParserTests' started at 2026-09-04 06:38:05.106.
+Test Case '-[SaydoCoreTests.JapaneseTimeParserTests test01AbsoluteHour]' started.
+Test Case '-[SaydoCoreTests.JapaneseTimeParserTests test01AbsoluteHour]' passed (0.002 seconds).
+Test Case '-[SaydoCoreTests.JapaneseTimeParserTests test02BareHourPicksTheNextOneToCome]' started.
+Test Case '-[SaydoCoreTests.JapaneseTimeParserTests test02BareHourPicksTheNextOneToCome]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.JapaneseTimeParserTests test03Meridiem]' started.
+Test Case '-[SaydoCoreTests.JapaneseTimeParserTests test03Meridiem]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.JapaneseTimeParserTests test04HourAndMinute]' started.
+Test Case '-[SaydoCoreTests.JapaneseTimeParserTests test04HourAndMinute]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.JapaneseTimeParserTests test05HalfPast]' started.
+Test Case '-[SaydoCoreTests.JapaneseTimeParserTests test05HalfPast]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.JapaneseTimeParserTests test06RelativeHours]' started.
+Test Case '-[SaydoCoreTests.JapaneseTimeParserTests test06RelativeHours]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.JapaneseTimeParserTests test07RelativeMinutes]' started.
+Test Case '-[SaydoCoreTests.JapaneseTimeParserTests test07RelativeMinutes]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.JapaneseTimeParserTests test08AfterNoon]' started.
+Test Case '-[SaydoCoreTests.JapaneseTimeParserTests test08AfterNoon]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.JapaneseTimeParserTests test09NamedTimesOfDay]' started.
+Test Case '-[SaydoCoreTests.JapaneseTimeParserTests test09NamedTimesOfDay]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.JapaneseTimeParserTests test10FullWidthDigits]' started.
+Test Case '-[SaydoCoreTests.JapaneseTimeParserTests test10FullWidthDigits]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.JapaneseTimeParserTests testBareHourRollsOverToTomorrowWhenBothCandidatesArePast]' started.
+Test Case '-[SaydoCoreTests.JapaneseTimeParserTests testBareHourRollsOverToTomorrowWhenBothCandidatesArePast]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.JapaneseTimeParserTests testInvalidHourIsRejected]' started.
+Test Case '-[SaydoCoreTests.JapaneseTimeParserTests testInvalidHourIsRejected]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.JapaneseTimeParserTests testParsesTheAnswerTheFlowMachineStores]' started.
+Test Case '-[SaydoCoreTests.JapaneseTimeParserTests testParsesTheAnswerTheFlowMachineStores]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.JapaneseTimeParserTests testPlaceIsKeptAsTheUserSaidIt]' started.
+Test Case '-[SaydoCoreTests.JapaneseTimeParserTests testPlaceIsKeptAsTheUserSaidIt]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.JapaneseTimeParserTests testPlaceIsNotRewritten]' started.
+Test Case '-[SaydoCoreTests.JapaneseTimeParserTests testPlaceIsNotRewritten]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.JapaneseTimeParserTests testUnparseableAnswerKeepsThePlaceAndReturnsNoDate]' started.
+Test Case '-[SaydoCoreTests.JapaneseTimeParserTests testUnparseableAnswerKeepsThePlaceAndReturnsNoDate]' passed (0.000 seconds).
+Test Suite 'JapaneseTimeParserTests' passed at 2026-09-04 06:38:05.110.
+	 Executed 16 tests, with 0 failures (0 unexpected) in 0.003 (0.004) seconds
+Test Suite 'MorningFlowTests' started at 2026-09-04 06:38:05.110.
+Test Case '-[SaydoCoreTests.MorningFlowTests testCarryoverChangeShowsTheSixOptions]' started.
+Test Case '-[SaydoCoreTests.MorningFlowTests testCarryoverChangeShowsTheSixOptions]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.MorningFlowTests testCarryoverDroppedAsksForTodaysAvoidanceInstead]' started.
+Test Case '-[SaydoCoreTests.MorningFlowTests testCarryoverDroppedAsksForTodaysAvoidanceInstead]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.MorningFlowTests testCarryoverIsOfferedWithTwoChoicesAndKeepingItSkipsTheQuestion]' started.
+Test Case '-[SaydoCoreTests.MorningFlowTests testCarryoverIsOfferedWithTwoChoicesAndKeepingItSkipsTheQuestion]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.MorningFlowTests testCarryoverMovedToTomorrowKeepsItForTheNextMorning]' started.
+Test Case '-[SaydoCoreTests.MorningFlowTests testCarryoverMovedToTomorrowKeepsItForTheNextMorning]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.MorningFlowTests testDeclareNowInVoicelessModeStartsRecording]' started.
+Test Case '-[SaydoCoreTests.MorningFlowTests testDeclareNowInVoicelessModeStartsRecording]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.MorningFlowTests testDeferredDeclarationSchedulesASingleReminder]' started.
+Test Case '-[SaydoCoreTests.MorningFlowTests testDeferredDeclarationSchedulesASingleReminder]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.MorningFlowTests testInterruptedAtDeclarationResumesAtDeclaration]' started.
+Test Case '-[SaydoCoreTests.MorningFlowTests testInterruptedAtDeclarationResumesAtDeclaration]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.MorningFlowTests testInterruptedKeepsTheStepAndResumesFromIt]' started.
+Test Case '-[SaydoCoreTests.MorningFlowTests testInterruptedKeepsTheStepAndResumesFromIt]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.MorningFlowTests testMicroActionExampleChipUsesActionTextNotLabel]' started.
+Test Case '-[SaydoCoreTests.MorningFlowTests testMicroActionExampleChipUsesActionTextNotLabel]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.MorningFlowTests testMicroActionKeepsUserWordsWithoutNounExtraction]' started.
+Test Case '-[SaydoCoreTests.MorningFlowTests testMicroActionKeepsUserWordsWithoutNounExtraction]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.MorningFlowTests testMorningWalksM0ToM4AndSavesThreeEntries]' started.
+Test Case '-[SaydoCoreTests.MorningFlowTests testMorningWalksM0ToM4AndSavesThreeEntries]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.MorningFlowTests testNoReentryLineWhenTheGapIsOneDay]' started.
+Test Case '-[SaydoCoreTests.MorningFlowTests testNoReentryLineWhenTheGapIsOneDay]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.MorningFlowTests testNothingToAvoidEndsAsGoodDay]' started.
+Test Case '-[SaydoCoreTests.MorningFlowTests testNothingToAvoidEndsAsGoodDay]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.MorningFlowTests testOnlySevenStepsProduceVoiceEntries]' started.
+Test Case '-[SaydoCoreTests.MorningFlowTests testOnlySevenStepsProduceVoiceEntries]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.MorningFlowTests testPlannedTimeAsksTimeAndPlaceInOneQuestion]' started.
+Test Case '-[SaydoCoreTests.MorningFlowTests testPlannedTimeAsksTimeAndPlaceInOneQuestion]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.MorningFlowTests testReentryAfterTwoOrMoreDaysUsesTheWelcomeBackLine]' started.
+Test Case '-[SaydoCoreTests.MorningFlowTests testReentryAfterTwoOrMoreDaysUsesTheWelcomeBackLine]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.MorningFlowTests testShortTranscriptRetriesTwiceThenFallsBackToChoices]' started.
+Test Case '-[SaydoCoreTests.MorningFlowTests testShortTranscriptRetriesTwiceThenFallsBackToChoices]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.MorningFlowTests testShortTranscriptSkipsWhenTheStepHasNoAnswerChoices]' started.
+Test Case '-[SaydoCoreTests.MorningFlowTests testShortTranscriptSkipsWhenTheStepHasNoAnswerChoices]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.MorningFlowTests testSilenceNudgesOnceThenSkipsTheQuestion]' started.
+Test Case '-[SaydoCoreTests.MorningFlowTests testSilenceNudgesOnceThenSkipsTheQuestion]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.MorningFlowTests testSkipEventAdvancesWithoutSaving]' started.
+Test Case '-[SaydoCoreTests.MorningFlowTests testSkipEventAdvancesWithoutSaving]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.MorningFlowTests testTimeboxSavesNothingMoreAndClosesTheSession]' started.
+Test Case '-[SaydoCoreTests.MorningFlowTests testTimeboxSavesNothingMoreAndClosesTheSession]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.MorningFlowTests testUserTranscriptIsSavedVerbatimEvenWhenItBlamesThemselves]' started.
+Test Case '-[SaydoCoreTests.MorningFlowTests testUserTranscriptIsSavedVerbatimEvenWhenItBlamesThemselves]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.MorningFlowTests testVoicelessModeListensWithTextInputThroughM0ToM3]' started.
+Test Case '-[SaydoCoreTests.MorningFlowTests testVoicelessModeListensWithTextInputThroughM0ToM3]' passed (0.000 seconds).
+Test Suite 'MorningFlowTests' passed at 2026-09-04 06:38:05.113.
+	 Executed 23 tests, with 0 failures (0 unexpected) in 0.002 (0.003) seconds
+Test Suite 'NightFlowTests' started at 2026-09-04 06:38:05.113.
+Test Case '-[SaydoCoreTests.NightFlowTests testCarryoverFromNightBecomesTheNextMorningQuestion]' started.
+Test Case '-[SaydoCoreTests.NightFlowTests testCarryoverFromNightBecomesTheNextMorningQuestion]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.NightFlowTests testInterruptedAtTomorrowResumesAtTomorrow]' started.
+Test Case '-[SaydoCoreTests.NightFlowTests testInterruptedAtTomorrowResumesAtTomorrow]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.NightFlowTests testNightStartsWithTheProgressQuestionAndNoChoices]' started.
+Test Case '-[SaydoCoreTests.NightFlowTests testNightStartsWithTheProgressQuestionAndNoChoices]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.NightFlowTests testNoProgressChoiceMovesOnToTomorrow]' started.
+Test Case '-[SaydoCoreTests.NightFlowTests testNoProgressChoiceMovesOnToTomorrow]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.NightFlowTests testNoProgressDoesNotUseTheSixOptions]' started.
+Test Case '-[SaydoCoreTests.NightFlowTests testNoProgressDoesNotUseTheSixOptions]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.NightFlowTests testNoProgressShowsExactlyTwoChipsAndNoBlame]' started.
+Test Case '-[SaydoCoreTests.NightFlowTests testNoProgressShowsExactlyTwoChipsAndNoBlame]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.NightFlowTests testNoProgressStillKeepsTheUsersOwnWords]' started.
+Test Case '-[SaydoCoreTests.NightFlowTests testNoProgressStillKeepsTheUsersOwnWords]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.NightFlowTests testProgressIsSavedAndLeadsToTomorrow]' started.
+Test Case '-[SaydoCoreTests.NightFlowTests testProgressIsSavedAndLeadsToTomorrow]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.NightFlowTests testSilenceAtProgressSkipsToTomorrowWithoutSaving]' started.
+Test Case '-[SaydoCoreTests.NightFlowTests testSilenceAtProgressSkipsToTomorrowWithoutSaving]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.NightFlowTests testTimeboxClosesTheNightSession]' started.
+Test Case '-[SaydoCoreTests.NightFlowTests testTimeboxClosesTheNightSession]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.NightFlowTests testTomorrowIsSavedAndHandedToTheNextMorning]' started.
+Test Case '-[SaydoCoreTests.NightFlowTests testTomorrowIsSavedAndHandedToTheNextMorning]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.NightFlowTests testVoicelessNightUsesTextInput]' started.
+Test Case '-[SaydoCoreTests.NightFlowTests testVoicelessNightUsesTextInput]' passed (0.000 seconds).
+Test Suite 'NightFlowTests' passed at 2026-09-04 06:38:05.115.
+	 Executed 12 tests, with 0 failures (0 unexpected) in 0.001 (0.001) seconds
+Test Suite 'NoonFlowTests' started at 2026-09-04 06:38:05.115.
+Test Case '-[SaydoCoreTests.NoonFlowTests testAdhocSessionUsesTheSameEntranceRules]' started.
+Test Case '-[SaydoCoreTests.NoonFlowTests testAdhocSessionUsesTheSameEntranceRules]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.NoonFlowTests testAlreadyDoneCancelsNotificationsAndEnds]' started.
+Test Case '-[SaydoCoreTests.NoonFlowTests testAlreadyDoneCancelsNotificationsAndEnds]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.NoonFlowTests testBeforePlannedTimeAsksWhetherThePromiseIsStillAlive]' started.
+Test Case '-[SaydoCoreTests.NoonFlowTests testBeforePlannedTimeAsksWhetherThePromiseIsStillAlive]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.NoonFlowTests testBlockerIsSavedAndLeadsToTheShrinkStep]' started.
+Test Case '-[SaydoCoreTests.NoonFlowTests testBlockerIsSavedAndLeadsToTheShrinkStep]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.NoonFlowTests testCannotDecideStepsDownTheLadderAndAsksAgain]' started.
+Test Case '-[SaydoCoreTests.NoonFlowTests testCannotDecideStepsDownTheLadderAndAsksAgain]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.NoonFlowTests testChangeTimeReschedulesTheActionNotification]' started.
+Test Case '-[SaydoCoreTests.NoonFlowTests testChangeTimeReschedulesTheActionNotification]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.NoonFlowTests testDoneEndsAndCancelsTheActionNotification]' started.
+Test Case '-[SaydoCoreTests.NoonFlowTests testDoneEndsAndCancelsTheActionNotification]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.NoonFlowTests testDropTodayCancelsTheActionNotificationWithoutBlame]' started.
+Test Case '-[SaydoCoreTests.NoonFlowTests testDropTodayCancelsTheActionNotificationWithoutBlame]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.NoonFlowTests testEntranceClassification]' started.
+Test Case '-[SaydoCoreTests.NoonFlowTests testEntranceClassification]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.NoonFlowTests testInterruptedAtBlockerResumesAtBlocker]' started.
+Test Case '-[SaydoCoreTests.NoonFlowTests testInterruptedAtBlockerResumesAtBlocker]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.NoonFlowTests testMoveToTomorrowCarriesTheActionOver]' started.
+Test Case '-[SaydoCoreTests.NoonFlowTests testMoveToTomorrowCarriesTheActionOver]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.NoonFlowTests testNoCommitmentOpensTheShortMorningFlow]' started.
+Test Case '-[SaydoCoreTests.NoonFlowTests testNoCommitmentOpensTheShortMorningFlow]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.NoonFlowTests testNotYetGoesToTheBlockerQuestion]' started.
+Test Case '-[SaydoCoreTests.NoonFlowTests testNotYetGoesToTheBlockerQuestion]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.NoonFlowTests testPartialCountsAsProgressAndDoesNotAskWhatIsBlocking]' started.
+Test Case '-[SaydoCoreTests.NoonFlowTests testPartialCountsAsProgressAndDoesNotAskWhatIsBlocking]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.NoonFlowTests testPlaybackPlaysTheDeclarationAudioThenAsksTheStatus]' started.
+Test Case '-[SaydoCoreTests.NoonFlowTests testPlaybackPlaysTheDeclarationAudioThenAsksTheStatus]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.NoonFlowTests testPromiseAliveEndsImmediately]' started.
+Test Case '-[SaydoCoreTests.NoonFlowTests testPromiseAliveEndsImmediately]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.NoonFlowTests testRetryInOneHourReschedulesTheActionNotification]' started.
+Test Case '-[SaydoCoreTests.NoonFlowTests testRetryInOneHourReschedulesTheActionNotification]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.NoonFlowTests testShrinkAcceptsTheUsersOwnWords]' started.
+Test Case '-[SaydoCoreTests.NoonFlowTests testShrinkAcceptsTheUsersOwnWords]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.NoonFlowTests testShrinkStepOffersItsFourChoicesAndTheGeneralExamples]' started.
+Test Case '-[SaydoCoreTests.NoonFlowTests testShrinkStepOffersItsFourChoicesAndTheGeneralExamples]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.NoonFlowTests testStatusKeywordMatching]' started.
+Test Case '-[SaydoCoreTests.NoonFlowTests testStatusKeywordMatching]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.NoonFlowTests testStatusSpokenInTheUsersOwnWordsIsSavedVerbatim]' started.
+Test Case '-[SaydoCoreTests.NoonFlowTests testStatusSpokenInTheUsersOwnWordsIsSavedVerbatim]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.NoonFlowTests testUnmatchedStatusFallsBackToChoicesAfterTwoRetries]' started.
+Test Case '-[SaydoCoreTests.NoonFlowTests testUnmatchedStatusFallsBackToChoicesAfterTwoRetries]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.NoonFlowTests testVoicelessDayShowsTheDeclarationTextInsteadOfPlayingIt]' started.
+Test Case '-[SaydoCoreTests.NoonFlowTests testVoicelessDayShowsTheDeclarationTextInsteadOfPlayingIt]' passed (0.000 seconds).
+Test Suite 'NoonFlowTests' passed at 2026-09-04 06:38:05.117.
+	 Executed 23 tests, with 0 failures (0 unexpected) in 0.002 (0.002) seconds
+Test Suite 'ShrinkLadderTests' started at 2026-09-04 06:38:05.117.
+Test Case '-[SaydoCoreTests.ShrinkLadderTests testEachRungIsSmallerThanTheOneAbove]' started.
+Test Case '-[SaydoCoreTests.ShrinkLadderTests testEachRungIsSmallerThanTheOneAbove]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.ShrinkLadderTests testEveryRungActionSatisfiesTheActionRule]' started.
+Test Case '-[SaydoCoreTests.ShrinkLadderTests testEveryRungActionSatisfiesTheActionRule]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.ShrinkLadderTests testGoesDownOneRungAtATime]' started.
+Test Case '-[SaydoCoreTests.ShrinkLadderTests testGoesDownOneRungAtATime]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.ShrinkLadderTests testLadderDoesNotDependOnAnyDomain]' started.
+Test Case '-[SaydoCoreTests.ShrinkLadderTests testLadderDoesNotDependOnAnyDomain]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.ShrinkLadderTests testLadderIsTheGeneralFourStepForm]' started.
+Test Case '-[SaydoCoreTests.ShrinkLadderTests testLadderIsTheGeneralFourStepForm]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.ShrinkLadderTests testRungIndexIsClamped]' started.
+Test Case '-[SaydoCoreTests.ShrinkLadderTests testRungIndexIsClamped]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.ShrinkLadderTests testShrinkingWorksTheSameForAnyStartingAction]' started.
+Test Case '-[SaydoCoreTests.ShrinkLadderTests testShrinkingWorksTheSameForAnyStartingAction]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.ShrinkLadderTests testStartsAtTheTopRung]' started.
+Test Case '-[SaydoCoreTests.ShrinkLadderTests testStartsAtTheTopRung]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.ShrinkLadderTests testStopsAtTheBottomRung]' started.
+Test Case '-[SaydoCoreTests.ShrinkLadderTests testStopsAtTheBottomRung]' passed (0.000 seconds).
+Test Suite 'ShrinkLadderTests' passed at 2026-09-04 06:38:05.118.
+	 Executed 9 tests, with 0 failures (0 unexpected) in 0.001 (0.001) seconds
+Test Suite 'TemplateDialogueEngineTests' started at 2026-09-04 06:38:05.118.
+Test Case '-[SaydoCoreTests.TemplateDialogueEngineTests testDomainKeywords]' started.
+Test Case '-[SaydoCoreTests.TemplateDialogueEngineTests testDomainKeywords]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.TemplateDialogueEngineTests testEngineConformsToDialogueEngineWithoutAnyModel]' started.
+Test Case '-[SaydoCoreTests.TemplateDialogueEngineTests testEngineConformsToDialogueEngineWithoutAnyModel]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.TemplateDialogueEngineTests testFlowMachineUtteranceBecomesAValidActionText]' started.
+Test Case '-[SaydoCoreTests.TemplateDialogueEngineTests testFlowMachineUtteranceBecomesAValidActionText]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.TemplateDialogueEngineTests testFollowUpQuestionIsEmptyForTierB]' started.
+Test Case '-[SaydoCoreTests.TemplateDialogueEngineTests testFollowUpQuestionIsEmptyForTierB]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.TemplateDialogueEngineTests testLongUtteranceIsTrimmedButStillEndsWithAVerb]' started.
+Test Case '-[SaydoCoreTests.TemplateDialogueEngineTests testLongUtteranceIsTrimmedButStillEndsWithAVerb]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.TemplateDialogueEngineTests testNounUtterancesBecomeVerbEndingActionsWithoutNounExtraction]' started.
+Test Case '-[SaydoCoreTests.TemplateDialogueEngineTests testNounUtterancesBecomeVerbEndingActionsWithoutNounExtraction]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.TemplateDialogueEngineTests testProposedActionsAreTheGeneralExamplesNotDerivedFromTheAvoidance]' started.
+Test Case '-[SaydoCoreTests.TemplateDialogueEngineTests testProposedActionsAreTheGeneralExamplesNotDerivedFromTheAvoidance]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.TemplateDialogueEngineTests testReasonKeywordsCoverTheSevenCategories]' started.
+Test Case '-[SaydoCoreTests.TemplateDialogueEngineTests testReasonKeywordsCoverTheSevenCategories]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.TemplateDialogueEngineTests testShrinkCountIsCarriedOver]' started.
+Test Case '-[SaydoCoreTests.TemplateDialogueEngineTests testShrinkCountIsCarriedOver]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.TemplateDialogueEngineTests testShrinkGoesDownTheGeneralLadder]' started.
+Test Case '-[SaydoCoreTests.TemplateDialogueEngineTests testShrinkGoesDownTheGeneralLadder]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.TemplateDialogueEngineTests testShrinkIgnoresTheBlockerWording]' started.
+Test Case '-[SaydoCoreTests.TemplateDialogueEngineTests testShrinkIgnoresTheBlockerWording]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.TemplateDialogueEngineTests testTooShortUtteranceIsRejected]' started.
+Test Case '-[SaydoCoreTests.TemplateDialogueEngineTests testTooShortUtteranceIsRejected]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.TemplateDialogueEngineTests testUnrecognizedReasonThrowsInsteadOfGuessing]' started.
+Test Case '-[SaydoCoreTests.TemplateDialogueEngineTests testUnrecognizedReasonThrowsInsteadOfGuessing]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.TemplateDialogueEngineTests testVerbEndingUtterancesAreKeptExactlyAsSpoken]' started.
+Test Case '-[SaydoCoreTests.TemplateDialogueEngineTests testVerbEndingUtterancesAreKeptExactlyAsSpoken]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.TemplateDialogueEngineTests testWeeklyReflectionStatesWhatAndWhyWithoutScoring]' started.
+Test Case '-[SaydoCoreTests.TemplateDialogueEngineTests testWeeklyReflectionStatesWhatAndWhyWithoutScoring]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.TemplateDialogueEngineTests testWeeklyReflectionWithoutData]' started.
+Test Case '-[SaydoCoreTests.TemplateDialogueEngineTests testWeeklyReflectionWithoutData]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.TemplateDialogueEngineTests testWeeklyReflectionWithoutReasons]' started.
+Test Case '-[SaydoCoreTests.TemplateDialogueEngineTests testWeeklyReflectionWithoutReasons]' passed (0.000 seconds).
+Test Suite 'TemplateDialogueEngineTests' passed at 2026-09-04 06:38:05.121.
+	 Executed 17 tests, with 0 failures (0 unexpected) in 0.002 (0.003) seconds
+Test Suite 'SaydoCorePackageTests.xctest' passed at 2026-09-04 06:38:05.121.
+	 Executed 143 tests, with 0 failures (0 unexpected) in 0.020 (0.025) seconds
+Test Suite 'All tests' passed at 2026-09-04 06:38:05.121.
+	 Executed 143 tests, with 0 failures (0 unexpected) in 0.020 (0.026) seconds
+◇ Test run started.
+↳ Testing Library Version: 1501
+↳ Target Platform: arm64e-apple-macos14.0
+✔ Test run with 0 tests in 0 suites passed after 0.001 seconds.
+lint-principles: 対象 37 ファイル（App/ と Packages/*/Sources。Tests と Spikes は除外）
+WARN: DialogueCopy.swift / NotificationCopy.swift 以外に日本語の文字列リテラルがある（文言は Copy に集約する）
+    Packages/SaydoCore/Sources/SaydoCore/Dialogue/Guardrails.swift:45: "未達成"
+    Packages/SaydoCore/Sources/SaydoCore/Dialogue/Guardrails.swift:46: "サボ"
+    Packages/SaydoCore/Sources/SaydoCore/Dialogue/Guardrails.swift:47: "怠け"
+    Packages/SaydoCore/Sources/SaydoCore/Dialogue/Guardrails.swift:48: "言い訳"
+    Packages/SaydoCore/Sources/SaydoCore/Dialogue/Guardrails.swift:49: "甘え"
+    Packages/SaydoCore/Sources/SaydoCore/Dialogue/Guardrails.swift:50: "なぜやらない"
+    Packages/SaydoCore/Sources/SaydoCore/Dialogue/Guardrails.swift:51: "また逃げ"
+    Packages/SaydoCore/Sources/SaydoCore/Dialogue/Guardrails.swift:56: "失敗です"
+    Packages/SaydoCore/Sources/SaydoCore/Dialogue/Guardrails.swift:57: "失敗した"
+    Packages/SaydoCore/Sources/SaydoCore/Dialogue/Guardrails.swift:58: "失敗だ"
+    Packages/SaydoCore/Sources/SaydoCore/Dialogue/Guardrails.swift:59: "失敗でした"
+    Packages/SaydoCore/Sources/SaydoCore/Dialogue/Guardrails.swift:60: "ダメです"
+    Packages/SaydoCore/Sources/SaydoCore/Dialogue/Guardrails.swift:61: "ダメだ"
+    Packages/SaydoCore/Sources/SaydoCore/Dialogue/Guardrails.swift:62: "ダメでした"
+    Packages/SaydoCore/Sources/SaydoCore/Dialogue/Guardrails.swift:63: "ダメだった"
+    Packages/SaydoCore/Sources/SaydoCore/Dialogue/Guardrails.swift:64: "だめです"
+    Packages/SaydoCore/Sources/SaydoCore/Dialogue/Guardrails.swift:65: "だめだ"
+    Packages/SaydoCore/Sources/SaydoCore/Dialogue/Guardrails.swift:66: "だめでした"
+    Packages/SaydoCore/Sources/SaydoCore/Dialogue/Guardrails.swift:67: "だめだった"
+    Packages/SaydoCore/Sources/SaydoCore/Dialogue/Guardrails.swift:74: "一"
+    Packages/SaydoCore/Sources/SaydoCore/Dialogue/Guardrails.swift:79: "う"
+    Packages/SaydoCore/Sources/SaydoCore/Dialogue/Guardrails.swift:164: "日連続"
+    Packages/SaydoCore/Sources/SaydoCore/Dialogue/JapaneseTimeParser.swift:27: "お昼過ぎ"
+    Packages/SaydoCore/Sources/SaydoCore/Dialogue/JapaneseTimeParser.swift:28: "昼過ぎ"
+    Packages/SaydoCore/Sources/SaydoCore/Dialogue/JapaneseTimeParser.swift:29: "午前中"
+    Packages/SaydoCore/Sources/SaydoCore/Dialogue/JapaneseTimeParser.swift:30: "お昼"
+    Packages/SaydoCore/Sources/SaydoCore/Dialogue/JapaneseTimeParser.swift:31: "夕方"
+    Packages/SaydoCore/Sources/SaydoCore/Dialogue/JapaneseTimeParser.swift:32: "午前"
+    Packages/SaydoCore/Sources/SaydoCore/Dialogue/JapaneseTimeParser.swift:33: "午後"
+    Packages/SaydoCore/Sources/SaydoCore/Dialogue/JapaneseTimeParser.swift:34: "朝"
+    Packages/SaydoCore/Sources/SaydoCore/Dialogue/JapaneseTimeParser.swift:35: "昼"
+    Packages/SaydoCore/Sources/SaydoCore/Dialogue/JapaneseTimeParser.swift:36: "夜"
+    Packages/SaydoCore/Sources/SaydoCore/Dialogue/JapaneseTimeParser.swift:60: "[0-9]+時間半後"
+    Packages/SaydoCore/Sources/SaydoCore/Dialogue/JapaneseTimeParser.swift:65: "[0-9]+時間後"
+    Packages/SaydoCore/Sources/SaydoCore/Dialogue/JapaneseTimeParser.swift:70: "[0-9]+分後"
+    Packages/SaydoCore/Sources/SaydoCore/Dialogue/JapaneseTimeParser.swift:81: "(午前|午後)?[0-9]+時((半)|([0-9]+分))?"
+    Packages/SaydoCore/Sources/SaydoCore/Dialogue/JapaneseTimeParser.swift:88: "半"
+    Packages/SaydoCore/Sources/SaydoCore/Dialogue/JapaneseTimeParser.swift:90: "[0-9]+分"
+    Packages/SaydoCore/Sources/SaydoCore/Dialogue/JapaneseTimeParser.swift:94: "午後"
+    Packages/SaydoCore/Sources/SaydoCore/Dialogue/JapaneseTimeParser.swift:128: "に"
+    Packages/SaydoCore/Sources/SaydoCore/Dialogue/JapaneseTimeParser.swift:129: "でやります"
+    Packages/SaydoCore/Sources/SaydoCore/Dialogue/JapaneseTimeParser.swift:130: "で"
+    Packages/SaydoCore/Sources/SaydoCore/Dialogue/ShrinkLadder.swift:28: "開く"
+    Packages/SaydoCore/Sources/SaydoCore/Dialogue/ShrinkLadder.swift:29: "一部だけ"
+    Packages/SaydoCore/Sources/SaydoCore/Dialogue/ShrinkLadder.swift:30: "1行だけ"
+    Packages/SaydoCore/Sources/SaydoCore/Dialogue/ShrinkLadder.swift:31: "置くだけ"
+    Packages/SaydoCore/Sources/SaydoCore/Dialogue/TemplateDialogueEngine.swift:19: "に5分だけ手をつける"
+    Packages/SaydoCore/Sources/SaydoCore/Dialogue/TemplateDialogueEngine.swift:27: "気まずい"
+    Packages/SaydoCore/Sources/SaydoCore/Dialogue/TemplateDialogueEngine.swift:28: "期限"
+    Packages/SaydoCore/Sources/SaydoCore/Dialogue/TemplateDialogueEngine.swift:29: "完璧"
+    Packages/SaydoCore/Sources/SaydoCore/Dialogue/TemplateDialogueEngine.swift:30: "量が多い"
+    Packages/SaydoCore/Sources/SaydoCore/Dialogue/TemplateDialogueEngine.swift:31: "わからない"
+    Packages/SaydoCore/Sources/SaydoCore/Dialogue/TemplateDialogueEngine.swift:32: "面倒"
+    Packages/SaydoCore/Sources/SaydoCore/Dialogue/TemplateDialogueEngine.swift:33: "怖い"
+    Packages/SaydoCore/Sources/SaydoCore/Dialogue/TemplateDialogueEngine.swift:38: "請求"
+    Packages/SaydoCore/Sources/SaydoCore/Dialogue/TemplateDialogueEngine.swift:39: "返信"
+    Packages/SaydoCore/Sources/SaydoCore/Dialogue/TemplateDialogueEngine.swift:40: "営業"
+    Packages/SaydoCore/Sources/SaydoCore/Dialogue/TemplateDialogueEngine.swift:41: "書類"
+    Packages/SaydoCore/Sources/SaydoCore/Dialogue/TemplateDialogueEngine.swift:42: "病院"
+    Packages/SaydoCore/Sources/SaydoCore/Dialogue/TemplateDialogueEngine.swift:43: "企画"
+    Packages/SaydoCore/Sources/SaydoCore/Dialogue/TemplateDialogueEngine.swift:82: "まだ、見えてくるほどの記録がない。"
+    Packages/SaydoCore/Sources/SaydoCore/Dialogue/TemplateDialogueEngine.swift:85: "この1週間、いちばん多いのは\(domain.displayName)。"
+    Packages/SaydoCore/Sources/SaydoCore/Dialogue/TemplateDialogueEngine.swift:87: "この1週間、いちばん多いのは\(domain.displayName)。理由は\(reason.displayName)が多い。"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/CommitmentOutcome.swift:17: "未確認"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/CommitmentOutcome.swift:18: "やった"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/CommitmentOutcome.swift:19: "少しやった"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/CommitmentOutcome.swift:20: "まだ"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/FlowStep.swift:56: "逃げたいこと"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/FlowStep.swift:57: "逃げたい理由"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/FlowStep.swift:58: "5 分以下の行動"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/FlowStep.swift:59: "行動する時刻"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/FlowStep.swift:60: "声の宣言"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/FlowStep.swift:61: "朝のあなたから"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/FlowStep.swift:62: "できたかどうか"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/FlowStep.swift:63: "止めているもの"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/FlowStep.swift:64: "もっと小さく"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/FlowStep.swift:65: "今日の前進"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/FlowStep.swift:66: "明日のこと"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/FlowStep.swift:67: "終わり"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/ReasonCategory.swift:22: "気まずい"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/ReasonCategory.swift:23: "完璧にやりたい"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/ReasonCategory.swift:24: "面倒"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/ReasonCategory.swift:25: "不安・怖い"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/ReasonCategory.swift:26: "量が多い"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/ReasonCategory.swift:27: "何から始めるかわからない"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/ReasonCategory.swift:28: "期限が怖い"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/SessionType.swift:15: "朝"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/SessionType.swift:16: "昼"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/SessionType.swift:17: "夜"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/SessionType.swift:18: "手動"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/TaskDomain.swift:20: "人への返信"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/TaskDomain.swift:21: "お金"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/TaskDomain.swift:22: "大きなタスク"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/TaskDomain.swift:23: "営業"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/TaskDomain.swift:24: "書類"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/TaskDomain.swift:25: "健康"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/TaskDomain.swift:26: "その他"
+    Packages/SaydoCore/Sources/SaydoCore/Flows/MorningFlow.swift:131: "特にない"
+    Packages/SaydoCore/Sources/SaydoCore/Flows/NightFlow.swift:56: "ない"
+    Packages/SaydoCore/Sources/SaydoCore/Flows/NightFlow.swift:57: "何もできなかった"
+    Packages/SaydoCore/Sources/SaydoCore/Flows/NoonFlow.swift:183: "少し"
+    Packages/SaydoCore/Sources/SaydoCore/Flows/NoonFlow.swift:184: "まだ"
+    Packages/SaydoCore/Sources/SaydoCore/Flows/NoonFlow.swift:186: "やった"
+    Packages/SaydoCore/Sources/SaydoCore/Flows/NoonFlow.swift:187: "終わった"
+lint-principles: OK
