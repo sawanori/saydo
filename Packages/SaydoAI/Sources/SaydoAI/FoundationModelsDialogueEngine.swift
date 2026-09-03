@@ -153,12 +153,12 @@ public actor FoundationModelsDialogueEngine: DialogueEngine {
     public private(set) var stats = Stats()
 
     /// - Parameters:
-    ///   - fallback: 置換先。Tier B の `TemplateDialogueEngine`（task_005b）を渡す。
+    ///   - fallback: 置換先。既定は Tier B の `TemplateDialogueEngine`（task_005b）。
     ///   - model: 使うモデル。既定は `SystemLanguageModel.default`。
     ///   - locale: 会話の言語。既定は `ja_JP`。
     ///   - timeout: 1 呼び出しの上限時間。既定は 6 秒（実装計画 §7.2）。
     public init(
-        fallback: any DialogueEngine,
+        fallback: any DialogueEngine = TemplateDialogueEngine(),
         model: SystemLanguageModel = .default,
         locale: Locale = ModelAvailability.japanese,
         timeout: Duration = .seconds(6)
