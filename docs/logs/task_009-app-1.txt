@@ -1,0 +1,27 @@
+=== task_009-app: 型検査（iOS 26.x シミュレータランタイムが無いため build-ios.sh の代替） ===
+SDK=/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.2.sdk
+TARGET=arm64-apple-ios26.0-simulator
+FLAGS=-swift-version 6 -strict-concurrency=complete -enable-upcoming-feature ExistentialAny（project.yml の SWIFT_VERSION / SWIFT_STRICT_CONCURRENCY / SWIFT_UPCOMING_FEATURE_EXISTENTIAL_ANY に対応）
+
+--- [1] SaydoCore を iOS シミュレータ向けにモジュール化 ---
+++ find Packages/SaydoCore/Sources/SaydoCore -name '*.swift'
+++ sort
++ swiftc -emit-module -module-name SaydoCore -emit-module-path .typecheck/SaydoCore.swiftmodule -swift-version 6 -strict-concurrency=complete -enable-upcoming-feature ExistentialAny -sdk /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.2.sdk -target arm64-apple-ios26.0-simulator Packages/SaydoCore/Sources/SaydoCore/Domain/CommitmentOutcome.swift Packages/SaydoCore/Sources/SaydoCore/Domain/DialogueContext.swift Packages/SaydoCore/Sources/SaydoCore/Domain/FlowStep.swift Packages/SaydoCore/Sources/SaydoCore/Domain/MicroAction.swift Packages/SaydoCore/Sources/SaydoCore/Domain/ReasonCategory.swift Packages/SaydoCore/Sources/SaydoCore/Domain/ReasonClassification.swift Packages/SaydoCore/Sources/SaydoCore/Domain/SessionType.swift Packages/SaydoCore/Sources/SaydoCore/Domain/TaskDomain.swift Packages/SaydoCore/Sources/SaydoCore/Domain/WeeklyStats.swift Packages/SaydoCore/Sources/SaydoCore/Notifications/NotificationCopy.swift Packages/SaydoCore/Sources/SaydoCore/Notifications/NotificationPlan.swift
++ echo EXIT=0
+EXIT=0
++ set +x
+
+--- [2] App 側の型検査（本タスクの成果物） ---
++ swiftc -typecheck -swift-version 6 -strict-concurrency=complete -enable-upcoming-feature ExistentialAny -sdk /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.2.sdk -target arm64-apple-ios26.0-simulator -I .typecheck App/SaydoApp.swift App/AppDelegate.swift App/Notifications/DeepLink.swift App/Notifications/NotificationScheduler.swift
++ echo EXIT=0
+EXIT=0
++ set +x
+
+--- [3] Saydo モジュール（-enable-testing）→ Tests/SaydoTests の型検査 ---
++ swiftc -emit-module -enable-testing -module-name Saydo -emit-module-path .typecheck/Saydo.swiftmodule -swift-version 6 -strict-concurrency=complete -enable-upcoming-feature ExistentialAny -sdk /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.2.sdk -target arm64-apple-ios26.0-simulator -I .typecheck App/SaydoApp.swift App/AppDelegate.swift App/Notifications/DeepLink.swift App/Notifications/NotificationScheduler.swift
++ echo EXIT=0
+EXIT=0
++ swiftc -typecheck -swift-version 6 -strict-concurrency=complete -enable-upcoming-feature ExistentialAny -sdk /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.2.sdk -target arm64-apple-ios26.0-simulator -I .typecheck -F /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/Library/Frameworks -I /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/lib Tests/SaydoTests/DeepLinkTests.swift Tests/SaydoTests/SmokeTests.swift
++ echo EXIT=0
+EXIT=0
++ set +x

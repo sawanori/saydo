@@ -1051,3 +1051,116 @@ EXIT=0
 ### 人間の確認待ち
 
 - task_001 と同じ（iOS 26.x シミュレータランタイムの導入）。追加はなし。
+## task_009-app — 通知のアプリ側（NotificationScheduler / DeepLink / AppDelegate）
+
+- 日時: 2026-09-04
+- 状態: wip（型検査は緑。実機での配信・タップ・pending 上限は未検証。`AppRouter` は未実装）
+- ブランチ / コミット: `task/009-notification-app`（`task/009-notification-core` から分岐） / （このコミット）
+
+### スコープ
+
+task_009 のうち **App 側で UI を持たない部分だけ**。`SaydoCore` と `project.yml` は編集していない。
+
+作ったもの:
+
+| ファイル | 内容 |
+|---|---|
+| `App/Notifications/NotificationScheduler.swift` | `UNUserNotificationCenter` のラッパ。`NotificationPlan` の出力を非繰り返し `UNCalendarNotificationTrigger` で登録。`NotificationIdentifier`（管理接頭辞の判定）、`PendingDiagnostics`（保留通知の実測値）、`NotificationHealth`（許可状態 + 保留本数） |
+| `App/Notifications/DeepLink.swift` | `userInfo` の組み立てと解析。`NotificationUserInfoKey`、`DeepLink`（`sessionType` / `slot` / `commitmentID` / `copyKey` / `action`）、`DeepLink.Action`（open / rest） |
+| `App/AppDelegate.swift` | `UNUserNotificationCenterDelegate`。`SessionLauncher` プロトコルの定義と注入 |
+| `App/SaydoApp.swift` | `@UIApplicationDelegateAdaptor(AppDelegate.self)` の 1 行追加のみ |
+| `Tests/SaydoTests/DeepLinkTests.swift` | `DeepLink` の解析と識別子判定のテスト 18 件 |
+
+やっていないもの（このタスクの範囲外）: `AppRouter`、設定 UI（task_013）、Today 画面の再許可導線の表示（task_012）、
+休みの記録（`SessionLog`。task_006）、`Commitment` との接続（task_005 / task_008）。
+
+### 実装の決定
+
+- **再計画の手順**: `apply(_:commitmentID:)` は毎回 `morning-*` / `noon-*` / `night-*` / `action-*` の
+  保留通知を **全部消してから** 登録し直す。`NotificationPlan.cancelledIdentifiers` は念のため明示的にも消す。
+- **非同期 API はすべて完了ハンドラ版を `withCheckedContinuation` で包む**。`UNNotificationSettings` と
+  `UNNotificationRequest` をアクター境界に渡さず、`String` / `Int` / `Date` だけを取り出すため
+  （`async` 版を直接 await すると Swift 6 strict concurrency で Sendable の問題を踏む可能性がある）。
+- **`didReceive` は `nonisolated`** にし、その場で `UNNotificationResponse` → `DeepLink`（Sendable な値型）へ
+  落としてから `Task { @MainActor }` で渡す。`@unchecked Sendable` も `nonisolated(unsafe)` も使っていない。
+- **フォアグラウンドは `[.banner]` だけ**。`.sound` は TTS と重なるため、`.list` は後からタップされて
+  会話が二重に始まるため付けない（check_022）。
+- **コールドスタート対策**: `SessionLauncher` が注入される前に `didReceive` が来た場合は
+  `pendingLink` に 1 件だけ持ち、`setLauncher(_:)` で流す。
+- **バッジは要求しない**（`requestAuthorization(options: [.alert, .sound])`）。未処理の数を見せるのは
+  企画原則 §22-8「タスク管理アプリにしない」に反するため。
+- **文言は 1 つも App 側に置いていない**。すべて `SaydoCore.NotificationCopy` から引く（`lint-principles.sh` の
+  日本語リテラル WARN に `App/` の行が 1 件も出ないことで確認済み）。
+
+### 証拠
+
+| コマンド | exit code | ログ |
+|---|---|---|
+| `swiftc -typecheck`（App 4 ファイル。iOS シミュレータ SDK 26.2 / `arm64-apple-ios26.0-simulator`） | **0** | `docs/logs/task_009-app-1.txt` |
+| `swiftc -typecheck`（`Tests/SaydoTests` 2 ファイル） | **0** | `docs/logs/task_009-app-1.txt` |
+| `scripts/test-core.sh` | **0**（47 tests, 0 failures / `lint-principles: OK`） | `docs/logs/task_009-app-2.txt` |
+| `scripts/build-ios.sh` | **70**（task_001 と同じ destination の問題。この差分とは無関係） | `docs/logs/task_009-app-3.txt` |
+| `xcodebuild -target Saydo -sdk iphonesimulator`（`xcodegen generate` を一時実行。後で revert） | **65** | `docs/logs/task_009-app-4.txt` |
+
+`scripts/build-ios.sh` が通らないため、代替として **iOS シミュレータ SDK に対する型検査**で確認した。
+`project.yml` の `SWIFT_VERSION: 6.0` / `SWIFT_STRICT_CONCURRENCY: complete` /
+`SWIFT_UPCOMING_FEATURE_EXISTENTIAL_ANY: YES` に対応するフラグを付けている。
+
+```
+--- [2] App 側の型検査（本タスクの成果物） ---
++ swiftc -typecheck -swift-version 6 -strict-concurrency=complete -enable-upcoming-feature ExistentialAny -sdk .../iPhoneSimulator26.2.sdk -target arm64-apple-ios26.0-simulator -I .typecheck App/SaydoApp.swift App/AppDelegate.swift App/Notifications/DeepLink.swift App/Notifications/NotificationScheduler.swift
++ echo EXIT=0
+EXIT=0
++ set +x
+
+--- [3] Saydo モジュール（-enable-testing）→ Tests/SaydoTests の型検査 ---
++ swiftc -emit-module -enable-testing -module-name Saydo -emit-module-path .typecheck/Saydo.swiftmodule -swift-version 6 -strict-concurrency=complete -enable-upcoming-feature ExistentialAny -sdk .../iPhoneSimulator26.2.sdk -target arm64-apple-ios26.0-simulator -I .typecheck App/SaydoApp.swift App/AppDelegate.swift App/Notifications/DeepLink.swift App/Notifications/NotificationScheduler.swift
++ echo EXIT=0
+EXIT=0
++ swiftc -typecheck -swift-version 6 -strict-concurrency=complete -enable-upcoming-feature ExistentialAny -sdk .../iPhoneSimulator26.2.sdk -target arm64-apple-ios26.0-simulator -I .typecheck -F .../Developer/Library/Frameworks -I .../Developer/usr/lib Tests/SaydoTests/DeepLinkTests.swift Tests/SaydoTests/SmokeTests.swift
++ echo EXIT=0
+EXIT=0
++ set +x
+```
+
+警告は 1 件も出ていない（`-strict-concurrency=complete` と `ExistentialAny` を有効にした状態で出力なし）。
+
+### 未検証（実機・シミュレータが必要）
+
+- **リンクと実行**。型検査だけで、`Saydo.app` を作って動かしてはいない。
+- 通知が実際に届くこと、タップで `didReceive` が呼ばれること、通知タップから TTS までの 1.5 秒（check_016）。
+- 通知の長押しから「今日は休む」が出ること（check_035）と、当日の残りが消えること。
+- **保留通知の上限**。`NotificationScheduler.logPendingDiagnostics()` を用意したが実機で回していない。
+  実機で `subsystem:com.nonturn.saydo category:notifications` を Console.app で絞ると
+  `pending managed=N total=N repeating=0 morning=N noon=N night=N action=N first=... last=...` が 1 行出る。
+  この N を次のセッションで PROGRESS に記録する（task_009 の done_definition）。
+- `Tests/SaydoTests` は iOS 26.x シミュレータランタイムが無いため実行できていない（型検査のみ）。
+
+### 未解決
+
+- **`Time Sensitive` エンタイトルメントは未追加**。指示どおり `project.yml` を編集していないため、
+  `com.apple.developer.usernotifications.time-sensitive` は入っていない。コード側は
+  `content.interruptionLevel = .timeSensitive`（`slot == .action` のときだけ）を指定しているだけ。
+  **エンタイトルメント未設定の状態では、この指定による集中モードの突破は得られず、通常の通知として届く**
+  という理解で実装している（Apple のドキュメントに基づく理解であり、実機では未確認）。
+  エンタイトルメントの追加は `project.yml` を触るタスク（task_013 か専用の小タスク）で行う。
+- **`Saydo.xcodeproj` を再生成していない**。指示どおり `.xcodeproj` はコミットしていないので、
+  `App/AppDelegate.swift` と `App/Notifications/*.swift` と `Tests/SaydoTests/DeepLinkTests.swift` は
+  まだプロジェクトのファイル一覧に入っていない。**main に取り込んだあと `xcodegen generate` が必要**。
+  これをやるまで `scripts/build-ios.sh` / `scripts/test-ios.sh` は新規ファイルを見ない。
+- **通知アクション「今は話せない」は未実装**。実装計画 §7.4 と task-list.json の scope にはあるが、
+  `SaydoCore.NotificationCopy` に文言・識別子が無く、SaydoCore を編集しない制約のため入れられなかった。
+  60 分後の 1 件再登録（同日 2 回まで）も未実装。SaydoCore 側に
+  `cannotTalkNowActionIdentifier` / `cannotTalkNowActionTitle` を足す後続タスクが要る。
+- **`AppRouter` が無い**。`AppDelegate.setLauncher(_:)` を呼ぶ側がまだ存在しないため、
+  現状は通知をタップしても `pendingLink` に溜まるだけで何も起きない。
+  `AppRouter` は `SessionLauncher` に準拠して `setLauncher` に渡す。
+- **休みの記録が繋がっていない**。`DeepLink.Action.rest` を受けると当日の残りの保留通知は消えるが、
+  `SessionLog` への「休み」の記録は `SessionLauncher` の実装側（task_006 / task_012）の担当。
+- `NotificationHealth.needsAttention` を Today 画面に出す配線は未実装（task_012）。
+
+### 人間の確認待ち
+
+- task_001 と同じ（iOS 26.x シミュレータランタイムの導入）。これが入るまで
+  `scripts/build-ios.sh` / `scripts/test-ios.sh` は通らず、リンク・実行・テストの実行は行えない。
+- 実機での通知配信・「今日は休む」・保留通知の上限の確認。

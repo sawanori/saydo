@@ -1,0 +1,177 @@
+Building for debugging...
+[0/7] Write sources
+[2/7] /Users/noritakasawada/AI_P/SAYDO/.worktrees/task-009app/Packages/SaydoCore/.build/arm64-apple-macosx/debug/SaydoCorePackageTests.derived/runner.swift
+[3/7] Write sources
+[4/7] Write swift-version--58304C5D6DBC2206.txt
+[6/18] Compiling SaydoCore SessionType.swift
+[7/19] Compiling SaydoCore FlowStep.swift
+[8/19] Compiling SaydoCore MicroAction.swift
+[9/19] Emitting module SaydoCore
+[10/19] Compiling SaydoCore CommitmentOutcome.swift
+[11/19] Compiling SaydoCore DialogueContext.swift
+[12/19] Compiling SaydoCore ReasonCategory.swift
+[13/19] Compiling SaydoCore ReasonClassification.swift
+[14/19] Compiling SaydoCore NotificationCopy.swift
+[15/19] Compiling SaydoCore TaskDomain.swift
+[16/19] Compiling SaydoCore WeeklyStats.swift
+[17/19] Compiling SaydoCore NotificationPlan.swift
+[18/23] Compiling SaydoCoreTests NotificationPlanTests.swift
+[19/23] Compiling SaydoCoreTests DomainTests.swift
+[20/23] Compiling SaydoCoreTests NotificationCopyTests.swift
+[21/23] Emitting module SaydoCoreTests
+[22/25] Emitting module SaydoCorePackageTests
+[23/25] Compiling SaydoCorePackageTests runner.swift
+[23/25] Write Objects.LinkFileList
+[24/25] Linking SaydoCorePackageTests
+Build complete! (10.41s)
+Test Suite 'All tests' started at 2026-09-04 06:04:36.278.
+Test Suite 'SaydoCorePackageTests.xctest' started at 2026-09-04 06:04:36.278.
+Test Suite 'DomainTests' started at 2026-09-04 06:04:36.278.
+Test Case '-[SaydoCoreTests.DomainTests testCommitmentOutcomeDisplayNames]' started.
+Test Case '-[SaydoCoreTests.DomainTests testCommitmentOutcomeDisplayNames]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.DomainTests testDomainValuesRoundTripThroughJSON]' started.
+Test Case '-[SaydoCoreTests.DomainTests testDomainValuesRoundTripThroughJSON]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.DomainTests testFlowStepCodesAreUnique]' started.
+Test Case '-[SaydoCoreTests.DomainTests testFlowStepCodesAreUnique]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.DomainTests testFlowStepDisplayNamesAreNotEmpty]' started.
+Test Case '-[SaydoCoreTests.DomainTests testFlowStepDisplayNamesAreNotEmpty]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.DomainTests testFlowStepSessionTypeMapping]' started.
+Test Case '-[SaydoCoreTests.DomainTests testFlowStepSessionTypeMapping]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.DomainTests testFlowStepsPerSession]' started.
+Test Case '-[SaydoCoreTests.DomainTests testFlowStepsPerSession]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.DomainTests testMicroActionDefaultsAndShrink]' started.
+Test Case '-[SaydoCoreTests.DomainTests testMicroActionDefaultsAndShrink]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.DomainTests testPartialCountsAsProgress]' started.
+Test Case '-[SaydoCoreTests.DomainTests testPartialCountsAsProgress]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.DomainTests testReasonCategoryDisplayNames]' started.
+Test Case '-[SaydoCoreTests.DomainTests testReasonCategoryDisplayNames]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.DomainTests testReasonCategoryHasSevenCases]' started.
+Test Case '-[SaydoCoreTests.DomainTests testReasonCategoryHasSevenCases]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.DomainTests testSessionTypeCoversFourSessions]' started.
+Test Case '-[SaydoCoreTests.DomainTests testSessionTypeCoversFourSessions]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.DomainTests testSessionTypeDisplayNames]' started.
+Test Case '-[SaydoCoreTests.DomainTests testSessionTypeDisplayNames]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.DomainTests testTaskDomainDisplayNames]' started.
+Test Case '-[SaydoCoreTests.DomainTests testTaskDomainDisplayNames]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.DomainTests testTaskDomainHasSevenCases]' started.
+Test Case '-[SaydoCoreTests.DomainTests testTaskDomainHasSevenCases]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.DomainTests testWeeklyStatsRanksDomainsAndReasons]' started.
+Test Case '-[SaydoCoreTests.DomainTests testWeeklyStatsRanksDomainsAndReasons]' passed (0.000 seconds).
+Test Suite 'DomainTests' passed at 2026-09-04 06:04:36.280.
+	 Executed 15 tests, with 0 failures (0 unexpected) in 0.002 (0.002) seconds
+Test Suite 'NotificationCopyTests' started at 2026-09-04 06:04:36.280.
+Test Case '-[SaydoCoreTests.NotificationCopyTests testActionBodyIsTheMorningSelf]' started.
+Test Case '-[SaydoCoreTests.NotificationCopyTests testActionBodyIsTheMorningSelf]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.NotificationCopyTests testDeclarationReminderBody]' started.
+Test Case '-[SaydoCoreTests.NotificationCopyTests testDeclarationReminderBody]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.NotificationCopyTests testEveryCopyKeyHasNonEmptyBody]' started.
+Test Case '-[SaydoCoreTests.NotificationCopyTests testEveryCopyKeyHasNonEmptyBody]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.NotificationCopyTests testFixedSessionBodiesMatchConceptMemo]' started.
+Test Case '-[SaydoCoreTests.NotificationCopyTests testFixedSessionBodiesMatchConceptMemo]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.NotificationCopyTests testNoNotificationTextContainsForbiddenPhrase]' started.
+Test Case '-[SaydoCoreTests.NotificationCopyTests testNoNotificationTextContainsForbiddenPhrase]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.NotificationCopyTests testNoonCopyAlternatesEveryDay]' started.
+Test Case '-[SaydoCoreTests.NotificationCopyTests testNoonCopyAlternatesEveryDay]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.NotificationCopyTests testNoonCopyIsStableForTheSameDay]' started.
+Test Case '-[SaydoCoreTests.NotificationCopyTests testNoonCopyIsStableForTheSameDay]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.NotificationCopyTests testPlanUsesAlternatingNoonCopy]' started.
+Test Case '-[SaydoCoreTests.NotificationCopyTests testPlanUsesAlternatingNoonCopy]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.NotificationCopyTests testRestTodayActionTitle]' started.
+Test Case '-[SaydoCoreTests.NotificationCopyTests testRestTodayActionTitle]' passed (0.000 seconds).
+Test Suite 'NotificationCopyTests' passed at 2026-09-04 06:04:36.282.
+	 Executed 9 tests, with 0 failures (0 unexpected) in 0.001 (0.001) seconds
+Test Suite 'NotificationPlanTests' started at 2026-09-04 06:04:36.282.
+Test Case '-[SaydoCoreTests.NotificationPlanTests testActionNotificationRegisteredOnlyAfterDeclaration]' started.
+Test Case '-[SaydoCoreTests.NotificationPlanTests testActionNotificationRegisteredOnlyAfterDeclaration]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.NotificationPlanTests testActionNotificationSkippedWhenPlannedTimeAlreadyPassed]' started.
+Test Case '-[SaydoCoreTests.NotificationPlanTests testActionNotificationSkippedWhenPlannedTimeAlreadyPassed]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.NotificationPlanTests testChangingTimesMovesFireDates]' started.
+Test Case '-[SaydoCoreTests.NotificationPlanTests testChangingTimesMovesFireDates]' passed (0.001 seconds).
+Test Case '-[SaydoCoreTests.NotificationPlanTests testDoneCancelsTodayNoonAndAction]' started.
+Test Case '-[SaydoCoreTests.NotificationPlanTests testDoneCancelsTodayNoonAndAction]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.NotificationPlanTests testIdentifierFormat]' started.
+Test Case '-[SaydoCoreTests.NotificationPlanTests testIdentifierFormat]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.NotificationPlanTests testMorningTimeLaterThanNowIsStillRegisteredToday]' started.
+Test Case '-[SaydoCoreTests.NotificationPlanTests testMorningTimeLaterThanNowIsStillRegisteredToday]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.NotificationPlanTests testNoonKeptOnDaysWithoutCommitment]' started.
+Test Case '-[SaydoCoreTests.NotificationPlanTests testNoonKeptOnDaysWithoutCommitment]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.NotificationPlanTests testNoonKeptWhenPlannedTimeIsPastAndFarFromNoon]' started.
+Test Case '-[SaydoCoreTests.NotificationPlanTests testNoonKeptWhenPlannedTimeIsPastAndFarFromNoon]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.NotificationPlanTests testNoonSkippedWhenWithinThirtyMinutesOfPlannedTime]' started.
+Test Case '-[SaydoCoreTests.NotificationPlanTests testNoonSkippedWhenWithinThirtyMinutesOfPlannedTime]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.NotificationPlanTests testNoonSkippedWhilePlannedTimeIsStillAhead]' started.
+Test Case '-[SaydoCoreTests.NotificationPlanTests testNoonSkippedWhilePlannedTimeIsStillAhead]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.NotificationPlanTests testNotYetKeepsTodayActionNotification]' started.
+Test Case '-[SaydoCoreTests.NotificationPlanTests testNotYetKeepsTodayActionNotification]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.NotificationPlanTests testPartialCancelsTodayNoonAndAction]' started.
+Test Case '-[SaydoCoreTests.NotificationPlanTests testPartialCancelsTodayNoonAndAction]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.NotificationPlanTests testPastSlotsAreNotRegisteredAndPlanStartsTomorrow]' started.
+Test Case '-[SaydoCoreTests.NotificationPlanTests testPastSlotsAreNotRegisteredAndPlanStartsTomorrow]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.NotificationPlanTests testPlanningDayCountIsSixteenForThriceMode]' started.
+Test Case '-[SaydoCoreTests.NotificationPlanTests testPlanningDayCountIsSixteenForThriceMode]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.NotificationPlanTests testPlanningDayCountIsThirtyForTwiceMode]' started.
+Test Case '-[SaydoCoreTests.NotificationPlanTests testPlanningDayCountIsThirtyForTwiceMode]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.NotificationPlanTests testRegistrationCountStaysWithinPendingBudget]' started.
+Test Case '-[SaydoCoreTests.NotificationPlanTests testRegistrationCountStaysWithinPendingBudget]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.NotificationPlanTests testRegistrationsAreSortedByFireDate]' started.
+Test Case '-[SaydoCoreTests.NotificationPlanTests testRegistrationsAreSortedByFireDate]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.NotificationPlanTests testSessionTypeCarriedInUserInfo]' started.
+Test Case '-[SaydoCoreTests.NotificationPlanTests testSessionTypeCarriedInUserInfo]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.NotificationPlanTests testThriceModeRegistersSixteenDaysOfThreeNotifications]' started.
+Test Case '-[SaydoCoreTests.NotificationPlanTests testThriceModeRegistersSixteenDaysOfThreeNotifications]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.NotificationPlanTests testTodayRemainingSlotsAreKeptWhenPlanningMidday]' started.
+Test Case '-[SaydoCoreTests.NotificationPlanTests testTodayRemainingSlotsAreKeptWhenPlanningMidday]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.NotificationPlanTests testTwiceModeRegistersThirtyMorningNotifications]' started.
+Test Case '-[SaydoCoreTests.NotificationPlanTests testTwiceModeRegistersThirtyMorningNotifications]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.NotificationPlanTests testWeekendOffRemovesSaturdayAndSundayFixedNotifications]' started.
+Test Case '-[SaydoCoreTests.NotificationPlanTests testWeekendOffRemovesSaturdayAndSundayFixedNotifications]' passed (0.000 seconds).
+Test Case '-[SaydoCoreTests.NotificationPlanTests testWeekendOffStillDeliversActionNotificationOnSaturday]' started.
+Test Case '-[SaydoCoreTests.NotificationPlanTests testWeekendOffStillDeliversActionNotificationOnSaturday]' passed (0.000 seconds).
+Test Suite 'NotificationPlanTests' passed at 2026-09-04 06:04:36.289.
+	 Executed 23 tests, with 0 failures (0 unexpected) in 0.007 (0.007) seconds
+Test Suite 'SaydoCorePackageTests.xctest' passed at 2026-09-04 06:04:36.289.
+	 Executed 47 tests, with 0 failures (0 unexpected) in 0.009 (0.011) seconds
+Test Suite 'All tests' passed at 2026-09-04 06:04:36.289.
+	 Executed 47 tests, with 0 failures (0 unexpected) in 0.009 (0.012) seconds
+◇ Test run started.
+↳ Testing Library Version: 1501
+↳ Target Platform: arm64e-apple-macos14.0
+✔ Test run with 0 tests in 0 suites passed after 0.001 seconds.
+lint-principles: 対象 15 ファイル（App/ と Packages/*/Sources。Tests と Spikes は除外）
+WARN: DialogueCopy.swift / NotificationCopy.swift 以外に日本語の文字列リテラルがある（文言は Copy に集約する）
+    Packages/SaydoCore/Sources/SaydoCore/Domain/CommitmentOutcome.swift:17: "未確認"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/CommitmentOutcome.swift:18: "やった"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/CommitmentOutcome.swift:19: "少しやった"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/CommitmentOutcome.swift:20: "まだ"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/FlowStep.swift:56: "逃げたいこと"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/FlowStep.swift:57: "逃げたい理由"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/FlowStep.swift:58: "5 分以下の行動"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/FlowStep.swift:59: "行動する時刻"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/FlowStep.swift:60: "声の宣言"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/FlowStep.swift:61: "朝のあなたから"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/FlowStep.swift:62: "できたかどうか"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/FlowStep.swift:63: "止めているもの"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/FlowStep.swift:64: "もっと小さく"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/FlowStep.swift:65: "今日の前進"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/FlowStep.swift:66: "明日のこと"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/FlowStep.swift:67: "終わり"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/ReasonCategory.swift:22: "気まずい"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/ReasonCategory.swift:23: "完璧にやりたい"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/ReasonCategory.swift:24: "面倒"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/ReasonCategory.swift:25: "不安・怖い"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/ReasonCategory.swift:26: "量が多い"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/ReasonCategory.swift:27: "何から始めるかわからない"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/ReasonCategory.swift:28: "期限が怖い"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/SessionType.swift:15: "朝"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/SessionType.swift:16: "昼"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/SessionType.swift:17: "夜"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/SessionType.swift:18: "手動"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/TaskDomain.swift:20: "人への返信"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/TaskDomain.swift:21: "お金"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/TaskDomain.swift:22: "大きなタスク"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/TaskDomain.swift:23: "営業"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/TaskDomain.swift:24: "書類"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/TaskDomain.swift:25: "健康"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/TaskDomain.swift:26: "その他"
+lint-principles: OK
+EXIT=0
