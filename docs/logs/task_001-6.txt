@@ -1,0 +1,3 @@
+lint-principles: 対象 1 ファイル（App/ と Packages/*/Sources。Tests と Spikes は除外）
+lint-principles: OK
+EXIT=0
