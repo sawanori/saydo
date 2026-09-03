@@ -1,0 +1,657 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		0996D0599F07B4E86D5D7A17 /* SpeechSpikeApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A0DC2E68CB9B454BE17CF24 /* SpeechSpikeApp.swift */; };
+		1D5FECC5C523941C640CAC10 /* SaydoCore in Frameworks */ = {isa = PBXBuildFile; productRef = 90C70F990D09CD358D213D6B /* SaydoCore */; };
+		34374DAAD57A5D2F7E706713 /* SaydoApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8591BEF749566902EDCF86D /* SaydoApp.swift */; };
+		68641D4B358BB1A607B3C19D /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE6BCDF8265F010D0A7CAD96 /* main.swift */; };
+		9E0EE15D63D2B1A2AA36E162 /* SmokeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 504282F97F17B31D2A436177 /* SmokeTests.swift */; };
+		A5EB826FD035C723E18F3EA7 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = CBDA5ED2582CBFA9C6EF5A6E /* Assets.xcassets */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		7EE9CE79261C215508D8CE2D /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 71808D0A0FF5B822CB7B3BB6 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = CED28F662AF55C5FFE278B99;
+			remoteInfo = Saydo;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		504282F97F17B31D2A436177 /* SmokeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmokeTests.swift; sourceTree = "<group>"; };
+		68298AEDBED1D2BE10975796 /* SaydoTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = SaydoTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		6A0DC2E68CB9B454BE17CF24 /* SpeechSpikeApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechSpikeApp.swift; sourceTree = "<group>"; };
+		9B3DA5C434D822135275B482 /* fm-probe */ = {isa = PBXFileReference; includeInIndex = 0; path = "fm-probe"; sourceTree = BUILT_PRODUCTS_DIR; };
+		AE6BCDF8265F010D0A7CAD96 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
+		BC2F662ACCB8616B725AE1AE /* Saydo.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Saydo.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		C8591BEF749566902EDCF86D /* SaydoApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SaydoApp.swift; sourceTree = "<group>"; };
+		CBDA5ED2582CBFA9C6EF5A6E /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		E7DC9A1418DE12A21166D8B4 /* SaydoCore */ = {isa = PBXFileReference; lastKnownFileType = folder; name = SaydoCore; path = Packages/SaydoCore; sourceTree = SOURCE_ROOT; };
+		F64D860DB6976952B2B71167 /* SpeechSpike.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = SpeechSpike.app; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		A47510F67B7E0674FD3965F0 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1D5FECC5C523941C640CAC10 /* SaydoCore in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		00930696BE0CDADEC9438A53 /* fm-probe */ = {
+			isa = PBXGroup;
+			children = (
+				AE6BCDF8265F010D0A7CAD96 /* main.swift */,
+			);
+			path = "fm-probe";
+			sourceTree = "<group>";
+		};
+		0FB72F1971E5F13E417CB7B5 = {
+			isa = PBXGroup;
+			children = (
+				3F6E6809A65298D53F268A6A /* App */,
+				44A95AB2738FA11FC1FC31DD /* Packages */,
+				8775C5FF6927F61EB740D7D2 /* Spikes */,
+				21C1EEFDC3E4AEEE08915C0B /* Tests */,
+				4ED3FC5A9B25175043676701 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		21C1EEFDC3E4AEEE08915C0B /* Tests */ = {
+			isa = PBXGroup;
+			children = (
+				5A1686259819706412EDED3E /* SaydoTests */,
+			);
+			path = Tests;
+			sourceTree = "<group>";
+		};
+		3F6E6809A65298D53F268A6A /* App */ = {
+			isa = PBXGroup;
+			children = (
+				42360B08D9DF2058E896DB17 /* Resources */,
+				C8591BEF749566902EDCF86D /* SaydoApp.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		42360B08D9DF2058E896DB17 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				CBDA5ED2582CBFA9C6EF5A6E /* Assets.xcassets */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		44A95AB2738FA11FC1FC31DD /* Packages */ = {
+			isa = PBXGroup;
+			children = (
+				E7DC9A1418DE12A21166D8B4 /* SaydoCore */,
+			);
+			path = Packages;
+			sourceTree = "<group>";
+		};
+		4ED3FC5A9B25175043676701 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				9B3DA5C434D822135275B482 /* fm-probe */,
+				BC2F662ACCB8616B725AE1AE /* Saydo.app */,
+				68298AEDBED1D2BE10975796 /* SaydoTests.xctest */,
+				F64D860DB6976952B2B71167 /* SpeechSpike.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		5A1686259819706412EDED3E /* SaydoTests */ = {
+			isa = PBXGroup;
+			children = (
+				504282F97F17B31D2A436177 /* SmokeTests.swift */,
+			);
+			path = SaydoTests;
+			sourceTree = "<group>";
+		};
+		8775C5FF6927F61EB740D7D2 /* Spikes */ = {
+			isa = PBXGroup;
+			children = (
+				00930696BE0CDADEC9438A53 /* fm-probe */,
+				8EA803B01D8B667AA98C8E44 /* SpeechSpike */,
+			);
+			path = Spikes;
+			sourceTree = "<group>";
+		};
+		8EA803B01D8B667AA98C8E44 /* SpeechSpike */ = {
+			isa = PBXGroup;
+			children = (
+				6A0DC2E68CB9B454BE17CF24 /* SpeechSpikeApp.swift */,
+			);
+			path = SpeechSpike;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		B312E03A97ADD3E92CC93516 /* SaydoTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 0DB45069E8C7E4620691ADCC /* Build configuration list for PBXNativeTarget "SaydoTests" */;
+			buildPhases = (
+				1CBA0699C57E9A1B495EE9AD /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				1B04D79C089228ABA95D27B8 /* PBXTargetDependency */,
+			);
+			name = SaydoTests;
+			packageProductDependencies = (
+			);
+			productName = SaydoTests;
+			productReference = 68298AEDBED1D2BE10975796 /* SaydoTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		B9853C77E4279DE07F8D917E /* SpeechSpike */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 0C9DFEAF3B5DD800DD18568F /* Build configuration list for PBXNativeTarget "SpeechSpike" */;
+			buildPhases = (
+				8483AD342687042453EBE703 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = SpeechSpike;
+			packageProductDependencies = (
+			);
+			productName = SpeechSpike;
+			productReference = F64D860DB6976952B2B71167 /* SpeechSpike.app */;
+			productType = "com.apple.product-type.application";
+		};
+		CED28F662AF55C5FFE278B99 /* Saydo */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C6334B491D0B923CEC096EA0 /* Build configuration list for PBXNativeTarget "Saydo" */;
+			buildPhases = (
+				E437245D655298423C7898CD /* Sources */,
+				64B90BCDFE406BDC6D2BB7D9 /* Resources */,
+				A47510F67B7E0674FD3965F0 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Saydo;
+			packageProductDependencies = (
+				90C70F990D09CD358D213D6B /* SaydoCore */,
+			);
+			productName = Saydo;
+			productReference = BC2F662ACCB8616B725AE1AE /* Saydo.app */;
+			productType = "com.apple.product-type.application";
+		};
+		FF897A00C25A81D91BB9029E /* fm-probe */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 7AAF89957EF9C2C4694D0588 /* Build configuration list for PBXNativeTarget "fm-probe" */;
+			buildPhases = (
+				09A92361220F11204300762A /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "fm-probe";
+			packageProductDependencies = (
+			);
+			productName = "fm-probe";
+			productReference = 9B3DA5C434D822135275B482 /* fm-probe */;
+			productType = "com.apple.product-type.tool";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		71808D0A0FF5B822CB7B3BB6 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					B9853C77E4279DE07F8D917E = {
+						ProvisioningStyle = Automatic;
+					};
+					CED28F662AF55C5FFE278B99 = {
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = 3618446E358E80ABBD145BE2 /* Build configuration list for PBXProject "Saydo" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 0FB72F1971E5F13E417CB7B5;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				40C819ECC38AF9744BB87EFD /* XCLocalSwiftPackageReference "Packages/SaydoCore" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 4ED3FC5A9B25175043676701 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				CED28F662AF55C5FFE278B99 /* Saydo */,
+				B312E03A97ADD3E92CC93516 /* SaydoTests */,
+				B9853C77E4279DE07F8D917E /* SpeechSpike */,
+				FF897A00C25A81D91BB9029E /* fm-probe */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		64B90BCDFE406BDC6D2BB7D9 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A5EB826FD035C723E18F3EA7 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		09A92361220F11204300762A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				68641D4B358BB1A607B3C19D /* main.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1CBA0699C57E9A1B495EE9AD /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				9E0EE15D63D2B1A2AA36E162 /* SmokeTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		8483AD342687042453EBE703 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				0996D0599F07B4E86D5D7A17 /* SpeechSpikeApp.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E437245D655298423C7898CD /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				34374DAAD57A5D2F7E706713 /* SaydoApp.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		1B04D79C089228ABA95D27B8 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = CED28F662AF55C5FFE278B99 /* Saydo */;
+			targetProxy = 7EE9CE79261C215508D8CE2D /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		127DF0EC9ED52F6081095D0D /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_UPCOMING_FEATURE_EXISTENTIAL_ANY = YES;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		523C1C8176983F9825D3FE40 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.nonturn.saydo.tests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Saydo.app/Saydo";
+			};
+			name = Release;
+		};
+		824992C7671DDCF2936848C1 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.nonturn.saydo.fmprobe;
+				PRODUCT_NAME = "fm-probe";
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+		830C55A9071F73167F460292 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				INFOPLIST_FILE = App/Resources/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.nonturn.saydo;
+				PRODUCT_NAME = Saydo;
+				SDKROOT = iphoneos;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		87CA1050A618F4DC2CDF3134 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.nonturn.saydo.fmprobe;
+				PRODUCT_NAME = "fm-probe";
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+		9DEC88C0264CB727C43F6C29 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.nonturn.saydo.tests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Saydo.app/Saydo";
+			};
+			name = Debug;
+		};
+		B0D52E17C877042CF2157010 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_UPCOMING_FEATURE_EXISTENTIAL_ANY = YES;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+		DFBB2CD3135012A4DEF5D0CE /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				INFOPLIST_FILE = Spikes/SpeechSpike/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.nonturn.saydo.speechspike;
+				PRODUCT_NAME = SpeechSpike;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		E2C8B834CDE36175B98E3181 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				INFOPLIST_FILE = Spikes/SpeechSpike/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.nonturn.saydo.speechspike;
+				PRODUCT_NAME = SpeechSpike;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		E38F491DBA616F855232260F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				INFOPLIST_FILE = App/Resources/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.nonturn.saydo;
+				PRODUCT_NAME = Saydo;
+				SDKROOT = iphoneos;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		0C9DFEAF3B5DD800DD18568F /* Build configuration list for PBXNativeTarget "SpeechSpike" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				E2C8B834CDE36175B98E3181 /* Debug */,
+				DFBB2CD3135012A4DEF5D0CE /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		0DB45069E8C7E4620691ADCC /* Build configuration list for PBXNativeTarget "SaydoTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9DEC88C0264CB727C43F6C29 /* Debug */,
+				523C1C8176983F9825D3FE40 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		3618446E358E80ABBD145BE2 /* Build configuration list for PBXProject "Saydo" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				127DF0EC9ED52F6081095D0D /* Debug */,
+				B0D52E17C877042CF2157010 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		7AAF89957EF9C2C4694D0588 /* Build configuration list for PBXNativeTarget "fm-probe" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				87CA1050A618F4DC2CDF3134 /* Debug */,
+				824992C7671DDCF2936848C1 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		C6334B491D0B923CEC096EA0 /* Build configuration list for PBXNativeTarget "Saydo" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				830C55A9071F73167F460292 /* Debug */,
+				E38F491DBA616F855232260F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		40C819ECC38AF9744BB87EFD /* XCLocalSwiftPackageReference "Packages/SaydoCore" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/SaydoCore;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		90C70F990D09CD358D213D6B /* SaydoCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = SaydoCore;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 71808D0A0FF5B822CB7B3BB6 /* Project object */;
+}

@@ -1,0 +1,6 @@
+test-ios: iOS 26.x の利用可能なシミュレータが見つからない。
+  導入コマンド: xcodebuild -downloadPlatform iOS（約 8.4 GB の空きが必要）
+  現在のランタイム一覧:
+== Runtimes ==
+iOS 18.5 (18.5 - 22F77) - com.apple.CoreSimulator.SimRuntime.iOS-18-5
+EXIT=2

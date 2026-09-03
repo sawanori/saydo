@@ -1,0 +1,15 @@
+build-ios: scheme=SpeechSpike
+Command line invocation:
+    /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild build -project Saydo.xcodeproj -scheme SpeechSpike -configuration Debug -sdk iphonesimulator -destination "generic/platform=iOS Simulator" CODE_SIGNING_ALLOWED=NO
+
+Build settings from command line:
+    CODE_SIGNING_ALLOWED = NO
+    SDKROOT = iphonesimulator26.2
+
+2026-09-04 05:43:01.598 xcodebuild[88819:14039771] Writing error result bundle to /var/folders/h6/2q0crwpx3zx94d5zxclh_f5c0000gn/T/ResultBundle_2026-04-09_05-43-0001.xcresult
+xcodebuild: error: Unable to find a destination matching the provided destination specifier:
+		{ generic:1, platform:iOS Simulator }
+
+	Ineligible destinations for the "SpeechSpike" scheme:
+		{ platform:iOS, id:dvtdevice-DVTiPhonePlaceholder-iphoneos:placeholder, name:Any iOS Device, error:iOS 26.2 is not installed. Please download and install the platform from Xcode > Settings > Components. }
+EXIT=70
