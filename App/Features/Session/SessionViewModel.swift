@@ -161,36 +161,6 @@ struct RepositorySessionStore: SessionStore {
     }
 }
 
-/// `SessionLog` の読み書き。task_006 の `Repository` には無かったので task_008 で足す
-/// （fix-decisions P1.3「task_008 の scope に SessionLog の記録を追加」）。
-extension Repository {
-    /// 会話の開始を記録し、`SessionLog.id` を返す。
-    func startSessionLog(sessionType: SessionType, startedAt: Date, tier: DialogueTier) throws -> UUID {
-        let log = SessionLog(sessionType: sessionType, startedAt: startedAt, tier: tier)
-        modelContext.insert(log)
-        try modelContext.save()
-        return log.id
-    }
-
-    /// 会話の終わりを書き足す。開始の記録が無ければ何もしない（会話を止めない）。
-    func finishSessionLog(
-        id: UUID,
-        endedAt: Date,
-        completed: Bool,
-        lastStep: FlowStep?,
-        guardrailReplacedCount: Int
-    ) throws {
-        var descriptor = FetchDescriptor<SessionLog>(predicate: #Predicate<SessionLog> { $0.id == id })
-        descriptor.fetchLimit = 1
-        guard let log = try modelContext.fetch(descriptor).first else { return }
-        log.endedAt = endedAt
-        log.completed = completed
-        log.lastStep = lastStep
-        log.guardrailReplacedCount = guardrailReplacedCount
-        try modelContext.save()
-    }
-}
-
 // MARK: - 画面の状態
 
 /// 会話が進めなくなった理由（実装計画 §8 の `error(micDenied / assetDownloading)`）。
@@ -212,6 +182,19 @@ enum SessionPhase: Sendable, Equatable {
     case playback
     case done
     case error(SessionFailure)
+}
+
+/// 朝の宣言の返し方（retention R8 / 実装計画 §7.3）。
+///
+/// イヤホン未接続かつ音量が大きいまま鳴らすと、本人の声が周りに漏れる。再生と TTS の
+/// **前**に本人に選ばせ、どれを選んでも体験が成立するようにする。
+enum ListenMode: String, Sendable, Equatable, Hashable, CaseIterable {
+    /// そのまま鳴らす（イヤホンが繋がっていればそちらへ回る）。
+    case speaker
+    /// 受話口で鳴らす。耳に当てて聞く。
+    case receiver
+    /// 音を出さず、宣言テキストを画面で読む。
+    case readText
 }
 
 /// 時間待ちの注入点。テストは実時間を待たずに経路だけを検証する。
@@ -252,10 +235,19 @@ final class SessionViewModel {
     private(set) var notice: SessionFailure?
     /// 「声なし」の日か（マイク拒否・宣言の後回し。fix-decisions P2.3 / R1）。
     private(set) var isVoiceless = false
-    /// 昼 N0 で画面に大きく出す宣言テキスト（「声なし」の日）。
+    /// 昼 N0 で画面に大きく出す宣言テキスト（「声なし」の日、または「文字で読む」を選んだとき）。
     private(set) var declarationTextToShow: String?
-    /// M3 で本人が言った場所（`Commitment` には保存先が無いので画面表示だけに使う）。
+    /// M3 で本人が言った場所（`Commitment.plannedPlace` に保存する。統合判断 D1）。
     private(set) var plannedPlace: String = ""
+    /// 再生と TTS の前に「イヤホンで聞く / 文字で読む」を出しているか（retention R8）。
+    /// true の間は発話も再生も始まっていない。`chooseListenMode(_:)` で先へ進む。
+    private(set) var listenModePrompt = false
+    /// 本人が選んだ返し方。既定はそのまま鳴らす。
+    private(set) var listenMode: ListenMode = .speaker
+    /// 宣言音声の長さ（秒）。再生リボンの再生位置に使う。分からなければ 0。
+    private(set) var declarationDurationSec: Double = 0
+    /// 宣言音声を鳴らし始めた時刻。鳴っていなければ nil。
+    private(set) var declarationPlaybackStartedAt: Date?
     /// 会話の終わり方。まだ終わっていなければ nil。
     private(set) var completion: FlowCompletion?
     /// 今日の宣言。
@@ -280,6 +272,9 @@ final class SessionViewModel {
     private let notifications: any NotificationScheduling
     private let engine: any DialogueEngine
     private let audioFiles: AudioFileStore
+    /// 再生前の配慮（retention R8）の判定と出力経路。持たない場合は確認を出さない。
+    private let audioSession: (any AudioSessionControlling)?
+    private let copyHistoryStore: any CopyHistoryStoring
     private let timer: SessionTimer
     private let tier: DialogueTier
     private let calendar: Calendar
@@ -311,6 +306,8 @@ final class SessionViewModel {
     private var classifiedReason: ReasonCategory?
     /// 逃げている対象の分野。
     private var classifiedDomain: TaskDomain = .other
+    /// 「イヤホンで聞く / 文字で読む」の答えを待って止めてある命令列（retention R8）。
+    private var pendingPlaybackCommands: [FlowCommand] = []
 
     // MARK: 定数
 
@@ -331,6 +328,8 @@ final class SessionViewModel {
         notifications: any NotificationScheduling,
         engine: any DialogueEngine = TemplateDialogueEngine(),
         audioFiles: AudioFileStore,
+        audioSession: (any AudioSessionControlling)? = nil,
+        copyHistory: any CopyHistoryStoring = UserDefaultsCopyHistoryStore(),
         timer: SessionTimer = .system,
         tier: DialogueTier = .b,
         calendar: Calendar = .current,
@@ -344,6 +343,8 @@ final class SessionViewModel {
         self.notifications = notifications
         self.engine = engine
         self.audioFiles = audioFiles
+        self.audioSession = audioSession
+        self.copyHistoryStore = copyHistory
         self.timer = timer
         self.tier = tier
         self.calendar = calendar
@@ -377,7 +378,23 @@ final class SessionViewModel {
         sessionLogID = try? await store.startSessionLog(sessionType: sessionType, startedAt: today, tier: tier)
         startTimebox(for: sessionType)
 
-        await apply(FlowMachine.start(entry))
+        var transition = FlowMachine.start(entry)
+        restoreNoonContext(into: &transition.state)
+        await apply(transition)
+    }
+
+    /// 昼の会話は当日の宣言の上で進む。`FlowEntry` には行動文を載せる場所が無いので、
+    /// `NoonFlow` が組み立てた直後の状態にここで戻す（統合判断 D9）。
+    ///
+    /// これが無いと N3 の「今の行動文」が空になり、`shrinkCount` も 0 から数え直しになる。
+    private func restoreNoonContext(into state: inout FlowState) {
+        guard let today = commitment, state.step.sessionType == .noon else { return }
+        if state.microAction == nil {
+            state.microAction = today.microAction
+        }
+        if state.avoidance.isEmpty {
+            state.avoidance = today.avoidanceTitle
+        }
     }
 
     /// 入口の条件（実装計画 §7.2 の昼フローの 3 状態を含む）を保存済みのデータから作る。
@@ -409,6 +426,12 @@ final class SessionViewModel {
         if let today, today.isVoiceless {
             isVoiceless = true
         }
+        if let today {
+            plannedPlace = today.plannedPlace ?? ""
+            await loadDeclarationDuration(for: today, on: day)
+        }
+
+        let dayNumber = calendar.ordinality(of: .day, in: .era, for: day) ?? 0
 
         return FlowEntry(
             sessionType: sessionType,
@@ -420,10 +443,21 @@ final class SessionViewModel {
             isBeforePlannedTime: isBefore,
             plannedTimeLabel: today?.plannedAt.map(Self.timeLabel(for:)),
             isVoicelessDay: today?.isVoiceless ?? (mode == .text),
-            day: calendar.ordinality(of: .day, in: .era, for: day) ?? 0,
-            copyHistory: [],
+            day: dayNumber,
+            // 3 日以内に同じ文言を繰り返さない（retention R5）。履歴は端末に残す（統合判断 D2）。
+            copyHistory: copyHistoryStore.load(currentDay: dayNumber),
             resume: resume
         )
+    }
+
+    /// 再生リボンの再生位置に使う宣言音声の長さ。宣言の `VoiceEntry` から読む。
+    private func loadDeclarationDuration(for today: CommitmentSnapshot, on day: Date) async {
+        guard today.declarationAudioPath != nil else {
+            declarationDurationSec = 0
+            return
+        }
+        let entries = (try? await store.entries(for: day)) ?? []
+        declarationDurationSec = entries.first { $0.kind == .declaration }?.durationSec ?? 0
     }
 
     /// 「14:30」の形。文言そのものは `DialogueCopy` が持つので、ここでは値だけを作る。
@@ -516,12 +550,56 @@ final class SessionViewModel {
 
     private func apply(_ transition: FlowTransition) async {
         state = transition.state
+        // 文言を 1 つ使うたびに履歴を残す。セッションをまたいで重複を避けるため（統合判断 D2）。
+        copyHistoryStore.save(transition.state.picker.history)
         if transition.state.step == .morningAvoidance, stateAtAvoidance == nil {
             stateAtAvoidance = transition.state
+        }
+        if shouldAskListenMode(for: transition) {
+            // 発話も再生もまだ始めない。本人が返し方を選んでから続きを流す（retention R8）。
+            pendingPlaybackCommands = transition.commands
+            listenModePrompt = true
+            phase = .playback
+            return
         }
         for command in transition.commands {
             await run(command)
         }
+    }
+
+    /// 宣言音声を鳴らす前に「イヤホンで聞く / 文字で読む」を出すか（retention R8）。
+    ///
+    /// 「声なし」の日は音を鳴らさないので確認しない（`.declarationText` はここに入らない）。
+    private func shouldAskListenMode(for transition: FlowTransition) -> Bool {
+        guard !listenModePrompt,
+              let audioSession,
+              audioSession.requiresAudiblePlaybackConfirmation
+        else { return false }
+        return transition.commands.contains { command in
+            guard case .play(let request) = command else { return false }
+            return request.target == .declarationAudio
+        }
+    }
+
+    /// 「イヤホンで聞く / 文字で読む / 耳に当てて聞く」の答えを受けて、止めてあった続きを流す。
+    func chooseListenMode(_ mode: ListenMode) async {
+        guard listenModePrompt else { return }
+        listenModePrompt = false
+        listenMode = mode
+        let commands = pendingPlaybackCommands
+        pendingPlaybackCommands = []
+        for command in commands {
+            // 「文字で読む」を選んだ日は TTS も鳴らさない。本人の言葉は画面に出す。
+            if mode == .readText, case .speak = command { continue }
+            await run(command)
+        }
+    }
+
+    /// 朝の宣言をもう一度返す（PlaybackCard の「聞く」「耳に当てて聞く」）。会話は進めない。
+    func replayDeclaration(preferReceiver: Bool = false) async {
+        guard commitment?.declarationAudioPath != nil else { return }
+        listenMode = preferReceiver ? .receiver : .speaker
+        await playDeclarationAudio(preferReceiver: preferReceiver)
     }
 
     private func run(_ command: FlowCommand) async {
@@ -562,7 +640,8 @@ final class SessionViewModel {
         phase = .speaking
         spokenLine = line
         // TTS 発話中は STT へ流さない（実装計画 §7.3 の半二重）。
-        await synthesizer.speak(line, preferReceiver: false)
+        // 「耳に当てて聞く」を選んだ日は読み上げも受話口から出す（retention R8）。
+        await synthesizer.speak(line, preferReceiver: listenMode == .receiver)
     }
 
     // MARK: - 聞く
@@ -749,13 +828,23 @@ final class SessionViewModel {
         case .declarationText:
             // 本人の言葉を TTS で読み上げ直さない。画面に出す（fix-decisions P2.3）。
             declarationTextToShow = commitment?.declarationTranscript
+        case .declarationAudio where listenMode == .readText:
+            // 「文字で読む」を選んだ日も、鳴らさずに本人の言葉を画面に出す（retention R8）。
+            declarationTextToShow = commitment?.declarationTranscript
         case .declarationAudio:
             declarationTextToShow = nil
-            if let path = commitment?.declarationAudioPath {
-                try? await player.play(audioFiles.url(forRelativePath: path), preferReceiver: false)
-            }
+            await playDeclarationAudio(preferReceiver: listenMode == .receiver)
         }
         await handle(.playbackFinished)
+    }
+
+    /// 宣言音声を鳴らす。出力経路は鳴らす直前に決める（実装計画 §7.3）。
+    private func playDeclarationAudio(preferReceiver: Bool) async {
+        guard let path = commitment?.declarationAudioPath else { return }
+        audioSession?.applyOutputRoute(preferReceiver: preferReceiver)
+        declarationPlaybackStartedAt = now()
+        try? await player.play(audioFiles.url(forRelativePath: path), preferReceiver: preferReceiver)
+        declarationPlaybackStartedAt = nil
     }
 
     // MARK: - 保存
@@ -911,6 +1000,8 @@ final class SessionViewModel {
             reason: current.reason ?? classifiedReason,
             microAction: action,
             plannedAt: parsed?.date,
+            // 本人が言った場所を捨てない（統合判断 D1 / retention R11）。
+            plannedPlace: plannedPlace.isEmpty ? nil : plannedPlace,
             declarationAudioPath: declaration.audioPath,
             declarationTranscript: declaration.text,
             declarationDurationSec: declaration.duration,

@@ -42,6 +42,8 @@ final class RepositoryTests: XCTestCase {
         reason: ReasonCategory? = .tedious,
         text: String = "open the file",
         at createdAt: Date,
+        plannedAt: Date? = nil,
+        plannedPlace: String? = nil,
         audioPath: String? = nil,
         isVoiceless: Bool = false
     ) -> CommitmentDraft {
@@ -50,6 +52,8 @@ final class RepositoryTests: XCTestCase {
             domain: domain,
             reason: reason,
             microAction: MicroAction(text: text, estimatedMinutes: 5),
+            plannedAt: plannedAt,
+            plannedPlace: plannedPlace,
             declarationAudioPath: audioPath,
             declarationTranscript: audioPath == nil ? "" : "I will open the file",
             declarationDurationSec: audioPath == nil ? 0 : 12,
@@ -102,6 +106,33 @@ final class RepositoryTests: XCTestCase {
         let result = try await repository.todayCommitment(on: try date(2026, 3, 9))
 
         XCTAssertNil(result)
+    }
+
+    /// 統合判断 D1: M3 の「何時に、どこで？」の後半を保存し、読み戻せる（retention R11）。
+    func testPlannedTimeAndPlaceAreStoredAndReadBack() async throws {
+        let day = try date(2026, 3, 9)
+        let plannedAt = try date(2026, 3, 9, 14)
+
+        let created = try await repository.createCommitment(
+            draft(at: day, plannedAt: plannedAt, plannedPlace: "机")
+        )
+        let reloaded = try await repository.todayCommitment(on: day)
+
+        XCTAssertEqual(created.plannedAt, plannedAt)
+        XCTAssertEqual(created.plannedPlace, "机")
+        XCTAssertEqual(reloaded?.plannedAt, plannedAt)
+        XCTAssertEqual(reloaded?.plannedPlace, "机")
+    }
+
+    /// 場所を聞けなかった日は nil のまま残る。
+    func testPlannedPlaceStaysNilWhenItWasNotAsked() async throws {
+        let day = try date(2026, 3, 10)
+
+        let created = try await repository.createCommitment(draft(at: day))
+        let reloaded = try await repository.todayCommitment(on: day)
+
+        XCTAssertNil(created.plannedPlace)
+        XCTAssertNil(reloaded?.plannedPlace)
     }
 
     // MARK: 宣言音声

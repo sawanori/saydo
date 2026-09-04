@@ -21,6 +21,9 @@ final class Commitment {
     var shrinkCount: Int
     /// 行動する時刻。決めていなければ nil。
     var plannedAt: Date?
+    /// 行動する場所（本人の言葉のまま）。M3 の「何時に、どこで？」の後半（retention R11）。
+    /// 聞けなかった日は nil。
+    var plannedPlace: String?
     /// 宣言音声の相対パス（`yyyy/MM/<uuid>.m4a`）。
     /// 宣言の `VoiceEntry.audioPath` と**同一のファイル**を指す（二重に録らない）。
     /// 声で宣言していない場合は nil。
@@ -50,6 +53,7 @@ final class Commitment {
         dayKey: String,
         microAction: MicroAction,
         plannedAt: Date? = nil,
+        plannedPlace: String? = nil,
         declarationAudioPath: String? = nil,
         declarationTranscript: String = "",
         isVoiceless: Bool = false,
@@ -64,6 +68,7 @@ final class Commitment {
         self.estimatedMinutes = microAction.estimatedMinutes
         self.shrinkCount = microAction.shrinkCount
         self.plannedAt = plannedAt
+        self.plannedPlace = plannedPlace
         self.declarationAudioPath = declarationAudioPath
         self.declarationTranscript = declarationTranscript
         self.isVoiceless = isVoiceless

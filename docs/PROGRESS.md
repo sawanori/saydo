@@ -1540,3 +1540,162 @@ lint-principles: OK
 1. `integration` を main にマージするかの判断（本セッションは `integration` の push まで。main は触っていない）。
 2. 実機検証（音声 10 項目、AlarmKit 6 項目、fm-probe 人手採点 20 件）。従来どおり未実施。
 3. task_006 / 008 の設計判断 4 点（週末通知の既定、aloneTime、plannedPlace、文言履歴の永続化）。
+
+---
+
+## task_010 / task_011 — 昼・夜フローの配線と PlaybackCard / Today
+
+- 日時: 2026-09-04
+- 状態: wip（5 検証コマンドのうち走らせた 3 本が exit 0。実機・TestFlight #1 は未実施。昼の入口 `partial` は SaydoCore 側の 1 行が要るため未実装＝下の「統合時の継ぎ目」1 番）
+- ブランチ / コミット: `task/010-noon-night`（`integration` の 1042720 から分岐。worktree `.worktrees/w2-F-010`）
+- 担当: 第 2 波エージェント F（`docs/review/integration-decisions-2026-09-04.md` §B の表）
+
+### 作ったもの
+
+| ファイル | 中身 |
+|---|---|
+| `App/Data/CopyHistoryStore.swift`（新規） | **D2**。`protocol CopyHistoryStoring: Sendable`（`@MainActor`）と `UserDefaultsCopyHistoryStore`（JSON、`load(currentDay:)` が 3 日より古い記録を捨てる）。`UserDefaults` が非 Sendable なので `AppSettings` と同じく `@MainActor` 隔離で解決した（検査を外す属性は使っていない） |
+| `App/Data/Models/Commitment.swift` | **D1**。`plannedPlace: String?` を追加（V1 のまま。配布済みビルド無し） |
+| `App/Data/Repository.swift` | **D1**（`CommitmentSnapshot` / `CommitmentDraft` / `createCommitment` / `snapshot(of:)`）と **D8**（`startSessionLog` / `finishSessionLog` を `SessionViewModel.swift` の `extension Repository` からここへ移動。中身は 1 文字も変えていない） |
+| `App/Features/Session/SessionViewModel.swift` | **D1 / D2 / D9 / R8**。下の「追加した公開 API」を参照 |
+| `App/Features/Session/PlaybackCardView.swift`（新規） | 昼 N0 の画面。「朝のあなたからです。」（`.preface` / アクセント色）＋ `DeclarationRibbon`（design-notes の再生波形の式をそのまま実装。上下対称・再生済みはアクセント 3 層・未再生は `waveformIdle`・再生位置に 1.6px の縦線）＋宣言テキストを常に表示（声なしの日は `.question` の大きさ）＋「聞く」「耳に当てて聞く」。進捗バーは置いていない |
+| `App/Features/Session/ListenModeSheet.swift`（新規） | R8 の確認。「イヤホンで聞く / 文字で読む」（塗り無し・高さ 46・ヘアライン区切り）。`onChoose: (ListenMode) -> Void` を受ける |
+| `App/Features/Session/PlaybackCopy.swift`（新規） | 上 2 画面のボタン文言。`*Copy.swift` なので lint の日本語リテラル警告に出ない |
+| `App/Features/Today/TodayView.swift`（新規） | ロゴ＋日付／「今日の約束」／宣言カード（行動文・`14:00・机で`・48px 再生ボタン。声なしなら再生ボタン無し）／通知の再許可導線／「今話す」64px ピル（宣言前 `.morning`・宣言後 `.adhoc`）／夜完了後は「今日はここまで」。一覧・チェックボックス・進捗率・連続日数は作っていない |
+| `App/Features/Today/TodayCopy.swift`（新規） | Today 画面の文言 |
+| `Tests/SaydoTests/SessionViewModelTests.swift` | 既存 14 件は**そのまま**（`testNightTomorrowBecomesNextMorningCarryover` の直接生成に `copyHistory: InMemoryCopyHistoryStore()` を足しただけ。`UserDefaults.standard` を汚さないため）。モック 3 種（`MockAudioSession` / `InMemoryCopyHistoryStore` / `MockPlayer.preferReceiverFlags`）とテスト 10 件を追加 |
+| `Tests/SaydoTests/RepositoryTests.swift` | `plannedPlace` の保存・復元テスト 2 件 |
+
+### `SessionViewModel` に追加した公開 API
+
+```swift
+enum ListenMode: String, Sendable, Equatable, Hashable, CaseIterable { case speaker, receiver, readText }
+
+// init に 2 つ追加（どちらも既定値つき。既存の呼び出しは変えなくてよい）
+init(..., audioFiles: AudioFileStore,
+     audioSession: (any AudioSessionControlling)? = nil,
+     copyHistory: any CopyHistoryStoring = UserDefaultsCopyHistoryStore(),
+     timer: SessionTimer = .system, ...)
+
+private(set) var listenModePrompt: Bool          // 立っている間は TTS も再生も始まっていない
+private(set) var listenMode: ListenMode
+private(set) var declarationDurationSec: Double  // 再生リボンの再生位置に使う
+private(set) var declarationPlaybackStartedAt: Date?
+
+func chooseListenMode(_ mode: ListenMode) async  // 止めてある命令列を流す
+func replayDeclaration(preferReceiver: Bool = false) async  // PlaybackCard の 2 ボタン
+```
+
+R8 の止め方: `apply(_:)` が `.play(target: .declarationAudio)` を含む遷移を見つけ、`audioSession.requiresAudiblePlaybackConfirmation` が true なら **命令列を実行せずに退避** して `listenModePrompt` を立てる。`.speak(「朝のあなたからです。」)` はその命令列の 1 つ目なので、TTS も再生も始まらない。`.readText` を選ぶと `.speak` を飛ばし、`declarationTextToShow` に宣言テキストを載せて N1 へ進む。声なしの日は `.play(target: .declarationText)` なので確認そのものが出ない。
+
+### 証拠
+
+| コマンド | exit code | 結果 | ログ |
+|---|---|---|---|
+| `scripts/build-ios.sh` | **0** | `** BUILD SUCCEEDED **`。新規の warning 0 件（残る 1 件は既存の `DataExporter.swift:308`） | `docs/logs/task_010-1-build-ios.txt` |
+| `scripts/test-ios.sh` | **0** | `Executed 101 tests, with 0 failures`（89 → 101）。lint OK | `docs/logs/task_010-2-test-ios.txt` |
+| `scripts/test-core.sh` | **0** | SaydoCore 192 / SaydoAI 33、いずれも 0 failures。lint OK | `docs/logs/task_010-3-test-core.txt` |
+| `scripts/build-mac.sh fm-probe` | 未実行 | task_010 / 011 の verify_commands に無い | — |
+
+スイート別件数（iOS）: AppSettings 7 / AudioFileStore 8 / DataExporter 11 / DeepLink 18 / **Repository 19（17 → +2）** / **SessionViewModel 24（14 → +10）** / SilenceDetector 13 / Smoke 1 = 101。
+
+`scripts/build-ios.sh`（末尾）:
+
+```
+Touch .../Build/Products/Debug-iphonesimulator/Saydo.app (in target 'Saydo' from project 'Saydo')
+    cd /Users/noritakasawada/AI_P/SAYDO/.worktrees/w2-F-010
+    /usr/bin/touch -c .../Build/Products/Debug-iphonesimulator/Saydo.app
+
+** BUILD SUCCEEDED **
+```
+
+`scripts/test-ios.sh`（抜粋。末尾 30 行は lint の既存 WARN 一覧なので、結果の行を引く）:
+
+```
+test-ios: scheme=Saydo device=iPhone 17 runtime=com.apple.CoreSimulator.SimRuntime.iOS-26-3 udid=9D2D913B-5C7B-4969-B86C-C69CDFE434E2
+Test Suite 'RepositoryTests' passed at 2026-09-04 11:25:27.533.
+	 Executed 19 tests, with 0 failures (0 unexpected) in 0.259 (0.266) seconds
+Test Suite 'SessionViewModelTests' passed at 2026-09-04 11:25:27.632.
+	 Executed 24 tests, with 0 failures (0 unexpected) in 0.088 (0.098) seconds
+	 Executed 101 tests, with 0 failures (0 unexpected) in 0.547 (0.679) seconds
+** TEST SUCCEEDED **
+lint-principles: 対象 56 ファイル（App/ と Packages/*/Sources。Tests と Spikes は除外）
+lint-principles: OK
+```
+
+lint の日本語リテラル WARN は 118 件で、**すべて `Packages/SaydoCore/Sources` 側の既存分**（D7 で今回は移さないと決めた列挙型の `displayName` と Flow のチップ文言）。`App/` からの WARN は 0 件で、追加した 5 ファイルは増やしていない（`grep '^    App/' docs/logs/task_010-2-test-ios.txt` が空）。
+
+`scripts/test-core.sh`（結果の行）:
+
+```
+	 Executed 192 tests, with 0 failures (0 unexpected) in 0.086 (0.107) seconds
+	 Executed 33 tests, with 0 failures (0 unexpected) in 22.409 (22.413) seconds
+lint-principles: OK
+```
+
+### 追加したテスト 12 件
+
+| テスト | 見ていること |
+|---|---|
+| `testPlannedPlaceIsSavedWithTheCommitment` | D1。「14時に自宅で」→ `Commitment.plannedPlace == "自宅"` |
+| `testPlannedPlaceIsNilWhenNoPlaceWasSaid` | 場所を言わない日は nil（空文字を作らない） |
+| `testCopyHistoryPersistsAcrossViewModels` | D2 / R5。ViewModel 2 つをまたいで同じ日に同じ文言が出ない |
+| `testCopyHistoryDropsRecordsOlderThanThreeDays` | 3 日より古い記録を読み込み時に捨てる |
+| `testListenModeIsAskedBeforeAnySoundStarts` | R8。確認が要る状況で `listenModePrompt` が立ち、`spokenLines` も `playedURLs` も空 |
+| `testListenModeIsNotAskedWhenConfirmationIsNotRequired` | 要らない状況では尋ねずに鳴らす |
+| `testReadTextModePlaysNothingAndShowsTheDeclaration` | 「文字で読む」で再生 0・「朝のあなたからです。」も読まない・宣言テキスト表示・N1 へ進む |
+| `testReceiverModeRoutesToTheReceiverBeforePlaying` | 「耳に当てて聞く」で `applyOutputRoute(preferReceiver: true)` → `play(preferReceiver: true)` |
+| `testVoicelessCommitmentShowsTextAndIsNeverAskedToChoose` | 声なしの日は確認も再生も無し。イントロだけ読み、本人の言葉は読み上げない |
+| `testNoonRestoresTodaysActionAndPlaceFromTheCommitment` | D9。`plannedPlace` が戻り、N3 の促しに本人の言葉が入り、`shrinkCount` が 1 増える |
+| `testPlannedTimeAndPlaceAreStoredAndReadBack`（Repository） | D1 の保存・復元 |
+| `testPlannedPlaceStaysNilWhenItWasNotAsked`（Repository） | 同上（nil のまま） |
+
+### done_definition の自己監査
+
+#### task_010
+
+| 条件 | 状況 | 根拠 |
+|---|---|---|
+| 行動時刻通知をタップすると宣言音声が再生され、その後の状態確認が完走する | ViewModel 側は済。**実機は未検証** | `testNoonStatusDoneEndsWithoutBlocker`（既存）と `testListenModeIsNotAskedWhenConfirmationIsNotRequired`。通知タップ → 画面表示は A の `AppRouter` / `SessionView` と合流してから |
+| イヤホン未接続かつ `outputVolume` > 0.3 のとき、再生前に「イヤホンで聞く / 文字で読む」が出る | 済（判定は `AudioSessionController.requiresAudiblePlaybackConfirmation`。UI は `ListenModeSheet`） | `testListenModeIsAskedBeforeAnySoundStarts` / `testListenModeIsNotAskedWhenConfirmationIsNotRequired` |
+| 声なし Commitment では宣言テキストが大きく表示され、TTS で読み上げない | 済 | `testVoicelessCommitmentShowsTextAndIsNeverAskedToChoose` と `PlaybackCardView.declarationText`（`declarationTextToShow != nil` のとき `.question` の大きさ） |
+| 「まだ」で行動文が更新され `shrinkCount` が増える。「少しやった」は `partial` で終了 | 済 | `testNoonStatusNotYetGoesToBlockerAndShrink` / `testNoonStatusPartialIsTreatedAsProgress`（いずれも既存）＋ `testNoonRestoresTodaysActionAndPlaceFromTheCommitment` |
+| `SessionViewModelTests` に昼フローの 3 分岐と入口 3 状態のテストがある | done / partial / notYet の 3 分岐と入口 3 状態は**ある**が、入口の「`partial` 済み」だけ**未実装**（継ぎ目 1） | 既存 6 件 + 追加分 |
+| 昼フローの「まだ」経路で当日の `VoiceEntry` が 2 件（status / blocker）増える | 済 | `testNoonStatusNotYetGoesToBlockerAndShrink` が `status` 1 件・`blocker` 1 件を検証 |
+| 昼フローが 1 分を超えない | 済（タイムボックス 60 秒は task_008 の実装） | `SessionViewModel.timebox(for:)`。実測は実機 |
+| TestFlight 内部配布 #1 とビルド番号の記録 | **未実施**（人間の作業） | — |
+
+#### task_011
+
+| 条件 | 状況 | 根拠 |
+|---|---|---|
+| 実機で 夜 → 翌朝 の引き継ぎが動く | ロジックは済。**実機は未検証** | `testNightTomorrowBecomesNextMorningCarryover`（既存）。`persistCarryoverIfNeeded` は今回変更していない |
+| E0 の前進なし分岐で表示されるチップが 2 つだけ | 済 | `testNightWithoutProgressShowsTwoChoices`（既存）が `[.shrinkMore, .moveToTomorrow]` を検証 |
+| 夜の画面と発話に「未達成」「連続」が一切出ない | 済 | `GuardrailsTests`（SaydoCore 192 件に含まれる）が `DialogueCopy.allLines` を通す。今回足した `TodayCopy` / `PlaybackCopy` にも禁止句は無い（`Guardrails` の対象は生成文なので機械検査はしていない＝目視） |
+| 引き継ぎのテストが緑 | 済 | 上記 |
+| `AvoidanceItem.status` を夜の選択に応じて更新する（task_011 scope 3 番） | **未実装**。エージェント F の指示書の担当範囲（§7）に入っていない。`Repository` にも更新 API が無い | 継ぎ目 5 |
+
+### 未検証
+
+1. **実機**: 通知タップ → 宣言音声の再生、イヤホン未接続時の確認の出方、受話口 + 近接センサー、夜 → 翌朝の引き継ぎ。いずれも画面録画・実機が要る。
+2. **TestFlight 内部配布 #1**（task_010 の done_definition 最後の 1 項目）。Archive と配布は人間の作業。
+3. `PlaybackCardView` / `ListenModeSheet` / `TodayView` の**見た目**。コンパイルは通っているが、iPhone SE × Dynamic Type xxxLarge での収まりは実機・プレビュー未確認。
+4. `DeclarationRibbon` の描画が版下（`docs/design/Playback.dc.html`）と一致するか。式は design-notes のとおりに写したが、目視での突き合わせは未実施。
+
+### 統合時の継ぎ目
+
+1. **【要判断】昼の入口が `partial` を拾わない**。計画 §7.2 の表と task_010 scope は「`outcome == done` **または** `partial`」で当日の `noon-yyyyMMdd` / `action-yyyyMMdd` を取り消して「今日はもう動けてる。」で終わる、と定めている。実装は `NoonFlow.entrance` が `entry.outcome == .done` だけを見ており、`partial` の日は N0 の再生からやり直しになる。直し方は `Packages/SaydoCore/Sources/SaydoCore/Flows/NoonFlow.swift` の 1 行を `if entry.outcome.isProgress { return .alreadyDone }` にし、`NoonFlowTests` の入口テスト（`Packages/SaydoCore/Tests/SaydoCoreTests/NoonFlowTests.swift:31` 付近）に `partial` の 1 行を足すだけ。**SaydoCore は F の所有ファイルではないので手を付けていない**。現行の `NoonFlowTests` は `partial → .playback` を assert していないので、この変更で落ちるテストは無い。
+2. **`SessionView`（A）への差し込み**: `.playback` フェーズで `PlaybackCardView(viewModel: viewModel)`。R8 の確認は `viewModel.listenModePrompt` を見て `ListenModeSheet { mode in Task { await viewModel.chooseListenMode(mode) } }` を出す（`.sheet(isPresented:)` でも `.overlay` でもよい）。`listenModePrompt` が立っている間は `phase == .playback` で、発話も再生も始まっていない。
+3. **`RootView`（A）への差し込み**: 「今日」タブに
+   `TodayView(repository:player:notificationHealth:onStartSession:onOpenSettings:)`。
+   `repository` は `Repository`（actor）、`player` は `VoicePlayer`、`notificationHealth` は `NotificationScheduler.health()` の結果（`nil` なら導線を出さない）、`onStartSession` は `AppRouter` の `SessionLauncher` に、`onOpenSettings` は `SettingsView`（C）に繋ぐ。`TodayView` は宣言音声の URL を自前の `AudioFileStore.applicationSupport()` で解決する。
+4. **`AppRouter` / `SaydoApp`（A）**: `SessionViewModel` を作るところで `audioSession:` に `AudioSessionController` の実体を渡さないと R8 の確認は**出ない**（既定 nil = 確認しない）。`copyHistory:` は既定の `UserDefaultsCopyHistoryStore()` でよい。
+5. **`AvoidanceItem.status` の更新**（task_011 scope 3 番）: 夜 E0 の `nightDecision`（`shrinkMore` / `moveToTomorrow`）と N3 の `dropToday` / `moveToTomorrow` に応じて `AvoidanceItem.status` を動かす処理がどこにも無い。`Repository` に更新メソッドを足すのが素直（`App/Data/Models/AvoidanceItem.swift` は F の所有外）。
+6. **`App/Features/Session/PlaybackCopy.swift` を新規に足した**。指示書の作成リストには `TodayCopy.swift` しか無かったが、`PlaybackCardView` / `ListenModeSheet` のボタン文言を lint 対象外に置くため、integration-decisions §「検証と報告」の規約（画面専用の文言は `App/Features/<画面>/<画面>Copy.swift`）に従って作った。A が `SessionCopy.swift` を作っていても名前は衝突しない。
+7. **design-notes との差**: `docs/design/design-notes.md` は N0 について「文字起こしは出さない（声を聴かせるため）」と書いているが、task_010 scope の最終項が「PlaybackCardView は宣言テキストを常に画面に表示し」と定めているので**後者に従った**（声なしの日だけ大きく出す、ではなく常に出す）。判断が要るなら統合時に。
+
+### 人間の確認待ち
+
+1. 継ぎ目 1（`NoonFlow.entrance` の `partial`）を第 2 波の統合で入れるか、task_018 に送るかの判断。
+2. TestFlight 内部配布 #1（task_010 の done_definition）。Archive とビルド番号の記録。
+3. 実機での R8 の確認（イヤホン未接続 × 音量 > 0.3 で本当に確認が出るか、受話口で鳴るか）と、昼 → 夜 → 翌朝の 1 日通しの動作。

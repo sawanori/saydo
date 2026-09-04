@@ -60,6 +60,7 @@ actor InMemorySessionStore: SessionStore {
             dayKey: key,
             microAction: draft.microAction,
             plannedAt: draft.plannedAt,
+            plannedPlace: draft.plannedPlace,
             declarationAudioPath: draft.declarationAudioPath,
             declarationTranscript: draft.declarationTranscript,
             isVoiceless: draft.isVoiceless,
@@ -258,16 +259,71 @@ final class MockSynthesizer: Synthesizing {
 @MainActor
 final class MockPlayer: Playing {
     private(set) var playedURLs: [URL] = []
+    /// 受話口で鳴らすよう頼まれたか（retention R8 の「耳に当てて聞く」）。
+    private(set) var preferReceiverFlags: [Bool] = []
     var isPlaying = false
     var currentURL: URL?
 
     func play(_ url: URL, preferReceiver: Bool) async throws {
         playedURLs.append(url)
+        preferReceiverFlags.append(preferReceiver)
         currentURL = url
     }
 
     func stop() {
         isPlaying = false
+    }
+}
+
+/// 再生前の配慮（retention R8）の判定だけを差し替えるモック。`AVAudioSession` には触らない。
+@MainActor
+final class MockAudioSession: AudioSessionControlling {
+    let events: AsyncStream<AudioSessionEvent>
+    private let continuation: AsyncStream<AudioSessionEvent>.Continuation
+
+    private(set) var isActive = false
+    var isAccessoryConnected = false
+    var outputVolume: Float = 0.8
+    var requiresAudiblePlaybackConfirmation: Bool
+    private(set) var appliedRoutes: [AudioOutputRoute] = []
+
+    init(requiresConfirmation: Bool) {
+        let (stream, continuation) = AsyncStream<AudioSessionEvent>.makeStream()
+        events = stream
+        self.continuation = continuation
+        requiresAudiblePlaybackConfirmation = requiresConfirmation
+    }
+
+    func activate(mode: AudioSessionMode) throws {
+        isActive = true
+    }
+
+    func deactivate() {
+        isActive = false
+        continuation.finish()
+    }
+
+    @discardableResult
+    func applyOutputRoute(preferReceiver: Bool) -> AudioOutputRoute {
+        let route: AudioOutputRoute = preferReceiver
+            ? .receiver
+            : (isAccessoryConnected ? .accessory : .speaker)
+        appliedRoutes.append(route)
+        return route
+    }
+}
+
+/// 文言の使用履歴をメモリに置く実装。`UserDefaults` を汚さずに保存の効き目を見る。
+@MainActor
+final class InMemoryCopyHistoryStore: CopyHistoryStoring {
+    private(set) var stored: [CopyPicker.Use] = []
+
+    func load(currentDay: Int) -> [CopyPicker.Use] {
+        UserDefaultsCopyHistoryStore.pruned(stored, currentDay: currentDay)
+    }
+
+    func save(_ uses: [CopyPicker.Use]) {
+        stored = uses
     }
 }
 
@@ -390,6 +446,8 @@ final class SessionViewModelTests: XCTestCase {
         transcript script: [String] = [],
         transcriber: MockTranscriber? = nil,
         timer: SessionTimer = SessionViewModelTests.frozenTimer,
+        audioSession: (any AudioSessionControlling)? = nil,
+        copyHistory: (any CopyHistoryStoring)? = nil,
         at moment: Date? = nil
     ) -> (SessionViewModel, MockTranscriber) {
         let mock = transcriber ?? MockTranscriber(script: script)
@@ -403,6 +461,9 @@ final class SessionViewModelTests: XCTestCase {
             notifications: notifications,
             engine: TemplateDialogueEngine(),
             audioFiles: audioFiles,
+            audioSession: audioSession,
+            // 既定はインメモリ。テストが `UserDefaults.standard` を汚さないようにする。
+            copyHistory: copyHistory ?? InMemoryCopyHistoryStore(),
             timer: timer,
             tier: .b,
             calendar: .current,
@@ -670,6 +731,7 @@ final class SessionViewModelTests: XCTestCase {
             notifications: notifications,
             engine: TemplateDialogueEngine(),
             audioFiles: audioFiles,
+            copyHistory: InMemoryCopyHistoryStore(),
             timer: Self.frozenTimer,
             tier: .b,
             calendar: .current,
@@ -771,17 +833,202 @@ final class SessionViewModelTests: XCTestCase {
         XCTAssertEqual(entries.filter { $0.kind == .avoidance }.count, 1)
     }
 
+    // MARK: - 場所の保存（統合判断 D1 / retention R11）
+
+    /// 「何時に、どこで？」の後半を捨てない。`Commitment.plannedPlace` に残る。
+    func testPlannedPlaceIsSavedWithTheCommitment() async throws {
+        let (viewModel, _) = makeViewModel()
+        await viewModel.start(sessionType: .morning, microphoneGranted: false)
+
+        await viewModel.submit(text: "見積書を送るのが嫌だ")
+        await viewModel.select(Choice(.reason(.awkward)))
+        await viewModel.submit(text: "見積書のファイルを開く")
+        await viewModel.submit(text: "14時に自宅で")
+        await viewModel.select(Choice(.declareLater))
+        await viewModel.submit(text: "今日、14時に見積書のファイルを開く")
+
+        XCTAssertEqual(viewModel.completion, .completed)
+        XCTAssertEqual(viewModel.plannedPlace, "自宅")
+        XCTAssertEqual(viewModel.commitment?.plannedPlace, "自宅")
+    }
+
+    /// 場所を言わなかった日は nil のままにする（空文字を作らない）。
+    func testPlannedPlaceIsNilWhenNoPlaceWasSaid() async throws {
+        let (viewModel, _) = makeViewModel()
+        await viewModel.start(sessionType: .morning, microphoneGranted: false)
+
+        await viewModel.submit(text: "見積書を送るのが嫌だ")
+        await viewModel.select(Choice(.reason(.awkward)))
+        await viewModel.submit(text: "見積書のファイルを開く")
+        await viewModel.submit(text: "14時")
+        await viewModel.select(Choice(.declareLater))
+        await viewModel.submit(text: "今日、14時に見積書のファイルを開く")
+
+        XCTAssertNil(viewModel.commitment?.plannedPlace)
+    }
+
+    // MARK: - 文言の使用履歴（統合判断 D2 / retention R5）
+
+    /// 履歴が端末に残るので、セッションをまたいでも同じ日に同じ文言を繰り返さない。
+    func testCopyHistoryPersistsAcrossViewModels() async throws {
+        let history = InMemoryCopyHistoryStore()
+
+        let (first, _) = makeViewModel(copyHistory: history)
+        await first.start(sessionType: .morning, microphoneGranted: false)
+        let firstQuestion = first.spokenLine
+        XCTAssertFalse(firstQuestion.isEmpty)
+        XCTAssertFalse(history.stored.isEmpty)
+
+        let (second, _) = makeViewModel(copyHistory: history)
+        await second.start(sessionType: .morning, microphoneGranted: false)
+
+        XCTAssertNotEqual(second.spokenLine, firstQuestion)
+        XCTAssertTrue(DialogueCopy.variants(.morningAvoidanceQuestion).map(\.text).contains(second.spokenLine))
+    }
+
+    /// 3 日より古い記録は読み込み時に捨てる。
+    func testCopyHistoryDropsRecordsOlderThanThreeDays() throws {
+        let uses = [
+            CopyPicker.Use(key: .morningAvoidanceQuestion, index: 0, day: 100),
+            CopyPicker.Use(key: .morningAvoidanceQuestion, index: 1, day: 104),
+        ]
+
+        let kept = UserDefaultsCopyHistoryStore.pruned(uses, currentDay: 105)
+
+        XCTAssertEqual(kept.map(\.day), [104])
+    }
+
+    // MARK: - 再生前の配慮（retention R8）
+
+    /// イヤホン未接続かつ音量が大きい日は、TTS も再生も始めずに聞き方を尋ねる。
+    func testListenModeIsAskedBeforeAnySoundStarts() async throws {
+        await store.seed(makeCommitment(outcome: .pending, plannedAt: reference.addingTimeInterval(-3_600)))
+        let session = MockAudioSession(requiresConfirmation: true)
+        let (viewModel, _) = makeViewModel(audioSession: session)
+
+        await viewModel.start(sessionType: .noon, microphoneGranted: false)
+
+        XCTAssertTrue(viewModel.listenModePrompt)
+        XCTAssertEqual(viewModel.phase, .playback)
+        XCTAssertTrue(synthesizer.spokenLines.isEmpty)
+        XCTAssertTrue(player.playedURLs.isEmpty)
+        XCTAssertEqual(viewModel.currentStep, .noonPlayback)
+    }
+
+    /// 配慮が要らない状況（イヤホン接続・音量が小さい）では尋ねずに鳴らす。
+    func testListenModeIsNotAskedWhenConfirmationIsNotRequired() async throws {
+        await store.seed(makeCommitment(outcome: .pending, plannedAt: reference.addingTimeInterval(-3_600)))
+        let session = MockAudioSession(requiresConfirmation: false)
+        let (viewModel, _) = makeViewModel(audioSession: session)
+
+        await viewModel.start(sessionType: .noon, microphoneGranted: false)
+
+        XCTAssertFalse(viewModel.listenModePrompt)
+        XCTAssertEqual(player.playedURLs.count, 1)
+        XCTAssertEqual(player.preferReceiverFlags, [false])
+        XCTAssertEqual(viewModel.currentStep, .noonStatus)
+    }
+
+    /// 「文字で読む」でも体験は成立する。音は一切鳴らさず、宣言テキストを出して N1 へ進む。
+    func testReadTextModePlaysNothingAndShowsTheDeclaration() async throws {
+        let commitment = makeCommitment(outcome: .pending, plannedAt: reference.addingTimeInterval(-3_600))
+        await store.seed(commitment)
+        let session = MockAudioSession(requiresConfirmation: true)
+        let (viewModel, _) = makeViewModel(audioSession: session)
+        await viewModel.start(sessionType: .noon, microphoneGranted: false)
+
+        await viewModel.chooseListenMode(.readText)
+
+        XCTAssertFalse(viewModel.listenModePrompt)
+        XCTAssertTrue(player.playedURLs.isEmpty)
+        let intro = try XCTUnwrap(DialogueCopy.variants(.noonIntro).first?.text)
+        XCTAssertFalse(synthesizer.spokenLines.contains(intro))
+        XCTAssertEqual(viewModel.declarationTextToShow, commitment.declarationTranscript)
+        // 会話は止まらない。N1 の「どうだった？」まで進む。
+        XCTAssertEqual(viewModel.currentStep, .noonStatus)
+        XCTAssertEqual(viewModel.choices.map(\.id), [.status(.done), .status(.partial), .status(.notYet)])
+    }
+
+    /// 「耳に当てて聞く」は受話口へ回してから鳴らす。
+    func testReceiverModeRoutesToTheReceiverBeforePlaying() async throws {
+        await store.seed(makeCommitment(outcome: .pending, plannedAt: reference.addingTimeInterval(-3_600)))
+        let session = MockAudioSession(requiresConfirmation: true)
+        let (viewModel, _) = makeViewModel(audioSession: session)
+        await viewModel.start(sessionType: .noon, microphoneGranted: false)
+
+        await viewModel.chooseListenMode(.receiver)
+
+        XCTAssertEqual(player.playedURLs.count, 1)
+        XCTAssertEqual(player.preferReceiverFlags, [true])
+        XCTAssertTrue(session.appliedRoutes.contains(.receiver))
+        XCTAssertEqual(viewModel.currentStep, .noonStatus)
+    }
+
+    /// 「声なし」の日は確認も再生もせず、本人の言葉を画面に出す（fix-decisions P2.3）。
+    func testVoicelessCommitmentShowsTextAndIsNeverAskedToChoose() async throws {
+        let commitment = makeCommitment(
+            outcome: .pending,
+            plannedAt: reference.addingTimeInterval(-3_600),
+            isVoiceless: true
+        )
+        await store.seed(commitment)
+        let session = MockAudioSession(requiresConfirmation: true)
+        let (viewModel, _) = makeViewModel(audioSession: session)
+
+        await viewModel.start(sessionType: .noon, microphoneGranted: false)
+
+        XCTAssertFalse(viewModel.listenModePrompt)
+        XCTAssertTrue(player.playedURLs.isEmpty)
+        XCTAssertEqual(viewModel.declarationTextToShow, commitment.declarationTranscript)
+        // 「朝のあなたからです。」だけを読み、本人の言葉は読み上げ直さない。
+        let intro = try XCTUnwrap(DialogueCopy.variants(.noonIntro).first?.text)
+        XCTAssertTrue(synthesizer.spokenLines.contains(intro))
+        XCTAssertFalse(synthesizer.spokenLines.contains(commitment.declarationTranscript))
+    }
+
+    // MARK: - 昼に当日の宣言を復元する（統合判断 D9）
+
+    func testNoonRestoresTodaysActionAndPlaceFromTheCommitment() async throws {
+        await store.seed(
+            makeCommitment(
+                outcome: .pending,
+                plannedAt: reference.addingTimeInterval(-3_600),
+                plannedPlace: "机"
+            )
+        )
+        let (viewModel, _) = makeViewModel()
+        await viewModel.start(sessionType: .noon, microphoneGranted: false)
+
+        XCTAssertEqual(viewModel.plannedPlace, "机")
+
+        await viewModel.select(Choice(.status(.notYet)))
+        await viewModel.submit(text: "何から書けばいいかわからない")
+
+        // N3 の促しに、本人が朝に言った言葉が戻っている（空の「今は…しなくていい」にならない）。
+        XCTAssertTrue(viewModel.spokenLine.contains("見積書を送るのが嫌だ"))
+
+        await viewModel.submit(text: "宛先だけ書く")
+        XCTAssertEqual(viewModel.commitment?.microAction.text, "宛先だけ書く")
+        XCTAssertEqual(viewModel.commitment?.microAction.shrinkCount, 1)
+    }
+
     // MARK: - 補助
 
-    private func makeCommitment(outcome: CommitmentOutcome, plannedAt: Date?) -> CommitmentSnapshot {
+    private func makeCommitment(
+        outcome: CommitmentOutcome,
+        plannedAt: Date?,
+        plannedPlace: String? = nil,
+        isVoiceless: Bool = false
+    ) -> CommitmentSnapshot {
         CommitmentSnapshot(
             id: UUID(),
             dayKey: DayKey.make(from: reference),
             microAction: MicroAction(text: "見積書のファイルを開く"),
             plannedAt: plannedAt,
-            declarationAudioPath: "2026/09/declaration.m4a",
+            plannedPlace: plannedPlace,
+            declarationAudioPath: isVoiceless ? nil : "2026/09/declaration.m4a",
             declarationTranscript: "今日、14時に見積書のファイルを開く",
-            isVoiceless: false,
+            isVoiceless: isVoiceless,
             outcome: outcome,
             reason: .awkward,
             progressNote: nil,
