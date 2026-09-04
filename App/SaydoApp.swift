@@ -10,16 +10,23 @@ struct SaydoApp: App {
     private static let logger = Logger(subsystem: "com.nonturn.saydo", category: "startup")
 
     private let modelContainer: ModelContainer
+    /// どの会話をどこから開くか。`AppDelegate` の起動要求はここへ流す。
+    private let router: AppRouter
 
     init() {
         let container = Self.makeModelContainer()
         modelContainer = container
+        router = AppRouter(modelContainer: container)
         Task { await Self.sweepOrphanAudioFiles(in: container) }
     }
 
     var body: some Scene {
         WindowGroup {
-            Text(verbatim: "SAYDO")
+            RootView(router: router)
+                // `@UIApplicationDelegateAdaptor` の値は `init` では取れないので、
+                // 最初のフレームで注入する。それより前に届いた通知は `AppDelegate` が
+                // `pendingLink` に 1 件だけ持っていて、ここで流れる。
+                .onAppear { appDelegate.setLauncher(router) }
         }
         .modelContainer(modelContainer)
     }
