@@ -38,6 +38,11 @@ public struct DeepLink: Sendable, Hashable {
         ///
         /// 会話は始めず、当日を休みとして終える。記録上の失敗にはしない。
         case rest
+        /// 通知を長押しして「今は話せない」を選んだ（実装計画 §7.4、設計判断 D6）。
+        ///
+        /// 会話は始めず、同じ通知を 60 分後に 1 件だけ登録し直す（同日 2 回まで）。
+        /// `Commitment` には何も記録しない。先延ばしも失敗ではない。
+        case snooze
     }
 
     /// タップで始めるセッション。行動時刻通知は昼と同じフローに入る（`NotificationSlot.sessionType`）。
@@ -105,6 +110,8 @@ extension DeepLink {
             .open
         case NotificationCopy.restTodayActionIdentifier:
             .rest
+        case NotificationCopy.busyNowActionIdentifier:
+            .snooze
         default:
             nil
         }

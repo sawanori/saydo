@@ -383,6 +383,96 @@ final class NotificationPlanTests: XCTestCase {
         XCTAssertEqual(NotificationSlot.action.sessionType, .noon)
     }
 
+    // MARK: - 「今は話せない」の再登録（設計判断 D6）
+
+    func testSnoozeIntervalIsSixtyMinutes() {
+        XCTAssertEqual(NotificationPlan.snoozeInterval, 60 * 60)
+    }
+
+    func testMaxSnoozesPerDayIsTwo() {
+        XCTAssertEqual(NotificationPlan.maxSnoozesPerDay, 2)
+    }
+
+    func testSnoozeIdentifierFormat() {
+        XCTAssertEqual(
+            NotificationPlan.snoozeIdentifier(base: "noon-20260904", attempt: 1),
+            "noon-20260904-snooze1"
+        )
+        XCTAssertEqual(
+            NotificationPlan.snoozeIdentifier(base: "action-20260904", attempt: 2),
+            "action-20260904-snooze2"
+        )
+    }
+
+    func testSnoozeAttemptReadsTheAttemptBack() {
+        XCTAssertEqual(NotificationPlan.snoozeAttempt(in: "noon-20260904-snooze1"), 1)
+        XCTAssertEqual(NotificationPlan.snoozeAttempt(in: "noon-20260904-snooze2"), 2)
+    }
+
+    func testSnoozeAttemptIsNilForNonSnoozeIdentifiers() {
+        XCTAssertNil(NotificationPlan.snoozeAttempt(in: "noon-20260904"))
+        XCTAssertNil(NotificationPlan.snoozeAttempt(in: "noon-20260904-snooze"))
+        XCTAssertNil(NotificationPlan.snoozeAttempt(in: "noon-20260904-snoozeX"))
+        XCTAssertNil(NotificationPlan.snoozeAttempt(in: "noon-20260904-snooze0"))
+        XCTAssertNil(NotificationPlan.snoozeAttempt(in: "noon-20260904-snooze-1"))
+        XCTAssertNil(NotificationPlan.snoozeAttempt(in: "-snooze1"))
+    }
+
+    func testBaseIdentifierStripsOnlyTheSnoozeSuffix() {
+        XCTAssertEqual(NotificationPlan.baseIdentifier(of: "noon-20260904-snooze2"), "noon-20260904")
+        XCTAssertEqual(NotificationPlan.baseIdentifier(of: "noon-20260904"), "noon-20260904")
+        XCTAssertEqual(NotificationPlan.baseIdentifier(of: "noon-20260904-snoozeX"), "noon-20260904-snoozeX")
+    }
+
+    func testFirstSnoozeIsAttemptOne() {
+        let base = NotificationPlan.identifier(for: .noon, day: date(2026, 9, 4, 0, 0), calendar: calendar)
+
+        XCTAssertEqual(NotificationPlan.nextSnoozeAttempt(base: base, pending: []), 1)
+    }
+
+    func testSecondSnoozeIsAttemptTwo() {
+        let base = "noon-20260904"
+
+        XCTAssertEqual(
+            NotificationPlan.nextSnoozeAttempt(base: base, pending: ["noon-20260904-snooze1"]),
+            2
+        )
+    }
+
+    func testThirdSnoozeIsRefused() {
+        let base = "noon-20260904"
+        let pending = ["noon-20260904-snooze1", "noon-20260904-snooze2"]
+
+        XCTAssertNil(NotificationPlan.nextSnoozeAttempt(base: base, pending: pending))
+    }
+
+    func testSnoozeLimitCountsTheHighestAttemptEvenIfEarlierOnesAlreadyFired() {
+        // snooze1 は発火済みで保留から消えている。それでも 3 回目は登録しない。
+        XCTAssertNil(
+            NotificationPlan.nextSnoozeAttempt(base: "noon-20260904", pending: ["noon-20260904-snooze2"])
+        )
+    }
+
+    func testUnrelatedIdentifiersDoNotConsumeTheSnoozeLimit() {
+        let pending = [
+            "morning-20260904",
+            "morning-20260904-snooze1",
+            "noon-20260905-snooze1",
+            "noon-20260904",
+            "someone-else-20260904-snooze2",
+        ]
+
+        XCTAssertEqual(NotificationPlan.nextSnoozeAttempt(base: "noon-20260904", pending: pending), 1)
+    }
+
+    func testSnoozeLimitIsPerSlotAndPerDay() {
+        let pending = ["noon-20260904-snooze1", "noon-20260904-snooze2"]
+
+        XCTAssertNil(NotificationPlan.nextSnoozeAttempt(base: "noon-20260904", pending: pending))
+        XCTAssertEqual(NotificationPlan.nextSnoozeAttempt(base: "action-20260904", pending: pending), 1)
+        XCTAssertEqual(NotificationPlan.nextSnoozeAttempt(base: "noon-20260905", pending: pending), 1)
+    }
+
     func testRegistrationsAreSortedByFireDate() {
         let plan = NotificationPlan.make(
             now: date(2026, 9, 4, 5, 0),

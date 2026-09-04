@@ -47,6 +47,13 @@ targets:
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
         SWIFT_EMIT_LOC_STRINGS: YES
         CODE_SIGN_STYLE: Automatic
+    entitlements:
+      # 行動時刻通知を .timeSensitive で届かせる（実装計画 §7.4、設計判断 D5）。
+      # エンタイトルメントが無いと集中モード中は .active へ降格する。
+      # App/Saydo.entitlements は XcodeGen がこの properties から生成する。
+      path: App/Saydo.entitlements
+      properties:
+        com.apple.developer.usernotifications.time-sensitive: true
     info:
       path: App/Resources/Info.plist
       properties:

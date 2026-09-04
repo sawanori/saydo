@@ -74,13 +74,30 @@ public enum NotificationCopy {
     /// 上記アクションのボタン文言。
     public static let restTodayActionTitle = "今日は休む"
 
+    /// 通知を長押しして、同じ通知を後ろへずらすためのアクション（実装計画 §7.4、設計判断 D6）。
+    ///
+    /// 会話は始めず、同じ内容を 60 分後に 1 件だけ登録し直す（同日 2 回まで）。
+    /// 先延ばしを記録上の失敗として扱わない点は「今日は休む」と同じ（企画原則 §22-1）。
+    public static let busyNowActionIdentifier = "saydo.notification.action.busyNow"
+
+    /// 上記アクションのボタン文言。
+    public static let busyNowActionTitle = "今は話せない"
+
     /// 通知カテゴリの識別子。固定通知・行動時刻通知の両方にこのカテゴリを付ける。
     public static let categoryIdentifier = "saydo.notification.category.session"
+
+    /// 通知に付けるアクションのボタン文言（通知に並ぶ順）。
+    ///
+    /// 順序は「今は話せない」→「今日は休む」。軽い方を先に置き、
+    /// 1 日を手放す選択を後ろにする。
+    public static var actionTitles: [String] {
+        [busyNowActionTitle, restTodayActionTitle]
+    }
 
     // MARK: - 検査用
 
     /// ユーザーの目に触れる文言の全て。禁止句テストの母集団に使う。
     public static var allTexts: [String] {
-        NotificationCopyKey.allCases.map { body(for: $0) } + [restTodayActionTitle]
+        NotificationCopyKey.allCases.map { body(for: $0) } + actionTitles
     }
 }

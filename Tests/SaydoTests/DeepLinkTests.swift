@@ -81,6 +81,13 @@ final class DeepLinkTests: XCTestCase {
         )
     }
 
+    func testBusyNowActionIdentifierIsSnooze() {
+        XCTAssertEqual(
+            DeepLink.action(forActionIdentifier: NotificationCopy.busyNowActionIdentifier),
+            .snooze
+        )
+    }
+
     func testDismissActionStartsNothing() {
         XCTAssertNil(DeepLink.action(forActionIdentifier: UNNotificationDismissActionIdentifier))
 
@@ -108,6 +115,25 @@ final class DeepLinkTests: XCTestCase {
         )
 
         XCTAssertEqual(link.action, .rest)
+        XCTAssertEqual(link.sessionType, .noon)
+        XCTAssertEqual(link.commitmentID, commitmentID)
+    }
+
+    /// 再登録は元の通知と同じ内容で出すので、枠・文言・宣言の識別子がそのまま残る必要がある。
+    func testSnoozeActionKeepsSlotCopyKeyAndCommitmentID() throws {
+        let commitmentID = UUID()
+        let info = DeepLink.userInfo(
+            for: registration(slot: .action, copyKey: .action),
+            commitmentID: commitmentID
+        )
+
+        let link = try XCTUnwrap(
+            DeepLink.parse(userInfo: info, actionIdentifier: NotificationCopy.busyNowActionIdentifier)
+        )
+
+        XCTAssertEqual(link.action, .snooze)
+        XCTAssertEqual(link.slot, .action)
+        XCTAssertEqual(link.copyKey, .action)
         XCTAssertEqual(link.sessionType, .noon)
         XCTAssertEqual(link.commitmentID, commitmentID)
     }
@@ -195,5 +221,52 @@ final class DeepLinkTests: XCTestCase {
 
         XCTAssertTrue(NotificationIdentifier.matches(dayStamp: stamp, identifier: today))
         XCTAssertFalse(NotificationIdentifier.matches(dayStamp: stamp, identifier: tomorrow))
+    }
+
+    // MARK: - 再登録の識別子（設計判断 D6）
+
+    func testSnoozeIdentifierIsManaged() {
+        for slot in NotificationSlot.allCases {
+            let base = NotificationPlan.identifier(for: slot, day: day, calendar: .current)
+            for attempt in 1...NotificationPlan.maxSnoozesPerDay {
+                let identifier = NotificationPlan.snoozeIdentifier(base: base, attempt: attempt)
+                XCTAssertTrue(NotificationIdentifier.isManaged(identifier), identifier)
+            }
+        }
+    }
+
+    /// ずらした通知も「今日は休む」と再計画で元の通知と一緒に消える。
+    func testSnoozeIdentifierMatchesTheSameDayStamp() {
+        let calendar = Calendar.current
+        let stamp = NotificationPlan.dayStamp(for: day, calendar: calendar)
+        let base = NotificationPlan.identifier(for: .noon, day: day, calendar: calendar)
+        let tomorrowBase = NotificationPlan.identifier(
+            for: .noon,
+            day: calendar.date(byAdding: .day, value: 1, to: day) ?? day,
+            calendar: calendar
+        )
+
+        XCTAssertTrue(
+            NotificationIdentifier.matches(
+                dayStamp: stamp,
+                identifier: NotificationPlan.snoozeIdentifier(base: base, attempt: 1)
+            )
+        )
+        XCTAssertTrue(
+            NotificationIdentifier.matches(
+                dayStamp: stamp,
+                identifier: NotificationPlan.snoozeIdentifier(base: base, attempt: 2)
+            )
+        )
+        XCTAssertFalse(
+            NotificationIdentifier.matches(
+                dayStamp: stamp,
+                identifier: NotificationPlan.snoozeIdentifier(base: tomorrowBase, attempt: 1)
+            )
+        )
+    }
+
+    func testForeignSnoozeIdentifierIsNotManaged() {
+        XCTAssertFalse(NotificationIdentifier.isManaged("someone-else-20260304-snooze1"))
     }
 }
