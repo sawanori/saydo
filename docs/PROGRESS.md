@@ -1601,6 +1601,50 @@ lint-principles: OK
 - **読み上げ音声**: `SpeechSynthesisService.preferredJapaneseVoice()` と `SynthesisVoiceQuality` で品質を判定する。`AVSpeechSynthesisVoice` に enhanced / premium をアプリから取得する API は無いので、設定アプリでの手順を示すだけにした（fix-decisions P5.8）。
 - **全削除の順序**: `Repository.deleteAll(cancelPendingNotifications:)` のコールバックで `NotificationScheduler.shared.removeAllManagedPending()` を起こし、戻ってから `AppSettings.reset()` → `onDataDeleted()`。コールバックは同期・`@Sendable` なので `Task { await … }` で MainActor へ渡している（待ち合わせはしていない。取り消しと保存データの削除は互いに独立）。
 - **開発者向け節は `weeklyStats` に混ぜない**（fix-decisions P2.2）。`Repository+Developer.swift` の別メソッドにした。
+## task_012 — Voice Timeline
+
+- 日時: 2026-09-04
+- 状態: done（`scripts/build-ios.sh` と `scripts/test-ios.sh` が exit 0。Instruments 計測と実機のレイアウト確認は未検証）
+- ブランチ: `task/012-timeline`（`integration` の 1042720 から分岐。第 2 波エージェント B）
+- 担当範囲: 画面部品のみ。TabView の導入と `RootView` への組み込みはエージェント A / 統合セッションの担当
+
+### 作ったもの
+
+| ファイル | 中身 |
+|---|---|
+| `App/Features/Timeline/TimelineGrouping.swift` | `DaySection`（`id` = `date` = 日の開始時刻、`entries`）と `TimelineGrouping.sections(from:calendar:)`。`recordedAt` で日ごとに束ね、**記録がある日だけ**を新しい日から返す。セクション内は時刻の昇順 |
+| `App/Features/Timeline/TimelineView.swift` | 記録タブ。`ScrollView` + `LazyVStack`、上部に `topAccessory`（統合時に `InsightCardView` が入る差し込み口）、日付セクション（`.sectionLabel`）、空状態 1 文。`@Query` で `VoiceEntry` を `recordedAt` 降順に全件取得し、並べ替えは必ず `TimelineGrouping` を通す |
+| `App/Features/Timeline/VoiceEntryRow.swift` | ストロークのマイク（SF Symbols `mic`）+ 時刻（`.time`）+ 文字起こし（`.list` / `lineLimit(2)`）+ 32pt 再生ボタン。`audioPath == nil` の行は再生ボタンを出さない。再生中はマイク・時刻・文字起こし・再生グリフをアクセント色にする |
+| `App/Features/Timeline/TimelinePlayback.swift` | `@MainActor @Observable`。`play(entry:)` / `stop()` / `nowPlayingID`。別の行を再生すると前を止める（同時再生の禁止）。`AudioFileStore.url(forRelativePath:)` で相対パスを解決し `Playing.play(_:preferReceiver: false)`。失敗は Logger に落として静かに止め、画面には何も出さない |
+| `App/Features/Timeline/TimelineCopy.swift` | 空状態の 1 文「ここに、あなたの声が残っていく。」と再生ボタンの読み上げラベル。`*Copy.swift` なので lint の日本語リテラル警告の対象外 |
+| `Tests/SaydoTests/TimelineGroupingTests.swift` | 3 日分（9/2 が 2 件、9/3 は「今日は休む」で 0 件、9/4 が 3 件・うち 1 件は `audioPath == nil`）の 6 件 |
+
+### 設計上の判断（レビュー対象）
+
+1. **`TimelineView` の init から `repository` を外した。** 指示の想定は `init(repository:player:topAccessory:)` だったが、
+   `Repository` には日をまたいで全件を返す API が無く（`entries(for:)` は 1 日分）、`Repository.swift` は
+   エージェント F の所有で触れない。実装計画 task_012 の implementation_steps も
+   「`@Query` で `VoiceEntry` を `recordedAt` 降順に取得」と書いているため `@Query` を採った。
+   `@Query` なら会話の直後に一覧が自動で更新される利点もある。
+   現在の形は `init(player:audioFileStore:topAccessory:)` と、`Accessory == EmptyView` 版の
+   `init(player:audioFileStore:)`（`audioFileStore` は既定 nil で、その場合 `AudioFileStore.applicationSupport()` を遅延で使う）。
+2. **`commitment` を先読みする `FetchDescriptor` を使う。** `VoiceEntrySnapshot` は `commitmentID` を持つので
+   1 行ごとにリレーションのフォールトが起きる。`relationshipKeyPathsForPrefetching = [\.commitment]` で
+   まとめて取り、`commitmentID` に nil を入れて誤魔化すことはしていない。
+3. **`TimelineLayout` / `TimelineQuery` を型の外に置いた。** `TimelineView` は総称型（`Accessory`）で、
+   総称型の中には static な格納プロパティを置けない（初回ビルドがこれで落ちた）。
+4. **`SaydoTheme` に無い寸法だけ画面側に置いた。** 色と文字階層は全て `SaydoTheme`。
+   `Metric` に無い 32pt の再生ボタン・18×32 のマイク台座・レールの位置・画面余白は
+   `VoiceEntryRow.Metric` と `TimelineLayout` に `docs/design/Timeline.dc.html` の値として置いた。
+   `SaydoTheme.swift` は所有外なので変更していない。統合時に `Metric` へ移すかは判断待ち。
+5. **再生ボタンは見た目 32pt・当たり判定 44pt。** design-notes の 32 を保ちつつ、タップ領域だけ広げた。
+6. **「今日は休む」の日を消す分岐は書いていない。** `AppDelegate.handle(_:)` の通り `.rest` は
+   当日の残りの保留通知を取り消すだけで `Commitment` も `VoiceEntry` も作らない。`@Query` は `VoiceEntry` を読むので、
+   休んだ日はデータが無く、`TimelineGrouping` が記録のある日だけを返す結果として自然に現れない（R3 / R4）。
+   `TimelineGroupingTests.testEmptyDayHasNoSection` がこれを固定している。
+7. **`TimelineGroupingTests` で `Saydo.VoiceEntryKind` と明示した。** `SaydoCore` にも同名の `public enum` があり、
+   `@testable import Saydo` と `import SaydoCore` の両方があるテスト側では曖昧になる（1 回目の test-ios がこれで落ちた）。
+   アプリ側のコードでは自モジュールの型が優先されるので影響しない。
 
 ### 証拠
 
@@ -1769,3 +1813,102 @@ task_019 の UI 部分:
 2. 実機で設定の時刻・3 回モード・週末オフを変えたあと、保留通知の本数と発火日が計画どおりかを `NotificationScheduler.logPendingDiagnostics()` の 1 行で確認する。
 3. 実機で書き出しの `ShareLink` から zip を取り出し、全削除のあとオンボーディングに戻ることを確認する（task_019 の done_definition 2）。
 4. ja-JP の読み上げ音声が enhanced / premium で入っていない端末で、設定アプリの手順どおりに追加できるかを確認する（fix-decisions P5.8、H6）。
+| `scripts/build-ios.sh` | 0 | `docs/logs/task_012-1-build-ios.txt` |
+| `scripts/test-ios.sh` | 0（SaydoTests **95** / lint OK） | `docs/logs/task_012-2-test-ios.txt` |
+| （参考）レンダリングの一時確認 | 0（`ImageRenderer` 2 件） | `docs/logs/task_012-3-render-smoke.txt` |
+
+スイート別件数（iOS）: AppSettings 7 / AudioFileStore 8 / DataExporter 11 / DeepLink 18 / Repository 17 /
+SessionViewModel 14 / SilenceDetector 13 / Smoke 1 / **TimelineGrouping 6** = 95（`integration` の 89 から +6）。
+
+`scripts/build-ios.sh`（末尾。全文は 30 行では収まらない 1 行が続くのでログを参照）:
+
+```
+ExtractAppIntentsMetadata (in target 'Saydo' from project 'Saydo')
+2026-09-04 11:24:32.624 appintentsmetadataprocessor[14951:122276] warning: Metadata extraction skipped. No AppIntents.framework dependency found.
+CopySwiftLibs .../Saydo.app (in target 'Saydo' from project 'Saydo')
+Validate .../Saydo.app (in target 'Saydo' from project 'Saydo')
+** BUILD SUCCEEDED **
+```
+
+`scripts/test-ios.sh`（テスト結果と lint の要点。末尾 30 行は既存 WARN の列挙が続くのでログを参照）:
+
+```
+test-ios: scheme=Saydo device=iPhone 17 runtime=com.apple.CoreSimulator.SimRuntime.iOS-26-3 udid=9D2D913B-5C7B-4969-B86C-C69CDFE434E2
+Test Suite 'TimelineGroupingTests' passed at 2026-09-04 11:23:52.986.
+	 Executed 6 tests, with 0 failures (0 unexpected) in 0.018 (0.021) seconds
+	 Executed 95 tests, with 0 failures (0 unexpected) in 0.436 (0.505) seconds
+	 Executed 95 tests, with 0 failures (0 unexpected) in 0.436 (0.506) seconds
+** TEST SUCCEEDED **
+lint-principles: 対象 55 ファイル（App/ と Packages/*/Sources。Tests と Spikes は除外）
+WARN: *Copy.swift 以外に日本語の文字列リテラルがある（文言は Copy に集約する）
+（列挙 118 件。すべて Packages/SaydoCore と Packages/SaydoAI。App/Features/Timeline からは 0 件）
+lint-principles: OK
+```
+
+lint の WARN は **118 件で `integration`（`docs/logs/integration-9-test-ios-theme-lock.txt`）と同数**。
+新しく増やしていない。`@unchecked Sendable` / `nonisolated(unsafe)` / `URLSession` / `import Network` は追加していない。
+自作の 5 ファイルからのコンパイラ警告は 0 件（`grep -c 'Features/Timeline.*warning:'` = 0）。
+
+参考として、コミットしていない一時テスト（`ImageRenderer` で `TimelineView` を実際にレイアウトさせるだけのもの）を
+1 回だけ流し、記録あり（2 日 × 3 件）と空状態のどちらも例外なく描けることを確認した（`Executed 2 tests, with 0 failures`）。
+確認後にファイルは削除したので、`task_012-3-render-smoke.txt` は現ツリーには無いテストの記録である点に注意。
+
+### done_definition との対応
+
+| done_definition | 状態 | 根拠 |
+|---|---|---|
+| 当日の全エントリが時刻順に表示され再生できる | **一部検証** | 並び順は `TimelineGroupingTests.testEntriesWithinSectionAreOrderedByTime` で固定。再生は `TimelinePlayback` を書いたが、実際に音が鳴るところは未検証（実機・シミュレータでの操作が要る） |
+| 7 日分 30 件で Instruments のフレーム落ち警告 0 件 | **未検証** | Instruments を回していない。`LazyVStack` + `commitment` の先読みまでが今回の手当て |
+| 記録が無い日と「今日は休む」の日がセクションとして表示されない | **検証済み** | `testEmptyDayHasNoSection` / `testSectionsCoverOnlyRecordedDays`。根拠は上記「設計上の判断 6」 |
+| 空状態に責める文言がない | **検証済み**（目視） | `TimelineCopy.empty` =「ここに、あなたの声が残っていく。」。`Guardrails.bannedPhrases`（未達成 / サボ / 怠け / 言い訳 / 甘え / なぜやらない / また逃げ）と `assertivePhrases`（失敗です 等）と「N 日連続」のいずれにも当たらない |
+| （scope）TabView（今日 / 記録）の導入 | **担当外** | integration-decisions B の割り当てにより `RootView` はエージェント A の所有 |
+
+### 未検証
+
+1. **Instruments のフレーム落ち計測**（done_definition 2）。7 日分 30 件を投入した状態でのスクロール計測を行っていない。
+2. **iPhone SE（4.7 インチ）× Dynamic Type xxxLarge のレイアウト確認**。文字は Dynamic Type で伸びるが、
+   マイク台座（18×32）と再生ボタン（32pt）はグリフが潰れないよう固定サイズにしてある。
+   xxxLarge で行の高さが伸びたときに縦レールが正しく伸びるかは実機で見ていない。
+3. **実際の再生**。`.m4a` を持つエントリでの音の再生と、行を切り替えたときに前の再生が止まることを操作で確かめていない。
+   `TimelinePlayback` の単体テストは書いていない（`Playing` の偽物を置く先が所有ファイルに無いため）。
+4. **`topAccessory` に実物（`InsightCardView`）を入れた見た目**。エージェント E の成果物が未統合。
+
+### 統合時の継ぎ目
+
+1. **`RootView` の記録タブへの差し込み**。現在の init は次の 2 つ。
+
+   ```swift
+   TimelineView(player: player, audioFileStore: store) { InsightCardView(...) }   // 上部に差し込みあり
+   TimelineView(player: player)                                                    // Accessory == EmptyView
+   ```
+
+   - `player` は `any Playing`（`VoicePlayer` をそのまま渡せる）。セッション側と同じインスタンスを共有してよい。
+   - `audioFileStore` は省略可。省略すると `AudioFileStore.applicationSupport()` を遅延で使う。
+   - `@Query` を使うので、`RootView` より上（`SaydoApp` の `.modelContainer(...)`）が既に入っている前提。
+   - 画面は自前で `saydoGround()` を敷き、上部余白 62pt・左右 30pt を持つ。`NavigationStack` に入れる場合は
+     二重の余白にならないか確認すること。
+   - タブを離れると `onDisappear` で再生を止める。
+2. **`topAccessory` の使い方**。ロゴ（SAYDO）の直下、最初の日付セクションの上に、左右 30pt の余白の内側で
+   そのまま置かれる。差し込む側が自分で余白や区切りを持つ必要はない。データ不足のときは
+   `EmptyView` を返してもらえば、`LazyVStack` の間隔だけが残る。
+3. **`init` の引数が指示と違う**（設計上の判断 1）。`repository` は受け取らない。
+   `RootView` 側が `Repository` を持っていても渡す必要はない。
+4. **`VoiceEntry` → `VoiceEntrySnapshot` の変換が `Repository` と重複している**
+   （`TimelineQuery.snapshot(of:)`）。`Repository` 側の同名メソッドが private なので画面側に置いた。
+   統合で共通化するなら `Repository.swift`（F の所有）に internal な変換を出すのが素直。
+5. **寸法定数**（設計上の判断 4）。`SaydoTheme.Metric` に 32pt / 44pt / 18pt を移すなら、
+   `VoiceEntryRow.Metric` と `TimelineLayout` を差し替える。
+
+### 人間の確認待ち
+
+1. 実機（または Simulator）で記録タブを開き、(a) 7 日分 30 件のスクロールを Instruments で計測、
+   (b) iPhone SE × xxxLarge でレールと行が崩れないか、(c) 行の再生と切り替えで音が正しく止まるか、を確認する。
+   いずれも `RootView` に `TimelineView` が組み込まれてからでないと実行できない。
+2. 空状態の文言「ここに、あなたの声が残っていく。」の採否。
+
+### 環境メモ
+
+`scripts/test-ios.sh` が 2 回、`Simulator device failed to launch com.nonturn.saydo.` /
+`Application failed preflight checks` (`Busy`) で exit 65 になった。どちらもそのまま再実行すると exit 0 になった。
+lock は test-ios 同士しか直列化しないため、他の worktree の `build-ios.sh` と重なるとシミュレータが取り合いになる可能性がある。
+コードの失敗ではないが、他エージェントが同じ症状を見たときのために記録しておく。
