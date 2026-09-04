@@ -16,6 +16,9 @@ packages:
 
 settings:
   base:
+    # 実機ビルドと TestFlight 用のチーム ID。環境変数 SAYDO_TEAM_ID から入れる
+    # （scripts/build-device.sh / archive-testflight.sh が渡す。未設定ならシミュレータ専用）。
+    DEVELOPMENT_TEAM: ${SAYDO_TEAM_ID}
     SWIFT_VERSION: "6.0"
     SWIFT_STRICT_CONCURRENCY: complete
     SWIFT_UPCOMING_FEATURE_EXISTENTIAL_ANY: YES

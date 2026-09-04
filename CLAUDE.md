@@ -42,7 +42,7 @@ SAYDO/
 - ネットワーク層は存在しない。SwiftData と端末内の音声ファイルだけを使う。
 - ユーザー向け文言は `*Copy`（`DialogueCopy` / `NotificationCopy` / `InsightCopy`）に置き、View と ViewModel に直書きしない。lint は名前が `Copy.swift` で終わるファイルだけを除外する。
 
-## 2. 検証コマンド（5 本。エージェントは xcodebuild を直接叩かない）
+## 2. 検証コマンド（5 本 + 実機・配布 2 本。エージェントは xcodebuild を直接叩かない）
 
 | コマンド | 内容 |
 |---|---|
@@ -51,6 +51,8 @@ SAYDO/
 | `scripts/build-mac.sh <scheme>` | macOS ターゲットをビルド（例: `scripts/build-mac.sh fm-probe`） |
 | `scripts/test-core.sh` | `swift test --package-path Packages/SaydoCore` → 続けて lint-principles.sh |
 | `scripts/lint-principles.sh` | `App/` と `Packages/*/Sources` から URLSession / import Network / @unchecked Sendable / nonisolated(unsafe) を検出して exit 1。Copy 以外の日本語リテラルは警告 |
+| `SAYDO_TEAM_ID=… scripts/build-device.sh [scheme] [--no-launch]` | 繋いだ iPhone に Debug ビルドをインストールして起動（Automatic 署名。Xcode の Apple ID か App Store Connect API キーが要る） |
+| `SAYDO_TEAM_ID=… scripts/archive-testflight.sh [build-number]` | Release でアーカイブし App Store Connect にアップロード（TestFlight 内部配布）。`scripts/ExportOptions-testflight.plist` を使う |
 
 `Saydo.xcodeproj` は `project.yml` からの生成物で、リポジトリには含めない。`build-ios.sh` / `test-ios.sh` / `build-mac.sh` が先頭で `scripts/generate-project.sh` を呼んで毎回作り直す（xcodegen が無ければ exit 3）。手で作りたいときは `xcodegen generate`。
 
