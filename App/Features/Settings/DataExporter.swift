@@ -305,7 +305,7 @@ struct DataExportBuilder: Sendable {
         }
 
         var coordinatorError: NSError?
-        var copyError: Error?
+        var copyError: (any Error)?
         NSFileCoordinator().coordinate(
             readingItemAt: directory,
             options: [.forUploading],
