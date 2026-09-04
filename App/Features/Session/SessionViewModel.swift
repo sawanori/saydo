@@ -1,6 +1,7 @@
 import AVFoundation
 import Foundation
 import Observation
+import OSLog
 import SwiftData
 import SaydoCore
 
@@ -285,6 +286,8 @@ final class SessionViewModel {
     private let tier: DialogueTier
     private let calendar: Calendar
     private let now: @Sendable () -> Date
+    /// 実機での切り分け用（Console: subsystem com.nonturn.saydo category session）。本人の言葉は長さだけ出す。
+    private let logger = Logger(subsystem: "com.nonturn.saydo", category: "session")
 
     // MARK: 内部の状態
 
@@ -507,6 +510,7 @@ final class SessionViewModel {
     /// 沈黙の待ち時間が尽きた。1 回目は催促、2 回目はその質問をスキップする
     /// （分岐は `FlowMachine` が `silenceCount` で持つ）。沈黙の見張りから呼ぶ。
     func silenceElapsed() async {
+        logger.info("silence watch fired heardSpeech=\(self.detector.hasHeardSpeech, privacy: .public)")
         stopListening()
         await handle(.timeout(.silence))
     }
@@ -556,7 +560,31 @@ final class SessionViewModel {
 
     private func handle(_ event: FlowEvent) async {
         guard let current = state else { return }
-        await apply(FlowMachine.handle(event, in: current))
+        let transition = FlowMachine.handle(event, in: current)
+        logger.info("event \(Self.describe(event), privacy: .public) step \(String(describing: current.step), privacy: .public) -> \(String(describing: transition.state.step), privacy: .public) retry=\(transition.state.retryCount, privacy: .public)")
+        await apply(transition)
+    }
+
+    /// ログ用。本人の言葉（transcript）は中身を出さず長さだけにする。
+    private static func describe(_ event: FlowEvent) -> String {
+        switch event {
+        case .transcript(let text): "transcript(\(text.count)chars)"
+        default: String(describing: event)
+        }
+    }
+
+    private static func describe(_ command: FlowCommand) -> String {
+        switch command {
+        case .speak(let line): "speak(\(line.count))"
+        case .listen(let request): "listen(\(request.input),\(request.silenceSeconds)s)"
+        case .showChoices(let list): "choices(\(list.count))"
+        case .record: "record"
+        case .play: "play"
+        case .save(let instruction): "save(\(instruction.kind))"
+        case .scheduleNotification(let request): "schedule(\(request.kind))"
+        case .cancelNotification(let kind): "cancel(\(kind))"
+        case .finish(let completion): "finish(\(completion))"
+        }
     }
 
     private func apply(_ transition: FlowTransition) async {
@@ -573,6 +601,7 @@ final class SessionViewModel {
             phase = .playback
             return
         }
+        logger.info("commands \(transition.commands.map(Self.describe).joined(separator: ","), privacy: .public)")
         for command in transition.commands {
             await run(command)
         }
@@ -652,13 +681,17 @@ final class SessionViewModel {
         spokenLine = line
         // TTS 発話中は STT へ流さない（実装計画 §7.3 の半二重）。
         // 「耳に当てて聞く」を選んだ日は読み上げも受話口から出す（retention R8）。
+        let startedAt = ContinuousClock.now
         await synthesizer.speak(line, preferReceiver: listenMode == .receiver)
+        let elapsed = ContinuousClock.now - startedAt
+        logger.info("speak done chars=\(line.count, privacy: .public) elapsed=\(elapsed, privacy: .public)")
     }
 
     // MARK: - 聞く
 
     private func beginListening(_ request: ListenRequest) async {
         pendingListen = request
+        logger.info("listen begin step=\(String(describing: request.step), privacy: .public) input=\(String(describing: request.input), privacy: .public) silence=\(request.silenceSeconds, privacy: .public)s")
         examples = request.examples
         partialTranscript = ""
         lastRecording = nil
@@ -682,6 +715,7 @@ final class SessionViewModel {
             startSilenceWatch(seconds: request.silenceSeconds)
         } catch {
             // 録音が始められない日でも会話は止めない。テキスト経路に落とす。
+            logger.error("listen start failed: \(error.localizedDescription, privacy: .public) -> text fallback")
             notice = .micDenied
             phase = .error(.micDenied)
             var fallback = request
@@ -716,21 +750,28 @@ final class SessionViewModel {
         captureTask?.cancel()
         captureTask = Task { [weak self] in
             var elapsed: TimeInterval = 0
+            var peakRMS: Float = 0
+            var levelCount = 0
             for await event in session.events {
                 guard let self, !Task.isCancelled else { return }
                 switch event {
                 case .level(let rms, let duration):
                     elapsed += duration
+                    peakRMS = max(peakRMS, rms)
+                    levelCount += 1
                     self.waveform.append(rms: rms)
                     self.partialTranscript = self.transcriber.volatileText
                     if self.detector.feed(rms: rms, duration: duration) {
+                        self.logger.info("listen end reason=silence elapsed=\(elapsed, privacy: .public) peakRMS=\(peakRMS, privacy: .public) levels=\(levelCount, privacy: .public) partial=\(self.partialTranscript.count, privacy: .public)chars")
                         await self.finishListening(relativePath: relativePath, duration: elapsed)
                         return
                     }
                 case .reachedLimit:
+                    self.logger.info("listen end reason=limit elapsed=\(elapsed, privacy: .public) peakRMS=\(peakRMS, privacy: .public) heard=\(self.detector.hasHeardSpeech, privacy: .public)")
                     await self.finishListening(relativePath: relativePath, duration: elapsed)
                     return
-                case .failed:
+                case .failed(let fault):
+                    self.logger.error("listen end reason=failed \(String(describing: fault), privacy: .public) elapsed=\(elapsed, privacy: .public)")
                     await self.finishListening(relativePath: relativePath, duration: elapsed)
                     return
                 }
@@ -744,7 +785,9 @@ final class SessionViewModel {
         captureTask = nil
         capture.stop()
         phase = .thinking
+        let startedAt = ContinuousClock.now
         let text = await transcriber.finish()
+        logger.info("transcript ready chars=\(text.count, privacy: .public) finalize=\(ContinuousClock.now - startedAt, privacy: .public) recorded=\(duration, privacy: .public)s")
         transcriber.reset()
         lastRecording = (relativePath, duration)
         await handle(.transcript(text))

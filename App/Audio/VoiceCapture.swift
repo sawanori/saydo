@@ -1,5 +1,6 @@
 import Accelerate
 import AVFoundation
+import OSLog
 import Foundation
 import Speech
 import Synchronization
@@ -188,6 +189,7 @@ final class VoiceCapture: VoiceCapturing {
     private(set) var isCapturing = false
     private(set) var recordingURL: URL?
     var limit: VoiceCaptureLimit = .utterance
+    private let logger = Logger(subsystem: "com.nonturn.saydo", category: "capture")
 
     /// タップに渡すバッファ長。スパイクで使った値をそのまま採用する。
     static let tapBufferSize: AVAudioFrameCount = 4096
@@ -211,6 +213,8 @@ final class VoiceCapture: VoiceCapturing {
         guard inputFormat.sampleRate > 0, inputFormat.channelCount > 0 else {
             throw VoiceCaptureFault.inputUnavailable
         }
+        let analyzerDescription = analyzerFormat.map { "\($0.sampleRate)Hz/\($0.channelCount)ch" } ?? "nil"
+        logger.info("capture start input=\(inputFormat.sampleRate, privacy: .public)Hz/\(inputFormat.channelCount, privacy: .public)ch analyzer=\(analyzerDescription, privacy: .public) limit=\(self.limit.seconds, privacy: .public)s")
 
         // タップのクロージャは @Sendable なので、捕捉する値は let にしておく。
         let converter: AVAudioConverter?

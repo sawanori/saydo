@@ -1,0 +1,29 @@
+⚙️  Generating plists...
+⚙️  Generating project...
+⚙️  Writing project...
+Created project at /Users/noritakasawada/AI_P/SAYDO/Saydo.xcodeproj
+build-device: scheme=Saydo team=2WWB6ZA7A9 device=00008140-00111C222893C01C
+Command line invocation:
+    /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild build -project Saydo.xcodeproj -scheme Saydo -configuration Debug -destination id=00008140-00111C222893C01C -derivedDataPath /Users/noritakasawada/Ai_p/SAYDO/build/device -allowProvisioningUpdates -allowProvisioningDeviceRegistration CODE_SIGN_STYLE=Automatic DEVELOPMENT_TEAM=2WWB6ZA7A9
+
+Build settings from command line:
+    CODE_SIGN_STYLE = Automatic
+    DEVELOPMENT_TEAM = 2WWB6ZA7A9
+
+Resolve Package Graph
+
+
+Resolved source packages:
+  SaydoAI: /Users/noritakasawada/AI_P/SAYDO/Packages/SaydoAI
+  SaydoCore: /Users/noritakasawada/AI_P/SAYDO/Packages/SaydoCore
+
+2026-09-04 13:56:39.136 xcodebuild[36263:356895] Writing error result bundle to /var/folders/h6/2q0crwpx3zx94d5zxclh_f5c0000gn/T/ResultBundle_2026-04-09_13-56-0039.xcresult
+xcodebuild: error: Unable to find a destination matching the provided destination specifier:
+		{ id:00008140-00111C222893C01C }
+
+	Available destinations for the "Saydo" scheme:
+		{ platform:macOS, arch:arm64, variant:Designed for [iPad,iPhone], id:00008132-0006208211F0801C, name:My Mac }
+		{ platform:iOS, id:dvtdevice-DVTiPhonePlaceholder-iphoneos:placeholder, name:Any iOS Device }
+		{ platform:iOS Simulator, id:dvtdevice-DVTiOSDeviceSimulatorPlaceholder-iphonesimulator:placeholder, name:Any iOS Simulator Device }
+		{ platform:iOS Simulator, arch:arm64, id:9D2D913B-5C7B-4969-B86C-C69CDFE434E2, OS:26.3.1, name:iPhone 17 }
+EXIT=70

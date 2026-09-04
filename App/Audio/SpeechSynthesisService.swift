@@ -1,4 +1,5 @@
 import AVFoundation
+import OSLog
 import Foundation
 import Observation
 
@@ -95,6 +96,7 @@ final class SpeechSynthesisService: Synthesizing {
     var hasHighQualityJapaneseVoice: Bool { voiceQuality >= .enhanced }
 
     @ObservationIgnored private let synthesizer = AVSpeechSynthesizer()
+    @ObservationIgnored private let logger = Logger(subsystem: "com.nonturn.saydo", category: "tts")
     @ObservationIgnored private var delegate: SynthesizerDelegate?
     @ObservationIgnored private weak var sessionController: (any AudioSessionControlling)?
     /// 設定画面で選んだ音声の識別子を返す。発話のたびに読むので、設定変更が次の発話から効く。
@@ -127,19 +129,35 @@ final class SpeechSynthesisService: Synthesizing {
 
         let utterance = AVSpeechUtterance(string: text)
         utterance.voice = Self.preferredJapaneseVoice(identifier: voiceIdentifier())
+        let startedAt = ContinuousClock.now
+        var didStart = false
+        var lastEvent = "none"
         synthesizer.speak(utterance)
 
         for await event in events {
             switch event {
             case .started:
                 isSpeaking = true
-            case .finished, .cancelled:
+                didStart = true
+                lastEvent = "started"
+            case .finished:
                 isSpeaking = false
+                lastEvent = "finished"
+            case .cancelled:
+                isSpeaking = false
+                lastEvent = "cancelled"
             }
         }
         isSpeaking = false
         self.delegate = nil
         synthesizer.delegate = nil
+        let elapsed = ContinuousClock.now - startedAt
+        let voiceID = utterance.voice?.identifier ?? "nil"
+        if didStart {
+            logger.info("utterance chars=\(text.count, privacy: .public) end=\(lastEvent, privacy: .public) elapsed=\(elapsed, privacy: .public) voice=\(voiceID, privacy: .public)")
+        } else {
+            logger.error("utterance never started chars=\(text.count, privacy: .public) end=\(lastEvent, privacy: .public) elapsed=\(elapsed, privacy: .public) voice=\(voiceID, privacy: .public)")
+        }
     }
 
     func stop() {

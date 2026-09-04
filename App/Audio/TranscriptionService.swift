@@ -1,4 +1,5 @@
 import AVFoundation
+import OSLog
 import Foundation
 import Observation
 import Speech
@@ -61,6 +62,9 @@ final class TranscriptionService: Transcribing {
     private(set) var isRunning = false
 
     private var transcriber: SpeechTranscriber?
+    private let logger = Logger(subsystem: "com.nonturn.saydo", category: "stt")
+    private var partialCount = 0
+    private var finalCount = 0
     private var analyzer: SpeechAnalyzer?
     private var resultsTask: Task<Void, Never>?
     private var progressTask: Task<Void, Never>?
@@ -83,11 +87,25 @@ final class TranscriptionService: Transcribing {
         }
 
         let installed = await SpeechTranscriber.installedLocales
-        if installed.contains(where: { $0.identifier(.bcp47).hasPrefix("ja") }) {
+        let isInstalled = installed.contains(where: { $0.identifier(.bcp47).hasPrefix("ja") })
+        if isInstalled {
             assetState = .installed
         } else {
             try await downloadAssets(for: transcriber)
         }
+        // ロケールの割り当て。無いと「Cannot use modules with unallocated locales」になる
+        // （実機ログで確認。task_004 スパイクの SpikeAudio.swift と同じ手当て）。
+        let reserved = await AssetInventory.reservedLocales
+        let isReserved = reserved.contains(where: { $0.identifier(.bcp47).hasPrefix("ja") })
+        if !isReserved {
+            do {
+                let ok = try await AssetInventory.reserve(locale: Self.locale)
+                logger.info("reserve ja-JP -> \(ok, privacy: .public) (max \(AssetInventory.maximumReservedLocales, privacy: .public))")
+            } catch {
+                logger.error("reserve ja-JP failed: \(error.localizedDescription, privacy: .public)")
+            }
+        }
+        logger.info("prepare installed=\(isInstalled, privacy: .public) reserved=\(isReserved, privacy: .public) supported=\(supported.count, privacy: .public)")
 
         guard let format = await SpeechAnalyzer.bestAvailableAudioFormat(compatibleWith: [transcriber]) else {
             throw TranscriptionFault.noAnalyzerFormat
@@ -143,12 +161,16 @@ final class TranscriptionService: Transcribing {
                     if result.isFinal {
                         self.finalText += text
                         self.volatileText = ""
+                        self.finalCount += 1
                     } else {
                         self.volatileText = text
+                        self.partialCount += 1
                     }
                 }
+                self.logger.info("results ended finals=\(self.finalCount, privacy: .public) partials=\(self.partialCount, privacy: .public) finalChars=\(self.finalText.count, privacy: .public)")
             } catch {
                 // ストリームの終了はここに来る。確定済みのテキストはそのまま残す。
+                self.logger.error("results stream error: \(error.localizedDescription, privacy: .public) finals=\(self.finalCount, privacy: .public) partials=\(self.partialCount, privacy: .public)")
                 self.volatileText = ""
             }
         }
@@ -158,7 +180,13 @@ final class TranscriptionService: Transcribing {
         guard isRunning else { return finalText }
         isRunning = false
         // 入力側（VoiceCapture）の continuation が finish 済みであることが前提。
-        try? await analyzer?.finalizeAndFinishThroughEndOfInput()
+        let startedAt = ContinuousClock.now
+        do {
+            try await analyzer?.finalizeAndFinishThroughEndOfInput()
+        } catch {
+            logger.error("finalize failed: \(error.localizedDescription, privacy: .public)")
+        }
+        logger.info("finalize took \(ContinuousClock.now - startedAt, privacy: .public) volatileChars=\(self.volatileText.count, privacy: .public)")
         await resultsTask?.value
         resultsTask = nil
         analyzer = nil
@@ -179,5 +207,7 @@ final class TranscriptionService: Transcribing {
     func reset() {
         volatileText = ""
         finalText = ""
+        partialCount = 0
+        finalCount = 0
     }
 }
