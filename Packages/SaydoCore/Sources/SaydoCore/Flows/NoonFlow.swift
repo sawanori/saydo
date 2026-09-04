@@ -9,7 +9,8 @@ public enum NoonFlow {
     public enum Entrance: String, Sendable, Equatable, Hashable, Codable {
         /// 当日の `Commitment` が無い。短縮版の朝フロー（M0 → M2 → M4）を開く。
         case shortMorning
-        /// すでに `done`。固定の昼通知と行動時刻通知を取り消して終わる。
+        /// すでに `done` か `partial`（少しやった = 前進。fix-decisions P2.5 / P2.6）。
+        /// 固定の昼通知と行動時刻通知を取り消して終わる。
         case alreadyDone
         /// 行動時刻より前。「まだ生きてる？」だけ聞いて終わる。
         case promiseCheck
@@ -20,7 +21,7 @@ public enum NoonFlow {
     /// 入口の条件を判定する。
     public static func entrance(_ entry: FlowEntry) -> Entrance {
         if !entry.hasCommitmentToday { return .shortMorning }
-        if entry.outcome == .done { return .alreadyDone }
+        if entry.outcome.isProgress { return .alreadyDone }
         if entry.isBeforePlannedTime { return .promiseCheck }
         return .playback
     }

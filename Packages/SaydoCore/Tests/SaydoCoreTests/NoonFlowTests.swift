@@ -29,6 +29,8 @@ final class NoonFlowTests: XCTestCase {
     func testEntranceClassification() {
         XCTAssertEqual(NoonFlow.entrance(noonEntry(hasCommitmentToday: false)), .shortMorning)
         XCTAssertEqual(NoonFlow.entrance(noonEntry(outcome: .done)), .alreadyDone)
+        XCTAssertEqual(NoonFlow.entrance(noonEntry(outcome: .partial)), .alreadyDone)
+        XCTAssertEqual(NoonFlow.entrance(noonEntry(outcome: .notYet)), .playback)
         XCTAssertEqual(NoonFlow.entrance(noonEntry(isBeforePlannedTime: true)), .promiseCheck)
         XCTAssertEqual(NoonFlow.entrance(noonEntry()), .playback)
         XCTAssertEqual(
