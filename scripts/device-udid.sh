@@ -1,5 +1,5 @@
 #!/bin/bash
-# USB / Wi-Fi で繋がっている iPhone の CoreDevice 識別子を 1 つ返す。
+# USB / Wi-Fi で繋がっている iPhone の UDID（xcodebuild の -destination id= と devicectl --device の両方で使える形）を 1 つ返す。
 # 使い方: scripts/device-udid.sh   （SAYDO_DEVICE_UDID が設定済みならそれを優先）
 set -euo pipefail
 
@@ -23,7 +23,7 @@ for d in devices:
         continue
     if conn.get("pairingState") != "paired":
         continue
-    print(d["identifier"])
+    print(hw.get("udid") or d["identifier"])
     break
 else:
     sys.exit(1)
