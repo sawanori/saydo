@@ -2389,3 +2389,34 @@ EXIT=0
 2. Apple Developer の App ID `com.nonturn.saydo` に Time Sensitive Notifications capability を付けてプロファイルを再発行する（実機ビルドの前に必要）。
 3. 実機: 朝フロー 3 回（起動 → TTS 1.5 秒、タップ 0 回で M4、中央値 3 分）、通知タップ → SessionView 直行、R8 の確認表示（イヤホン無し・音量大）、受話口 + 近接、通知長押しのアクション 2 つと 60 分後の再通知、夜 → 翌朝の引き継ぎ、オンボーディングが初回だけ、iPhone SE × xxxLarge、7 日分 30 件での Instruments。
 4. TestFlight 内部配布 #1（Archive してビルド番号を PROGRESS に記録）。
+
+## device-1 — 実機への初回インストールと TestFlight 内部配布 #1（task_010 scope の配布項目）
+
+- 日時: 2026-09-04
+- 状態: done（インストール・起動・アップロードまで。実機での操作確認はこの後、人間が `docs/device/device-check-2026-09-04.md` に沿って行う）
+- 環境: iPhone 16 Pro Max（iOS 26.6、UDID `00008140-00111C222893C01C`、Developer Mode 有効）、Xcode 26.2、Team `2WWB6ZA7A9`
+
+### やったこと
+
+| 手順 | 結果 | ログ |
+|---|---|---|
+| 自動署名の検証（generic iOS、Debug） | BUILD SUCCEEDED。Apple Development 証明書（T4FNV2R89Z）とプロファイル 3 本が自動作成。entitlements に `com.apple.developer.usernotifications.time-sensitive` = true、TeamIdentifier 2WWB6ZA7A9 | `docs/logs/device-2-signing-probe-generic-ios.txt` |
+| `SAYDO_TEAM_ID=2WWB6ZA7A9 scripts/build-device.sh` | 1 回目は iPhone が unavailable（接続切れ）で destination 不一致（exit 70）。再接続後に BUILD SUCCEEDED → `devicectl` で install → launch 成功、exit 0。ビルド警告 0 | `docs/logs/device-1-build-device.txt`（失敗）、`docs/logs/device-4-build-device-install.txt`（成功） |
+| `scripts/archive-testflight.sh` | ARCHIVE SUCCEEDED（Release、build **202609041358**）。export は 1 回目に App Store Connect の App レコード無しで失敗（`IDEDistributionFetchAppRecordStep`、`AppsService: fetched 0 items`） | `docs/logs/device-3-archive-testflight.txt`、`device-3-archive-testflight-export.txt` |
+| App レコード作成後に `SAYDO_REUSE_ARCHIVE=1` で再アップロード | **Upload succeeded**（`Uploaded Saydo`、EXPORT SUCCEEDED、exit 0）。App Store Connect 側で処理中 | `docs/logs/device-5-testflight-upload.txt` |
+
+### 直したもの
+
+- `scripts/build-device.sh` / `archive-testflight.sh`: bash 3.2 の `set -u` で空配列 `"${AUTH_ARGS[@]}"` が unbound になる → `${AUTH_ARGS[@]+"${AUTH_ARGS[@]}"}`。
+- `scripts/device-udid.sh`: xcodebuild と devicectl の両方で使える UDID（`hardwareProperties.udid`）を返す。
+- `archive-testflight.sh`: `SAYDO_REUSE_ARCHIVE=1` で既存アーカイブをアップロードだけやり直せる。
+
+### 未検証
+
+- 実機での操作は全て未確認（チェックリスト A〜F）。オンボーディング、朝フロー 3 回、通知、昼・夜、記録、設定。
+- TestFlight の処理完了と内部テスターへの配信（App Store Connect の TestFlight タブで確認）。
+
+### 人間の確認待ち
+
+1. App Store Connect → TestFlight でビルド 202609041358 の処理完了を待ち、内部テスト（Internal Testing）グループに自分を追加して TestFlight アプリから入れる。
+2. `docs/device/device-check-2026-09-04.md` の A・B を実施し、結果を記入する。
