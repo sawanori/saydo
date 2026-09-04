@@ -1,0 +1,2 @@
+# 進捗ログは各ブランチが末尾に追記するので、マージ時は両方を残す。
+docs/PROGRESS.md merge=union
