@@ -212,7 +212,9 @@ public struct NotificationPlan: Sendable, Hashable {
     /// 1. 固定通知は `planningDayCount(for:)` 日ぶんを先読みし、`now` より後のものだけ登録する。
     /// 2. 週末オフのときは土日の固定通知を出さない。行動時刻通知は本人が決めた時刻なので出す。
     /// 3. 当日の固定の昼通知は、(a) 行動時刻と 30 分以内に重なるとき、
-    ///    または (b) 計画時点でまだ行動時刻に達していないときは出さない（先に行動時刻通知が来る）。
+    ///    または (b) 昼の発火時刻が行動時刻より前のときは出さない（先に行動時刻通知が来る）。
+    ///    計画は朝の宣言直後にも立てるので、判定の基準は計画時点の `now` ではなく昼の発火時刻にする。
+    ///    `now` 基準だと未来の行動時刻を持つ日は必ず昼が消え、行動時刻通知を見送った人に「どうだった？」が届かない。
     /// 4. 当日の `outcome` が `.done` / `.partial` なら、当日の昼通知と行動時刻通知を取り消す。
     /// 5. 行動時刻通知は `plannedAt` が入ってから（＝朝の宣言 M4 の後）登録する。
     public static func make(
@@ -250,7 +252,7 @@ public struct NotificationPlan: Sendable, Hashable {
 
                 if isToday, slot == .noon {
                     if madeProgress { continue }
-                    if shouldSkipTodayNoon(noonFireDate: fireDate, now: now, plannedAt: today.plannedAt) {
+                    if shouldSkipTodayNoon(noonFireDate: fireDate, plannedAt: today.plannedAt) {
                         if !cancelled.contains(todayNoonIdentifier) {
                             cancelled.append(todayNoonIdentifier)
                         }
@@ -293,12 +295,13 @@ public struct NotificationPlan: Sendable, Hashable {
     // MARK: - 内部
 
     /// 当日の固定の昼通知を出さない条件（規則 3）。
-    static func shouldSkipTodayNoon(noonFireDate: Date, now: Date, plannedAt: Date?) -> Bool {
+    static func shouldSkipTodayNoon(noonFireDate: Date, plannedAt: Date?) -> Bool {
         guard let plannedAt else { return false }
         // (a) 行動時刻通知と 30 分以内に重なる。
         if abs(noonFireDate.timeIntervalSince(plannedAt)) <= noonOverlapWindow { return true }
-        // (b) まだ行動時刻に達していない。行動する前に「覚えてる？」とは聞かない。
-        if now < plannedAt { return true }
+        // (b) 昼が鳴る時点でまだ行動時刻に達していない。行動する前に「どうだった？」とは聞かない。
+        //     行動時刻が昼より前なら、行動時刻通知を見送った人への確認として昼を残す。
+        if noonFireDate < plannedAt { return true }
         return false
     }
 

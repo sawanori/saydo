@@ -215,6 +215,39 @@ final class NotificationPlanTests: XCTestCase {
         XCTAssertTrue(identifiers(plan).contains("noon-20260905"))
     }
 
+    func testNoonKeptWhenPlannedTimeIsBeforeNoonEvenIfStillAhead() {
+        // 朝の宣言直後（now 7:30）で行動時刻 10:00 はまだ先だが、昼 12:30 より前に来る。
+        // 昼は「行動時刻通知を見送った人への確認」として残す。計画時点の now で判定すると
+        // ここで昼が消え、行動時刻通知を無視した日に「どうだった？」が一度も届かない。
+        let plan = NotificationPlan.make(
+            now: date(2026, 9, 4, 7, 30),
+            settings: settings(mode: .thrice),
+            today: DayCommitment(plannedAt: date(2026, 9, 4, 10, 0)),
+            calendar: calendar
+        )
+
+        XCTAssertTrue(identifiers(plan).contains("noon-20260904"))
+        XCTAssertFalse(plan.cancelledIdentifiers.contains("noon-20260904"))
+        XCTAssertTrue(identifiers(plan).contains("action-20260904"))
+    }
+
+    func testNoonSkipDependsOnNoonFireTimeNotPlanningTime() {
+        // 純関数で直接: 昼 12:30、行動時刻 15:00 は昼が先に鳴るので出さない。
+        XCTAssertTrue(
+            NotificationPlan.shouldSkipTodayNoon(
+                noonFireDate: date(2026, 9, 4, 12, 30),
+                plannedAt: date(2026, 9, 4, 15, 0)
+            )
+        )
+        // 行動時刻 10:00 は昼より前なので昼は出す（計画時点の時刻は判定に使わない）。
+        XCTAssertFalse(
+            NotificationPlan.shouldSkipTodayNoon(
+                noonFireDate: date(2026, 9, 4, 12, 30),
+                plannedAt: date(2026, 9, 4, 10, 0)
+            )
+        )
+    }
+
     func testNoonKeptOnDaysWithoutCommitment() {
         let plan = NotificationPlan.make(
             now: date(2026, 9, 4, 5, 0),
