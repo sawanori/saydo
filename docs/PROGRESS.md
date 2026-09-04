@@ -2308,3 +2308,84 @@ font / lineSpacing / color をそのまま使い、字送りだけ当てない�
 1. 実機で朝フローを 3 回通し、TTS 開始までの時間・タップ回数・所要時間の中央値を記録する（task_008 の done_definition 3 項目）。
 2. iPhone SE（3 世代）＋ Dynamic Type xxxLarge で理由チップ 7 個が 1 画面に収まるか。
 3. `SaydoTheme.saydoText` の `tracking` を残すか捨てるかの判断（意匠 0.02em と、和文の折り返しが壊れないことのどちらを取るか）。
+
+## integration-2 — 第 2 波（UI 6 画面と継ぎ目）の統合
+
+- 日時: 2026-09-04
+- 状態: done（統合ツリーで `scripts/test-core.sh` と `scripts/test-ios.sh` が exit 0。実機項目と TestFlight 内部配布 #1 は未実施）
+- ブランチ / コミット: `integration` / 1042720（準備）〜 db2227e（継ぎ目の配線）
+- 統合したブランチ（マージ順）: `task/009-residual`（bd444ff）→ `task/013-onboarding-settings`（8d0939b）→ `task/012-timeline`（ca5004d）→ `task/010-noon-night`（9c744a1）→ `task/016-insight-view`（cc19a86）→ `task/008-session-ui`（c7a1898）。各ブランチの中身と証拠は上の各エントリ（task_009-residual / task_013 / task_012 / task_010・011 / task_016-app / task_008-ui）。
+- 設計判断と所有ファイルの割り当ては `docs/review/integration-decisions-2026-09-04.md`（D1〜D12）。
+
+### 統合セッションの修正（各ブランチのエントリに無いもの）
+
+| コミット | 内容 | 出どころ |
+|---|---|---|
+| 1042720 | `scripts/test-ios.sh` の排他ロック（複数 worktree の同時実行で 1 台のシミュレータを取り合わない）、`App/Features/Shared/SaydoTheme.swift`（配色・文字階層の唯一の出所）、integration-decisions D1〜D11 | 第 2 波の準備 |
+| fb18bf9 | `DataExporter.copyError` を `(any Error)?` に。existential の警告 1 件を解消 | task_009-residual のフルビルドで発見（task_019-core 由来） |
+| 2f47a77 | `.gitattributes` で `docs/PROGRESS.md` を union マージに | 6 ブランチが末尾に追記するため |
+| 86d2016 | `NoonFlow.entrance` を `outcome == .done` から `outcome.isProgress` に。「少しやった」の日も昼・行動時刻通知を再度出さない。NoonFlowTests に 2 assertion 追加 | task_010 の継ぎ目 1（fix-decisions P2.5 / P2.6） |
+| fc2c793 | B の `TimelineView` を `VoiceTimelineView` に改名（D12）。`SpeechSynthesisService` が `AppSettings.speechVoiceIdentifier` を発話のたびに読む | integration-14 の exit 65（SwiftUI.TimelineView との衝突）、task_013 の継ぎ目 4 |
+| db2227e | 継ぎ目の配線: RootView の実画面化、SessionView に PlaybackCardView / ListenModeSheet、AppRouter（AudioSessionController の共有・起動時 `reschedule`・`isQuietMode`・`startManualSession(_:)`・`sessionGeneration`・`reloadOnboardingState`）、SessionViewModel の AVAudioSession activate / deactivate、`NotificationScheduler+SessionScheduling` が `rescheduleAfterDeclaration`、SaydoTheme の tracking を折り返す役割から外す、**選択に応じた `AvoidanceItem.status` の更新**（task_011 scope。`Repository.updateAvoidanceStatus`、SessionViewModelTests +5、RepositoryTests +1） | integration-decisions §B の継ぎ目 5 点 + task_008-ui / task_010 / task_011 の申し送り |
+
+### 証拠
+
+| コマンド | exit code | ログ |
+|---|---|---|
+| `scripts/test-ios.sh`（準備コミット 1042720） | 0（SaydoTests 89） | `docs/logs/integration-9-test-ios-theme-lock.txt` |
+| `scripts/build-ios.sh`（fb18bf9） | 0（DataExporter の警告 0） | `docs/logs/integration-10-build-ios-dataexporter-any.txt` |
+| `scripts/build-ios.sh`（D + C） | 0 | `docs/logs/integration-11-build-ios-after-D-C.txt` |
+| `scripts/build-ios.sh`（D + C + B） | 0 | `docs/logs/integration-12-build-ios-after-D-C-B.txt` |
+| `scripts/test-core.sh`（86d2016） | 0（SaydoCore 208 / SaydoAI 33） | `docs/logs/integration-13-test-core-noon-partial.txt` |
+| `scripts/test-ios.sh`（D + C + B + F + E） | **65**（`PlaybackCardView.swift:62` で `TimelineView(.animation)` が B の型に解決。fc2c793 で解消） | `docs/logs/integration-14-test-ios-after-D-C-B-F-E.txt` |
+| `scripts/build-ios.sh`（改名後） | 0 | `docs/logs/integration-15-build-ios-rename-voicetimeline.txt` |
+| `scripts/test-ios.sh`（改名後、A 未統合） | 0（SaydoTests 126） | `docs/logs/integration-16-test-ios-after-rename.txt` |
+| `scripts/test-ios.sh`（**最終** db2227e） | **0**（SaydoTests **139** / lint OK / ソース由来の warning 0） | `docs/logs/integration-17-test-ios-all-six.txt` |
+| `scripts/test-core.sh`（**最終** db2227e） | **0**（SaydoCore **208** / SaydoAI 33 / lint OK） | `docs/logs/integration-18-test-core-final.txt` |
+
+スイート別件数（iOS、最終）: AppRouter 7 / AppSettings 13 / AudioFileStore 8 / DataExporter 11 / DeepLink 23 / InsightViewModel 8 / Repository 20 / SessionViewModel 29 / SilenceDetector 13 / Smoke 1 / TimelineGrouping 6 = 139（integration 時 89 → +50）。
+SaydoCore は 192 → 208（NotificationPlan 25 → 37、NotificationCopy 9 → 13）。lint の対象は 49 → 81 ファイル、日本語リテラル WARN は D7 の既存分のみで App/ 由来は 0。
+
+`scripts/test-ios.sh`（最終、末尾）:
+
+```
+	 Executed 139 tests, with 0 failures (0 unexpected) in 0.331 (0.362) seconds
+lint-principles: OK
+EXIT=0
+```
+
+`scripts/test-core.sh`（最終、末尾）:
+
+```
+	 Executed 208 tests, with 0 failures (0 unexpected) in 0.140 (0.148) seconds
+	 Executed 33 tests, with 0 failures (0 unexpected) in 18.408 (18.411) seconds
+lint-principles: OK
+EXIT=0
+```
+
+途中で 1 回、`Repository.updateAvoidanceStatus` を `@discardableResult` と `func shrink` の間に挿入してしまい「`@discardableResult` declared on a function returning Void」の警告が出た。位置を直して最終ログでは 0 件。
+
+### 統合で分かったこと
+
+- 並列 worktree からの `scripts/test-ios.sh` は lock で直列化できたが、B と E が「Simulator device failed to launch」「Test crashed with signal kill」で 1〜2 回 exit 65 になり、再実行で通った（コミットされたログには残っていない）。`build-ios.sh` とシミュレータの取り合いが疑われる。頻発するなら lock を build-ios にも広げる。
+- SwiftUI と同名の View（`TimelineView`）は統合まで誰も気づかない。D12 として「同名の型を作らない」を規約にした。
+- `.saydoText` の tracking を当てた和文は幅に余裕があっても早く折り返して「…」になる（task_008-ui の実測）。テーマ側で折り返す役割の tracking を 0 にした。design-notes の .02em / .06em は 1 行の役割にだけ残る。
+
+### 未解決（次の波へ）
+
+1. `.declarationReminder`（R1「後で声で」の 1 回通知）は未登録。`NotificationSlot` に無い識別子規約を SaydoCore に足す必要がある（`NotificationScheduler+SessionScheduling` の doc に記載）。
+2. Guardrails に「振り返り文に数字を含めない」規則が無い（task_016 done_definition の GuardrailsTests 固定は未達）。
+3. task_008-ui からの SessionViewModel への要望: `canRetakeAvoidance` が M4 まで true のまま（表示期間）、保存先が開けない日を表す `SessionFailure`（いまは `.micDenied` に相乗り）。
+4. task_012: `TimelinePlayback` の単体テストが無い。Instruments のフレーム落ち計測は未実施。`VoiceEntry` → `VoiceEntrySnapshot` の変換が Repository の private と重複。
+5. task_013: 開発者向け節に出せない指標（通知タップ数、「今日は休む」の回数、「後で声で」の使用率）は記録そのものが無い。`phase-gate.js` 未実行。
+6. task_010: `PlaybackCardView` は task_010 scope に従い宣言テキストを常時表示する。design-notes の「N0 で文字起こしは出さない」と食い違う（方針判断）。
+7. copy-audit / task-review の Workflow は未実行（前回から継続）。lint WARN（D7）もそのまま。
+8. 残タスク: task_015（AI 組み込み + M1 の 2 分割）、task_023 本実装（実機スパイク待ち）、task_018、task_020、task_013b（TestFlight #2）。TestFlight 内部配布 #1（task_010 scope）は人間の作業。
+9. AppRouter は会話ごとに音声スタックを作り直す。TTS 開始 1.5 秒以内は実機で計測する。
+
+### 人間の確認待ち
+
+1. `integration` を main にマージするかの判断（`integration` は push 済み、main は未変更）。
+2. Apple Developer の App ID `com.nonturn.saydo` に Time Sensitive Notifications capability を付けてプロファイルを再発行する（実機ビルドの前に必要）。
+3. 実機: 朝フロー 3 回（起動 → TTS 1.5 秒、タップ 0 回で M4、中央値 3 分）、通知タップ → SessionView 直行、R8 の確認表示（イヤホン無し・音量大）、受話口 + 近接、通知長押しのアクション 2 つと 60 分後の再通知、夜 → 翌朝の引き継ぎ、オンボーディングが初回だけ、iPhone SE × xxxLarge、7 日分 30 件での Instruments。
+4. TestFlight 内部配布 #1（Archive してビルド番号を PROGRESS に記録）。
