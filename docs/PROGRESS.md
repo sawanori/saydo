@@ -1456,3 +1456,87 @@ EXIT=0
 2. §7 の要望 4 点の整理表を実機結果で確定させる。特に①（アプリを開くまで消せない）と④（音量が最大に戻る）は
    **API の事実として不可**なので、連鎖アラームで代替するか、体験設計を変えるかの方針判断が要る。
 3. iOS 26.x シミュレータランタイムの導入（task_001 と同じ）。
+
+## integration — 12 ブランチの統合と iOS 初回ビルド・テスト実行
+
+- 日時: 2026-09-04
+- 状態: done（統合ツリーの 5 検証コマンドが全て exit 0。実機項目は従来どおり未検証）
+- ブランチ / コミット: `integration` / 前セッション 2839e99〜df302ce（統合修正 5 件）+ 本セッション 00cd8b4, d996e45, 9ac4fed
+- 統合済みブランチ（`git branch --merged integration`）: task/001-bootstrap, 003-fm-probe, 004-speech-spike, 005-flows, 006-data, 007-audio, 008-session-vm, 009-notification-core, 009-notification-app, 014-saydo-ai, 019-data-export, 023-alarm-spike（12 本。未統合 0）
+
+### 環境の変化
+
+iOS 26.3.1 シミュレータランタイム（23D8133）が導入済み（`xcrun simctl runtime list` = Ready、空き容量 17 GiB）。
+task_001 以来のブロッカーが解消し、`build-ios.sh` は本来の `generic/platform=iOS Simulator` 経路、`test-ios.sh` は iPhone 17 / iOS 26.3 で実行できた。**iOS ターゲットのビルド成功とアプリ側テストの実行は本プロジェクトで初**。
+
+### 本セッションの修正
+
+| コミット | 内容 | 出どころ |
+|---|---|---|
+| 00cd8b4 | fm-probe の `call<Value: Generable & Sendable>` と `@MainActor func line()`（Swift 6）。AppSettingsTests の `TimeOfDay` 曖昧性を `Saydo.` で明示 | 前セッションの未コミット差分。本セッションで検証してコミット |
+| d996e45 | lint の日本語リテラル除外を `*Copy.swift` に一般化（InsightCopy の 11 件 WARN 解消）。CLAUDE.md の「環境制約・未解消」を「環境の履歴」に書き換え | task_009-core 引き継ぎ (4) |
+| 9ac4fed | `NotificationPlan` 規則 3(b) を `now < plannedAt` から `noonFireDate < plannedAt` に変更。テスト 2 件追加（190 → 192） | task_009-core 引き継ぎ (1)。宣言直後の再計画で当日の昼通知が必ず消え、行動時刻通知を見送った人に「どうだった？」が届かない不具合 |
+
+### 証拠
+
+| コマンド | exit code | ログ |
+|---|---|---|
+| `scripts/test-core.sh`（修正前） | 0（SaydoCore 190 / SaydoAI 33 / lint OK） | `docs/logs/integration-1-test-core.txt` |
+| `scripts/build-mac.sh fm-probe` | 0 | `docs/logs/integration-2-build-mac-fm-probe.txt` |
+| `scripts/build-ios.sh`（Saydo） | **0**（本来の destination 経路。フォールバック無し） | `docs/logs/integration-3-build-ios-saydo.txt` |
+| `scripts/test-ios.sh`（修正前） | 0（SaydoTests 89 / lint OK） | `docs/logs/integration-4-test-ios.txt` |
+| `scripts/build-ios.sh SpeechSpike` | 0 | `docs/logs/integration-5-build-ios-speechspike.txt` |
+| `scripts/build-ios.sh AlarmSpike` | 0 | `docs/logs/integration-6-build-ios-alarmspike.txt` |
+| `scripts/test-core.sh`（昼通知修正後） | 0（SaydoCore **192** / SaydoAI 33 / lint OK） | `docs/logs/integration-7-test-core-after-noon-fix.txt` |
+| `scripts/test-ios.sh`（最終ツリー 9ac4fed） | 0（SaydoTests 89 / lint OK） | `docs/logs/integration-8-test-ios-final.txt` |
+
+スイート別件数（iOS、最終）: AppSettings 7 / AudioFileStore 8 / DataExporter 11 / DeepLink 18 / Repository 17 / SessionViewModel 14 / SilenceDetector 13 / Smoke 1 = 89。
+スイート別件数（SaydoCore、最終）: DialogueCopy 15 / Domain 15 / Guardrails 13 / InsightCalculator 15 / JapaneseTimeParser 16 / MorningFlow 23 / NightFlow 12 / NoonFlow 23 / NotificationCopy 9 / NotificationPlan 25 / ShrinkLadder 9 / TemplateDialogueEngine 17 = 192。
+SaydoAI 33 件のうち `FoundationModelsDialogueEngineIntegrationTests` 2 件は本機の Apple Intelligence で実走（スキップ 0）。
+
+`scripts/build-ios.sh`（末尾）:
+
+```
+build-ios: scheme=Saydo
+2026-09-04 10:29:45.479 appintentsmetadataprocessor[36684:14492243] warning: Metadata extraction skipped. No AppIntents.framework dependency found.
+** BUILD SUCCEEDED **
+```
+
+`scripts/test-ios.sh`（最終、末尾）:
+
+```
+test-ios: scheme=Saydo device=iPhone 17 runtime=com.apple.CoreSimulator.SimRuntime.iOS-26-3 udid=9D2D913B-5C7B-4969-B86C-C69CDFE434E2
+	 Executed 89 tests, with 0 failures (0 unexpected) in 0.576 (0.890) seconds
+	 Executed 89 tests, with 0 failures (0 unexpected) in 0.576 (0.891) seconds
+** TEST SUCCEEDED **
+lint-principles: 対象 49 ファイル（App/ と Packages/*/Sources。Tests と Spikes は除外）
+lint-principles: OK
+```
+
+`scripts/test-core.sh`（最終、末尾）:
+
+```
+	 Executed 192 tests, with 0 failures (0 unexpected) in 0.036 (0.043) seconds
+	 Executed 192 tests, with 0 failures (0 unexpected) in 0.036 (0.044) seconds
+	 Executed 33 tests, with 0 failures (0 unexpected) in 12.717 (12.720) seconds
+	 Executed 33 tests, with 0 failures (0 unexpected) in 12.717 (12.720) seconds
+lint-principles: 対象 49 ファイル（App/ と Packages/*/Sources。Tests と Spikes は除外）
+lint-principles: OK
+```
+
+### 未解決（統合で確認したが手を付けていない引き継ぎ事項）
+
+- **main へのマージは未実施。** `integration` は main から 34 コミット先行（main 側の追加 0）。マージは人間の判断（下記）。
+- task_009-app: Time Sensitive エンタイトルメントが project.yml に無い。通知アクション「今は話せない」（60 分後に再登録）は NotificationCopy に定数が無く未実装。AppRouter の SessionLauncher 配線は task_010/011 で。
+- task_008: `Commitment.plannedPlace` が無い（§10 との不一致）。文言バリエーション履歴（R5）が永続化されていない。SessionLog の読み書きを Repository へ移す。
+- task_006: `weekendNotificationsEnabled` の既定 true、`aloneTime` 既定 nil の解釈は未判断のまま。
+- task_003 / 014: M1 を「理由分類」と「追加質問」の 2 呼び出しに分割する設計変更は task_015 で。
+- lint WARN が残る箇所: 列挙型の `displayName`（FlowStep / ReasonCategory / SessionType / TaskDomain）、Flow のチップ文言（MorningFlow / NightFlow / NoonFlow）、TemplateDialogueEngine の週次テンプレート。これらを Copy に移すかは方針判断（exit code には影響しない）。
+- task_005 の copy-audit Workflow は未実行。
+- iOS 実行で `failed to create instance for plugin for <CFUUID ...>` がテスト起動時に 2 行出る。シミュレータ側の既知ノイズで、テスト結果には影響していない。
+
+### 人間の確認待ち
+
+1. `integration` を main にマージするかの判断（本セッションは `integration` の push まで。main は触っていない）。
+2. 実機検証（音声 10 項目、AlarmKit 6 項目、fm-probe 人手採点 20 件）。従来どおり未実施。
+3. task_006 / 008 の設計判断 4 点（週末通知の既定、aloneTime、plannedPlace、文言履歴の永続化）。
