@@ -34,7 +34,7 @@ xcodebuild archive \
   -destination 'generic/platform=iOS' \
   -archivePath "$ARCHIVE" \
   -allowProvisioningUpdates \
-  "${AUTH_ARGS[@]}" \
+  ${AUTH_ARGS[@]+"${AUTH_ARGS[@]}"} \
   CODE_SIGN_STYLE=Automatic \
   DEVELOPMENT_TEAM="$SAYDO_TEAM_ID" \
   CURRENT_PROJECT_VERSION="$BUILD_NUMBER"

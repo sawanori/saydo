@@ -40,7 +40,7 @@ xcodebuild build \
   -derivedDataPath "$DERIVED" \
   -allowProvisioningUpdates \
   -allowProvisioningDeviceRegistration \
-  "${AUTH_ARGS[@]}" \
+  ${AUTH_ARGS[@]+"${AUTH_ARGS[@]}"} \
   CODE_SIGN_STYLE=Automatic \
   DEVELOPMENT_TEAM="$SAYDO_TEAM_ID"
 
