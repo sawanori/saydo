@@ -1,0 +1,12 @@
+⚙️  Generating plists...
+⚙️  Generating project...
+⚙️  Writing project...
+Created project at /Users/noritakasawada/AI_P/SAYDO/Saydo.xcodeproj
+archive-testflight: team=2WWB6ZA7A9 build=202609041358
+archive-testflight: 既存のアーカイブを再利用する /Users/noritakasawada/Ai_p/SAYDO/build/Saydo.xcarchive
+2026-09-04 13:59:18.545 xcodebuild[37016:361981] [MT] IDEDistribution: -[IDEDistributionLogging _createLoggingBundleAtPath:]: Created bundle at path "/var/folders/h6/2q0crwpx3zx94d5zxclh_f5c0000gn/T/Saydo_2026-09-04_13-59-18.544.xcdistributionlogs".
+error: exportArchive Error Downloading App Information
+
+** EXPORT FAILED **
+
+EXIT=70

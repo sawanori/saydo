@@ -19,7 +19,11 @@ fi
 BUILD_NUMBER="${1:-$(date +%Y%m%d%H%M)}"
 ARCHIVE="$ROOT/build/Saydo.xcarchive"
 EXPORT_DIR="$ROOT/build/export"
-rm -rf "$ARCHIVE" "$EXPORT_DIR"
+rm -rf "$EXPORT_DIR"
+# SAYDO_REUSE_ARCHIVE=1 なら既存の build/Saydo.xcarchive をそのままアップロードする（アップロードだけやり直す時）。
+if [ "${SAYDO_REUSE_ARCHIVE:-0}" != "1" ]; then
+  rm -rf "$ARCHIVE"
+fi
 
 AUTH_ARGS=()
 if [ -n "${SAYDO_ASC_KEY_PATH:-}" ]; then
@@ -27,6 +31,9 @@ if [ -n "${SAYDO_ASC_KEY_PATH:-}" ]; then
 fi
 
 echo "archive-testflight: team=${SAYDO_TEAM_ID} build=${BUILD_NUMBER}"
+if [ "${SAYDO_REUSE_ARCHIVE:-0}" = "1" ] && [ -d "$ARCHIVE" ]; then
+  echo "archive-testflight: 既存のアーカイブを再利用する ${ARCHIVE}"
+else
 xcodebuild archive \
   -project Saydo.xcodeproj \
   -scheme Saydo \
@@ -38,6 +45,7 @@ xcodebuild archive \
   CODE_SIGN_STYLE=Automatic \
   DEVELOPMENT_TEAM="$SAYDO_TEAM_ID" \
   CURRENT_PROJECT_VERSION="$BUILD_NUMBER"
+fi
 
 # teamID を書き足した ExportOptions を一時的に作る
 OPTS="$ROOT/build/ExportOptions.plist"
@@ -49,6 +57,6 @@ xcodebuild -exportArchive \
   -exportOptionsPlist "$OPTS" \
   -exportPath "$EXPORT_DIR" \
   -allowProvisioningUpdates \
-  "${AUTH_ARGS[@]}"
+  ${AUTH_ARGS[@]+"${AUTH_ARGS[@]}"}
 
 echo "archive-testflight: uploaded build ${BUILD_NUMBER}（App Store Connect で処理完了を待つ）"
