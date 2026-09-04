@@ -11,6 +11,8 @@ struct CommitmentSnapshot: Sendable, Identifiable, Hashable {
     var dayKey: String
     var microAction: MicroAction
     var plannedAt: Date?
+    /// 行動する場所（本人の言葉のまま。retention R11 / 統合判断 D1）。
+    var plannedPlace: String?
     /// 宣言音声の相対パス。宣言の `VoiceEntry.audioPath` と同一ファイル。
     var declarationAudioPath: String?
     var declarationTranscript: String
@@ -54,6 +56,8 @@ struct CommitmentDraft: Sendable {
     var reason: ReasonCategory?
     var microAction: MicroAction
     var plannedAt: Date?
+    /// 行動する場所（本人の言葉のまま）。聞けなかった日は nil（統合判断 D1）。
+    var plannedPlace: String?
     /// 宣言音声の相対パス。声で宣言していなければ nil。
     var declarationAudioPath: String?
     var declarationTranscript: String = ""
@@ -135,6 +139,7 @@ actor Repository {
             dayKey: dayKey,
             microAction: draft.microAction,
             plannedAt: draft.plannedAt,
+            plannedPlace: draft.plannedPlace,
             declarationAudioPath: draft.declarationAudioPath,
             declarationTranscript: draft.declarationTranscript,
             isVoiceless: draft.isVoiceless,
@@ -273,6 +278,37 @@ actor Repository {
         let entries = try modelContext.fetch(FetchDescriptor<VoiceEntry>())
         let live = Set(entries.compactMap(\.audioPath))
         return try audioFileStore().removeOrphans(keeping: live)
+    }
+
+    // MARK: 会話の記録
+
+    /// 会話の開始を `SessionLog` に残し、その id を返す（実装計画 §10 / fix-decisions P1.3）。
+    ///
+    /// task_008 では `SessionViewModel.swift` の `extension Repository` に置いていたものを、
+    /// 統合判断 D8 でここへ移した（挙動は変えていない）。
+    func startSessionLog(sessionType: SessionType, startedAt: Date, tier: DialogueTier) throws -> UUID {
+        let log = SessionLog(sessionType: sessionType, startedAt: startedAt, tier: tier)
+        modelContext.insert(log)
+        try modelContext.save()
+        return log.id
+    }
+
+    /// 会話の終わりを書き足す。開始の記録が無ければ何もしない（会話を止めない）。
+    func finishSessionLog(
+        id: UUID,
+        endedAt: Date,
+        completed: Bool,
+        lastStep: FlowStep?,
+        guardrailReplacedCount: Int
+    ) throws {
+        var descriptor = FetchDescriptor<SessionLog>(predicate: #Predicate<SessionLog> { $0.id == id })
+        descriptor.fetchLimit = 1
+        guard let log = try modelContext.fetch(descriptor).first else { return }
+        log.endedAt = endedAt
+        log.completed = completed
+        log.lastStep = lastStep
+        log.guardrailReplacedCount = guardrailReplacedCount
+        try modelContext.save()
     }
 
     // MARK: 引き継ぎ
@@ -488,6 +524,7 @@ actor Repository {
             dayKey: commitment.dayKey,
             microAction: commitment.microAction,
             plannedAt: commitment.plannedAt,
+            plannedPlace: commitment.plannedPlace,
             declarationAudioPath: commitment.declarationAudioPath,
             declarationTranscript: commitment.declarationTranscript,
             isVoiceless: commitment.isVoiceless,
