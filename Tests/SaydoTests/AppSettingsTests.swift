@@ -109,10 +109,12 @@ final class AppSettingsTests: XCTestCase {
         }
     }
 
+    /// `TimeOfDay` はアプリ側（`Saydo`）と `SaydoCore` の両方にある。このテストが見るのは
+    /// アプリ側の値丸めと順序なので、文脈から型が決まらない行は `Saydo.` で明示する。
     func testTimeOfDayClampsAndOrders() {
-        XCTAssertEqual(TimeOfDay(hour: 99, minute: 99), TimeOfDay(hour: 23, minute: 59))
+        XCTAssertEqual(Saydo.TimeOfDay(hour: 99, minute: 99), Saydo.TimeOfDay(hour: 23, minute: 59))
         XCTAssertEqual(TimeOfDay(minutesFromMidnight: 8 * 60 + 5), TimeOfDay(hour: 8, minute: 5))
-        XCTAssertLessThan(TimeOfDay(hour: 8, minute: 0), TimeOfDay(hour: 13, minute: 0))
+        XCTAssertLessThan(Saydo.TimeOfDay(hour: 8, minute: 0), Saydo.TimeOfDay(hour: 13, minute: 0))
         XCTAssertEqual(TimeOfDay(hour: 13, minute: 0).dateComponents.hour, 13)
     }
 }

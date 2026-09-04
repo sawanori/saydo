@@ -260,7 +260,7 @@ func log(_ text: String) {
     FileHandle.standardError.write(Data((text + "\n").utf8))
 }
 
-func call<Value: Generable>(
+func call<Value: Generable & Sendable>(
     instructions: String,
     prompt: String,
     generating type: Value.Type,
@@ -525,7 +525,8 @@ dateFormatter.timeZone = TimeZone(identifier: "Asia/Tokyo")
 dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss (ZZZZZ)"
 
 var md = ""
-func line(_ text: String = "") { md += text + "\n" }
+// トップレベルの変数は Swift 6 では @MainActor。書き換えるヘルパーも合わせる。
+@MainActor func line(_ text: String = "") { md += text + "\n" }
 
 line("# スパイク S-A / S-D: fm-probe（Foundation Models の日本語品質検証）")
 line()
