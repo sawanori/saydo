@@ -3,7 +3,7 @@ import SwiftUI
 
 /// Timeline 上部の 1 行インサイト（design-notes §画面別 5、retention R9）。
 ///
-/// `TimelineView` の `topAccessory` に差し込んで使う。記録が足りない間は `EmptyView` を返し、
+/// `VoiceTimelineView` の `topAccessory` に差し込んで使う。記録が足りない間は `EmptyView` を返し、
 /// 空白のプレースホルダを置かない（retention R4 / 企画原則 §22-8）。
 struct InsightCardView: View {
 

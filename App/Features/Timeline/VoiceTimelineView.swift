@@ -9,7 +9,7 @@ import SwiftUI
 /// 一覧・チェックボックス・進捗率は作らない（企画原則 §22-8）。編集・削除・検索も持たない。
 ///
 /// 上部の `topAccessory` は統合時に 3 件目の 1 行インサイト（`InsightCardView`）が入る差し込み口。
-struct TimelineView<Accessory: View>: View {
+struct VoiceTimelineView<Accessory: View>: View {
     /// 全件を新しい順に。日別の束ね方は `TimelineGrouping` が決める。
     @Query(TimelineQuery.allEntries, animation: .default) private var entries: [VoiceEntry]
 
@@ -108,7 +108,7 @@ struct TimelineView<Accessory: View>: View {
     }
 }
 
-extension TimelineView where Accessory == EmptyView {
+extension VoiceTimelineView where Accessory == EmptyView {
     /// 上部の差し込みが無い形（統合前・プレビュー用）。
     init(player: any Playing, audioFileStore: AudioFileStore? = nil) {
         self.init(player: player, audioFileStore: audioFileStore) { EmptyView() }
@@ -116,7 +116,7 @@ extension TimelineView where Accessory == EmptyView {
 }
 
 /// 画面の余白（`docs/design/Timeline.dc.html`）。
-/// `TimelineView` が総称型で static な格納プロパティを持てないため、型の外に置く。
+/// `VoiceTimelineView` が総称型で static な格納プロパティを持てないため、型の外に置く。
 private enum TimelineLayout {
     static let horizontalPadding: CGFloat = 30
     static let topPadding: CGFloat = 62
@@ -132,7 +132,7 @@ private enum TimelineLayout {
 // MARK: - 取得と変換
 
 /// `@Query` に渡す取得条件と、表示用の値型への変換。
-/// `TimelineView` が総称型なので、型の外に置いて総称引数の推論を要らなくしている。
+/// `VoiceTimelineView` が総称型なので、型の外に置いて総称引数の推論を要らなくしている。
 private enum TimelineQuery {
     /// `recordedAt` 降順で全件。`commitment` を先読みするのは、行を作るたびに
     /// リレーションのフォールトが起きるのを避けるため（スクロールのなめらかさ）。

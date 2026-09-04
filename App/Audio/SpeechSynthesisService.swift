@@ -97,13 +97,20 @@ final class SpeechSynthesisService: Synthesizing {
     @ObservationIgnored private let synthesizer = AVSpeechSynthesizer()
     @ObservationIgnored private var delegate: SynthesizerDelegate?
     @ObservationIgnored private weak var sessionController: (any AudioSessionControlling)?
+    /// 設定画面で選んだ音声の識別子を返す。発話のたびに読むので、設定変更が次の発話から効く。
+    @ObservationIgnored private let voiceIdentifier: @MainActor () -> String?
 
-    init(sessionController: (any AudioSessionControlling)? = nil) {
+    init(
+        sessionController: (any AudioSessionControlling)? = nil,
+        voiceIdentifier: @escaping @MainActor () -> String? = { AppSettings.shared.speechVoiceIdentifier }
+    ) {
         self.sessionController = sessionController
+        self.voiceIdentifier = voiceIdentifier
         // アプリのオーディオセッション設定（.playAndRecord と経路の override）を使わせる。
         synthesizer.usesApplicationAudioSession = true
-        voiceQuality = SynthesisVoiceQuality(Self.preferredJapaneseVoice()?.quality ?? .default)
-        if Self.preferredJapaneseVoice() == nil {
+        if let voice = Self.preferredJapaneseVoice(identifier: voiceIdentifier()) {
+            voiceQuality = SynthesisVoiceQuality(voice.quality)
+        } else {
             voiceQuality = .unavailable
         }
     }
@@ -119,7 +126,7 @@ final class SpeechSynthesisService: Synthesizing {
         synthesizer.delegate = delegate
 
         let utterance = AVSpeechUtterance(string: text)
-        utterance.voice = Self.preferredJapaneseVoice()
+        utterance.voice = Self.preferredJapaneseVoice(identifier: voiceIdentifier())
         synthesizer.speak(utterance)
 
         for await event in events {
@@ -142,9 +149,15 @@ final class SpeechSynthesisService: Synthesizing {
 
     // MARK: 音声の選択
 
-    /// enhanced / premium がインストール済みならそれを優先し、無ければ既定音声で始める
+    /// 設定で選んだ識別子の音声が端末にあり日本語ならそれを使う（task_013 の音声選択）。
+    /// 無ければ enhanced / premium がインストール済みならそれを優先し、それも無ければ既定音声で始める
     /// （fix-decisions P5.8。ダウンロードの案内はオンボーディング側の仕事）。
-    static func preferredJapaneseVoice() -> AVSpeechSynthesisVoice? {
+    static func preferredJapaneseVoice(identifier: String? = nil) -> AVSpeechSynthesisVoice? {
+        if let identifier,
+           let chosen = AVSpeechSynthesisVoice(identifier: identifier),
+           chosen.language.hasPrefix("ja") {
+            return chosen
+        }
         let japanese = AVSpeechSynthesisVoice.speechVoices().filter { $0.language.hasPrefix("ja") }
         let best = japanese.max {
             SynthesisVoiceQuality($0.quality) < SynthesisVoiceQuality($1.quality)

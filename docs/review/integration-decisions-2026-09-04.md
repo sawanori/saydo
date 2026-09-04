@@ -19,6 +19,7 @@ task-list.json と食い違う場合は **この文書と `fix-decisions-2026-09
 | D9 | 昼フローで `MicroAction` を `Commitment` から復元していない | **復元する**。`NoonFlow.start` 前に `todayCommitment` の `microAction` / `plannedAt` / `plannedPlace` を `FlowState` に載せる | N3 で「今の行動文」を読み上げるのに必要 |
 | D10 | M1 の 2 分割（理由分類と追加質問を別呼び出しに） | **task_015 で SaydoAI 側を直す**。第 2 波では触らない | task_003 の発見。UI 波と独立 |
 | D11 | 画面の配色・文字階層 | **`App/Features/Shared/SaydoTheme.swift` を唯一の出所にする**（integration に先行コミット）。画面ファイルに HEX やサイズを直書きしない。値は `docs/design/design-notes.md` | 6 画面を並列で作るため、統合時に見た目がばらけるのを防ぐ |
+| D12 | 記録タブの View 名 `TimelineView` が SwiftUI の `TimelineView` と衝突 | **`VoiceTimelineView` に改名**（ファイルも `VoiceTimelineView.swift`）。以後、SwiftUI / Foundation の型と同名の View・型をアプリ側に作らない | 第 2 波の統合で F の `PlaybackCardView` の `TimelineView(.animation)` が B の型に解決されコンパイルエラーになった。`SwiftUI.` で毎回修飾するより、名前を避ける方が再発しない |
 
 ## B. 第 2 波の並列計画（実装は Opus、worktree は `integration` から切る）
 
