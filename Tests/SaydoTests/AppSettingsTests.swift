@@ -109,6 +109,99 @@ final class AppSettingsTests: XCTestCase {
         }
     }
 
+    // MARK: - 「話せない時」を自動で使う時間帯（task_013）
+
+    @MainActor
+    func testQuietModeScheduleDefaultsAreOffFromNineToSix() throws {
+        try withSettings { settings, _ in
+            XCTAssertFalse(settings.quietModeScheduleEnabled)
+            XCTAssertEqual(settings.quietModeStart, TimeOfDay(hour: 9, minute: 0))
+            XCTAssertEqual(settings.quietModeEnd, TimeOfDay(hour: 18, minute: 0))
+            // 既定は切ってあるので、帯の中の時刻でも false。
+            XCTAssertFalse(settings.isQuietMode(at: TimeOfDay(hour: 12, minute: 0).date()))
+        }
+    }
+
+    /// 開始と同じ時刻は含み、終了と同じ時刻は含まない。
+    @MainActor
+    func testQuietModeIncludesTheStartAndExcludesTheEnd() throws {
+        try withSettings { settings, _ in
+            settings.quietModeScheduleEnabled = true
+
+            XCTAssertFalse(settings.isQuietMode(at: TimeOfDay(hour: 8, minute: 59).date()))
+            XCTAssertTrue(settings.isQuietMode(at: TimeOfDay(hour: 9, minute: 0).date()))
+            XCTAssertTrue(settings.isQuietMode(at: TimeOfDay(hour: 17, minute: 59).date()))
+            XCTAssertFalse(settings.isQuietMode(at: TimeOfDay(hour: 18, minute: 0).date()))
+        }
+    }
+
+    /// 終了が開始より前なら日をまたぐ帯として扱う。
+    @MainActor
+    func testQuietModeWrapsAroundMidnight() throws {
+        try withSettings { settings, _ in
+            settings.quietModeScheduleEnabled = true
+            settings.quietModeStart = TimeOfDay(hour: 22, minute: 0)
+            settings.quietModeEnd = TimeOfDay(hour: 6, minute: 0)
+
+            XCTAssertTrue(settings.isQuietMode(at: TimeOfDay(hour: 22, minute: 0).date()))
+            XCTAssertTrue(settings.isQuietMode(at: TimeOfDay(hour: 23, minute: 30).date()))
+            XCTAssertTrue(settings.isQuietMode(at: TimeOfDay(hour: 5, minute: 59).date()))
+            XCTAssertFalse(settings.isQuietMode(at: TimeOfDay(hour: 6, minute: 0).date()))
+            XCTAssertFalse(settings.isQuietMode(at: TimeOfDay(hour: 21, minute: 59).date()))
+        }
+    }
+
+    /// 開始と終了が同じなら幅 0 の帯。どの時刻も外。
+    @MainActor
+    func testQuietModeWithTheSameStartAndEndCoversNothing() throws {
+        try withSettings { settings, _ in
+            settings.quietModeScheduleEnabled = true
+            settings.quietModeStart = TimeOfDay(hour: 10, minute: 0)
+            settings.quietModeEnd = TimeOfDay(hour: 10, minute: 0)
+
+            XCTAssertFalse(settings.isQuietMode(at: TimeOfDay(hour: 10, minute: 0).date()))
+            XCTAssertFalse(settings.isQuietMode(at: TimeOfDay(hour: 3, minute: 0).date()))
+        }
+    }
+
+    @MainActor
+    func testQuietModeSettingsRoundTripAndReset() throws {
+        try withSettings { settings, defaults in
+            settings.quietModeScheduleEnabled = true
+            settings.quietModeStart = TimeOfDay(hour: 7, minute: 30)
+            settings.quietModeEnd = TimeOfDay(hour: 19, minute: 45)
+
+            let reloaded = AppSettings(defaults: defaults)
+            XCTAssertTrue(reloaded.quietModeScheduleEnabled)
+            XCTAssertEqual(reloaded.quietModeStart, TimeOfDay(hour: 7, minute: 30))
+            XCTAssertEqual(reloaded.quietModeEnd, TimeOfDay(hour: 19, minute: 45))
+
+            reloaded.reset()
+
+            XCTAssertFalse(reloaded.quietModeScheduleEnabled)
+            XCTAssertEqual(reloaded.quietModeStart, TimeOfDay(hour: 9, minute: 0))
+            XCTAssertEqual(reloaded.quietModeEnd, TimeOfDay(hour: 18, minute: 0))
+        }
+    }
+
+    /// 通知計画（`SaydoCore`）へ渡す形への変換。
+    @MainActor
+    func testNotificationSettingsBridgeCarriesTheChosenValues() throws {
+        try withSettings { settings, _ in
+            XCTAssertEqual(settings.notificationSettings.mode, SaydoCore.NotificationMode.twice)
+            XCTAssertEqual(settings.notificationSettings.morning, SaydoCore.TimeOfDay(hour: 8, minute: 0))
+            XCTAssertTrue(settings.notificationSettings.weekendEnabled)
+
+            settings.notificationMode = .threePerDay
+            settings.nightTime = TimeOfDay(hour: 22, minute: 10)
+            settings.weekendNotificationsEnabled = false
+
+            XCTAssertEqual(settings.notificationSettings.mode, SaydoCore.NotificationMode.thrice)
+            XCTAssertEqual(settings.notificationSettings.night, SaydoCore.TimeOfDay(hour: 22, minute: 10))
+            XCTAssertFalse(settings.notificationSettings.weekendEnabled)
+        }
+    }
+
     /// `TimeOfDay` はアプリ側（`Saydo`）と `SaydoCore` の両方にある。このテストが見るのは
     /// アプリ側の値丸めと順序なので、文脈から型が決まらない行は `Saydo.` で明示する。
     func testTimeOfDayClampsAndOrders() {
