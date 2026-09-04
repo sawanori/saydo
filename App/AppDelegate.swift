@@ -84,10 +84,20 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
     /// 起動要求を処理する。
     ///
     /// - スワイプで消しただけ（`link == nil`）のときは何もしない。
+    /// - 「今は話せない」のときは同じ通知を 60 分後に登録し直すだけで、会話は始めない。
+    ///   受け手にも渡さない。先延ばしは `Commitment` に何も書かない（設計判断 D6）。
     /// - 「今日は休む」のときは当日の残りの保留通知を取り消してから受け手へ渡す。
     ///   休みを記録に残すかどうかは受け手の担当（`Commitment` は作らない）。
     private func handle(_ link: DeepLink?) {
         guard let link else { return }
+
+        if link.action == .snooze {
+            let scheduler = self.scheduler
+            Task { @MainActor in
+                await scheduler.snooze(link)
+            }
+            return
+        }
 
         if link.action == .rest {
             let scheduler = self.scheduler

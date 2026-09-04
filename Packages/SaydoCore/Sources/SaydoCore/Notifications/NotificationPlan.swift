@@ -198,6 +198,64 @@ public struct NotificationPlan: Sendable, Hashable {
         "\(slot.rawValue)-\(dayStamp(for: day, calendar: calendar))"
     }
 
+    // MARK: - 「今は話せない」の再登録（設計判断 D6）
+
+    /// 同じ通知を後ろへずらす間隔。
+    public static let snoozeInterval: TimeInterval = 60 * 60
+
+    /// 1 日に同じ通知をずらせる回数の上限。3 回目は登録しない。
+    ///
+    /// 上限を置くのは、押すたびに増える通知が「まだ終わっていない」という圧になるため
+    /// （企画原則 §22-8）。押せなくなっても責める文言は出さず、黙って登録しないだけにする。
+    public static let maxSnoozesPerDay = 2
+
+    /// 再登録の識別子の接尾辞。
+    private static let snoozeSeparator = "-snooze"
+
+    /// `<枠>-yyyyMMdd-snooze<n>` 形式の識別子。
+    ///
+    /// 接頭辞は元の識別子のままなので `NotificationIdentifier.isManaged` に掛かり、
+    /// 「今日は休む」と再計画で元の通知と一緒に取り消される。
+    public static func snoozeIdentifier(base: String, attempt: Int) -> String {
+        "\(base)\(snoozeSeparator)\(attempt)"
+    }
+
+    /// 識別子が再登録のものなら何回目かを返す。元の識別子と未知の形式は nil。
+    public static func snoozeAttempt(in identifier: String) -> Int? {
+        guard let range = identifier.range(of: snoozeSeparator, options: .backwards),
+              range.lowerBound != identifier.startIndex
+        else { return nil }
+        let digits = identifier[range.upperBound...]
+        guard !digits.isEmpty,
+              digits.allSatisfy({ $0.isASCII && $0.isNumber }),
+              let attempt = Int(digits),
+              attempt >= 1
+        else { return nil }
+        return attempt
+    }
+
+    /// 再登録の接尾辞を外した元の識別子。再登録でなければそのまま返す。
+    public static func baseIdentifier(of identifier: String) -> String {
+        guard snoozeAttempt(in: identifier) != nil,
+              let range = identifier.range(of: snoozeSeparator, options: .backwards)
+        else { return identifier }
+        return String(identifier[..<range.lowerBound])
+    }
+
+    /// 次に使う再登録の回数。上限まで使い切っていれば nil。
+    ///
+    /// - Parameters:
+    ///   - base: 元の通知の識別子（`<枠>-yyyyMMdd`）。
+    ///   - pending: 保留中の通知の識別子。base から派生していないものは数えない。
+    public static func nextSnoozeAttempt(base: String, pending: [String]) -> Int? {
+        let used = pending.compactMap { identifier -> Int? in
+            guard baseIdentifier(of: identifier) == base else { return nil }
+            return snoozeAttempt(in: identifier)
+        }
+        let next = (used.max() ?? 0) + 1
+        return next <= maxSnoozesPerDay ? next : nil
+    }
+
     // MARK: - 計算
 
     /// 通知の登録計画を作る。
@@ -305,7 +363,10 @@ public struct NotificationPlan: Sendable, Hashable {
         return false
     }
 
-    private static func copyKey(for slot: NotificationSlot, day: Date, calendar: Calendar) -> NotificationCopyKey {
+    /// 枠と暦日から本文のキーを決める。
+    ///
+    /// 再登録（「今は話せない」）で元の通知の `copyKey` が読めなかったときの拠り所にもなるので公開する。
+    public static func copyKey(for slot: NotificationSlot, day: Date, calendar: Calendar) -> NotificationCopyKey {
         switch slot {
         case .morning: .morning
         case .noon: NotificationCopy.noonKey(for: day, calendar: calendar)

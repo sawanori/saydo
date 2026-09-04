@@ -1540,3 +1540,124 @@ lint-principles: OK
 1. `integration` を main にマージするかの判断（本セッションは `integration` の push まで。main は触っていない）。
 2. 実機検証（音声 10 項目、AlarmKit 6 項目、fm-probe 人手採点 20 件）。従来どおり未実施。
 3. task_006 / 008 の設計判断 4 点（週末通知の既定、aloneTime、plannedPlace、文言履歴の永続化）。
+
+---
+
+## task_009-residual — Time Sensitive エンタイトルメントと「今は話せない」
+
+- 日時: 2026-09-04
+- 状態: done（設計判断 D5 / D6 の実装。3 検証コマンドが exit 0。実機での長押しアクション・60 分後の再通知・Time Sensitive の実効は未検証）
+- ブランチ / コミット: `task/009-residual`（`integration` の 1042720 から分岐） / （このコミット）
+- 対象: `docs/review/integration-decisions-2026-09-04.md` の D5・D6、task_009 scope 末尾の「今は話せない」、fix-decisions P3.5
+
+### 作ったもの
+
+| ファイル | 内容 |
+|---|---|
+| `project.yml` | Saydo ターゲットに `entitlements`（`path: App/Saydo.entitlements` + `properties`）を追加。`com.apple.developer.usernotifications.time-sensitive: true`（D5） |
+| `App/Saydo.entitlements` | XcodeGen の生成物。`properties` から作られたものをそのままコミットした（`.gitignore` が除外するのは `*.xcodeproj` などで、`*.entitlements` は対象外） |
+| `Packages/SaydoCore/.../NotificationCopy.swift` | `busyNowActionIdentifier` = `"saydo.notification.action.busyNow"`、`busyNowActionTitle` = 「今は話せない」、`actionTitles`（通知に並ぶ順。今は話せない → 今日は休む）。`allTexts` を `actionTitles` 経由に変更 |
+| `Packages/SaydoCore/.../NotificationPlan.swift` | `snoozeInterval`（60 分）、`maxSnoozesPerDay`（2）、`snoozeIdentifier(base:attempt:)`、`snoozeAttempt(in:)`、`baseIdentifier(of:)`、`nextSnoozeAttempt(base:pending:)`。`copyKey(for:day:calendar:)` を private → public（再登録時に元の `copyKey` が読めなかったときの拠り所） |
+| `App/Notifications/DeepLink.swift` | `DeepLink.Action.snooze` を追加。`action(forActionIdentifier:)` が `busyNowActionIdentifier` を `.snooze` に写す |
+| `App/Notifications/NotificationScheduler.swift` | `registerCategories()` にアクション 2 つ（`busyNow` → `restToday` の順）。`snooze(_:now:) async -> String?` を追加。`NotificationIdentifier.matches(dayStamp:identifier:)` が `-snooze<n>` を外してから日付印を比べるように変更 |
+| `App/AppDelegate.swift` | `handle(_:)` に `.snooze` 分岐。`scheduler.snooze(link)` を呼んで **return**（launcher に渡さない・フローを開かない・`Commitment` に触らない） |
+| テスト | `NotificationPlanTests` +12（25 → 37）、`NotificationCopyTests` +4（9 → 13）、`DeepLinkTests` +5（18 → 23） |
+
+### 実装の決定
+
+- **識別子は `<枠>-yyyyMMdd-snooze<n>`**。接頭辞が元のままなので `NotificationIdentifier.isManaged` にそのまま掛かり、再計画（`removeAllManagedPending`）と全削除（task_013 の `removeAllManagedPending`）で一緒に消える。日付印の判定だけは接尾辞を外す必要があったので `matches(dayStamp:identifier:)` を `NotificationPlan.baseIdentifier(of:)` 経由に変えた。これで「今日は休む」がずらした通知も一緒に取り消す。
+- **上限の数え方は `pending` の最大 attempt + 1**。snooze1 が発火して保留から消えたあとでも snooze2 が残っていれば 3 回目は登録しない（`testSnoozeLimitCountsTheHighestAttemptEvenIfEarlierOnesAlreadyFired`）。base が違う識別子（他の枠・他の日・SAYDO 以外）は数に入れない。
+- **上限に達したときは黙って登録しない**。「もう使えません」のような文言を出さない（企画原則 §22-1・§22-8）。`logger.info("snooze declined: ...")` だけを残す。
+- **content の組み立ては `apply` と同じ経路**。`snooze` は `NotificationRegistration` を作って既存の `add(_:commitmentID:)` に渡すだけで、本文・`userInfo`・`interruptionLevel` の分岐を複製していない。`interruptionLevel` は元と同じ枠を渡すので `slot == .action` のときだけ `.timeSensitive` になる。
+- **`PendingDiagnostics.logLine` は変更不要だった**。`countsBySlot` は `identifier.hasPrefix("\(slot.rawValue)-")` で数えるので `noon-20260904-snooze1` は `noon` に入り、`managedCount` にも入る。実測ログの `managed=` と `noon=` に再登録ぶんが含まれることをコードで確認した（`NotificationScheduler.swift` の `PendingDiagnostics.init(requests:)`）。
+- **`Commitment` には触っていない**。`.snooze` は `AppDelegate` で return するので `SessionLauncher` にも渡らない。
+
+### 証拠
+
+| コマンド | exit code | ログ |
+|---|---|---|
+| `scripts/test-core.sh` | **0**（SaydoCore **208** / SaydoAI 33 / `lint-principles: OK`） | `docs/logs/task_009-residual-1.txt` |
+| `scripts/build-ios.sh` | **0**（`generic/platform=iOS Simulator` の本来経路。フォールバック無し） | `docs/logs/task_009-residual-2.txt` |
+| `scripts/test-ios.sh` | **0**（SaydoTests **94** / `lint-principles: OK`。iPhone 17 / iOS 26.3） | `docs/logs/task_009-residual-3.txt` |
+
+`scripts/test-core.sh`（末尾）:
+
+```
+	 Executed 208 tests, with 0 failures (0 unexpected) in 0.036 (0.044) seconds
+	 Executed 33 tests, with 0 failures (0 unexpected) in 18.280 (18.283) seconds
+lint-principles: 対象 49 ファイル（App/ と Packages/*/Sources。Tests と Spikes は除外）
+lint-principles: OK
+EXIT=0
+```
+
+`scripts/build-ios.sh`（末尾）:
+
+```
+Touch .../Build/Products/Debug-iphonesimulator/Saydo.app (in target 'Saydo' from project 'Saydo')
+** BUILD SUCCEEDED **
+EXIT=0
+```
+
+`scripts/test-ios.sh`（先頭と末尾）:
+
+```
+test-ios: scheme=Saydo device=iPhone 17 runtime=com.apple.CoreSimulator.SimRuntime.iOS-26-3 udid=9D2D913B-5C7B-4969-B86C-C69CDFE434E2
+	 Executed 94 tests, with 0 failures (0 unexpected) in 0.256 (0.334) seconds
+** TEST SUCCEEDED **
+lint-principles: OK
+EXIT=0
+```
+
+スイート別件数（SaydoTests、94）: AppSettings 7 / AudioFileStore 8 / DataExporter 11 / **DeepLink 23** / Repository 17 / SessionViewModel 14 / SilenceDetector 13 / Smoke 1。
+SaydoCore の増分: NotificationPlan 25 → **37**、NotificationCopy 9 → **13**（192 → 208）。
+
+生成された `App/Saydo.entitlements`:
+
+```xml
+<dict>
+	<key>com.apple.developer.usernotifications.time-sensitive</key>
+	<true/>
+</dict>
+```
+
+`Saydo.xcodeproj/project.pbxproj`（生成物・非コミット）に `CODE_SIGN_ENTITLEMENTS = App/Saydo.entitlements;` が Debug / Release の両方に入り、`Saydo.app` の中にはコピーされていない（バンドル内容を `ls` で確認）。
+
+lint の日本語リテラル WARN は **118 行のまま**（`integration-7-test-core-after-noon-fix.txt` と同数）。増やしていない。
+
+### 既知の警告（本タスクの差分ではない）
+
+`scripts/build-ios.sh` のフルビルドで `App/Features/Settings/DataExporter.swift:308:24: warning: use of protocol 'Error' as a type must be written 'any Error'` が 1 件出る。
+出どころは task_019-core（`8a12578`）の `var copyError: Error?` で、本タスクの所有ファイルではないため直していない。
+integration の `integration-3-build-ios-saydo.txt` は増分ビルドで当該ファイルを再コンパイルしておらず、この警告が記録されていなかった。
+
+### task_009 done_definition との対応
+
+| done_definition | 状態 | 根拠 |
+|---|---|---|
+| 実機で既定の 2 通知が届き、3 回モードで昼・夜も届く。タップでフローが自動開始 | **未検証**（実機） | 本タスクの範囲外（task_009-app の引き継ぎのまま） |
+| pending に日数分の非繰り返しトリガーが登録され、当日分だけをスキップできる | **未検証**（実機） | 同上 |
+| 通知の長押しから「今日は休む」が選べ、休んだ日が Timeline に出ない | **未検証**（実機） | カテゴリ登録のコードはあるが実機で長押ししていない |
+| 通知許可が拒否・失効した状態で起動すると Today に再許可の導線が出る | 未着手（C / F の担当） | `NotificationHealth.needsAttention` は既にある |
+| 行動時刻通知が朝の宣言後に `.timeSensitive` で登録される | コードは **done**、実効は **未検証** | `content.interruptionLevel = registration.slot == .action ? .timeSensitive : .active`（既存）＋ 本タスクでエンタイトルメントを追加 |
+| `NotificationPlanTests` が緑で、全通知文言が Guardrails を通過する | **done** | `test-core.sh` exit 0。`testNoNotificationTextViolatesGuardrails` が `allTexts`（本文 6 + アクション 2）を、`testNoActionTitleViolatesGuardrails` が `actionTitles` を検査 |
+| 「今は話せない」= 同じ通知を 60 分後に 1 件だけ再登録（同日 2 回まで）、Commitment に未達を記録しない | ロジックは **done**、実機は **未検証** | `NotificationPlanTests` の snooze 12 件、`DeepLinkTests` の snooze 5 件。`AppDelegate.handle` は `.snooze` で return |
+
+### 未検証（人間・実機が必要）
+
+- 通知を長押ししてアクションが「今は話せない」→「今日は休む」の順に 2 つ出ること。
+- 「今は話せない」を選んだ 60 分後に同じ本文の通知が届くこと。3 回目を押しても増えないこと。
+- Time Sensitive の実効（集中モード中に行動時刻通知が届くこと）。**シミュレータでは確認できない**。Apple Developer の App ID（`com.nonturn.saydo`）に **Time Sensitive Notifications** capability を付け、プロビジョニングプロファイルを作り直した実機ビルドが要る。capability を付けずに実機向けの自動署名でビルドすると、エンタイトルメント不一致で署名が通らないと見込んでいる（**本セッションでは未確認**。実機ビルドを行っていない）。`CODE_SIGNING_ALLOWED=NO` のシミュレータビルドには影響しないので、3 検証コマンドは exit 0 のままである（これは実測済み）。
+- `PendingDiagnostics.logLine` の実測値（task_009 の「pending 上限を実機で記録する」）。再登録ぶんが `noon=` / `managed=` に乗ることはコードで確認したが、実機のログは未取得。
+
+### 統合時の継ぎ目
+
+1. **`AppRouter` が `.snooze` を無視すること**（エージェント A の所有）。`AppDelegate.handle` は `.snooze` で return するので `SessionLauncher.launch` に `.snooze` は到達しない。ただし `DeepLink.Action` に case が増えたので、`AppRouter` が `switch link.action` を網羅的に書いている場合はコンパイルエラーになる。`.open` 以外を無視する設計ならそのままで良い。**統合時に `AppRouter.launch` を目視確認すること**。
+2. **再計画で保留中の再登録が消える**。`apply` → `removeAllManagedPending` は `-snooze<n>` も管理対象として消す。「今は話せない」を押した本人は 60 分以内にアプリを開かない想定なので通常は残るが、その間に別用でアプリを開いて `reschedule` が走ると、ずらした通知は消える。`removeAllManagedPending` を snooze だけ除外すると task_013 の「全削除」が snooze を消し残すため、**今回は消える側を選んだ**。挙動を変えるなら task_018 で判断する。
+3. **日付をまたぐ再登録**。`snooze` の base は `now` の日付印で作るので、23:30 に押した通知の再登録は当日ぶん（`-yyyyMMdd-snooze1`）だが、翌 00:10 にもう一度押すと翌日の base（`snooze1`）になり、上限が日ごとにリセットされる。実装計画の「同日 2 回まで」の解釈としてこれを採った。
+4. `NotificationCopy.actionTitles` は通知に並べる順（今は話せない → 今日は休む）を持つ。設定画面などで文言を再利用する場合はここから引く。
+
+### 人間の確認待ち
+
+1. Apple Developer の App ID `com.nonturn.saydo` に **Time Sensitive Notifications** capability を追加し、開発用プロビジョニングプロファイルを再発行する（実機ビルドの前に必要。Certificates, Identifiers & Profiles → Identifiers → com.nonturn.saydo → Time Sensitive Notifications にチェック → Profiles を再生成）。
+2. 実機での通知長押し 2 アクション・60 分後の再通知・集中モード中の行動時刻通知の確認。
+3. `App/Features/Settings/DataExporter.swift:308` の `Error?` → `(any Error)?`（本タスクの所有外。task_018 か task_019 の担当で直す）。

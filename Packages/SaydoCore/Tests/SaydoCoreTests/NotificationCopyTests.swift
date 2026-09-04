@@ -40,11 +40,33 @@ final class NotificationCopyTests: XCTestCase {
         }
     }
 
+    /// 通知アクションのボタン文言も本文と同じ基準で検査する。
+    /// 長押しで最初に目に入るのはこの 2 語なので、責める語彙を混ぜない。
+    func testNoActionTitleViolatesGuardrails() {
+        XCTAssertFalse(NotificationCopy.actionTitles.isEmpty)
+        for title in NotificationCopy.actionTitles {
+            XCTAssertEqual(
+                Guardrails.check(title, form: .statement),
+                [],
+                "通知アクションの文言が Guardrails に違反している: 「\(title)」"
+            )
+        }
+    }
+
     func testEveryCopyKeyHasNonEmptyBody() {
         for key in NotificationCopyKey.allCases {
             XCTAssertFalse(NotificationCopy.body(for: key).isEmpty, "空の文言: \(key.rawValue)")
         }
-        XCTAssertEqual(NotificationCopy.allTexts.count, NotificationCopyKey.allCases.count + 1)
+        XCTAssertEqual(
+            NotificationCopy.allTexts.count,
+            NotificationCopyKey.allCases.count + NotificationCopy.actionTitles.count
+        )
+    }
+
+    func testActionTitlesAreAllCoveredByAllTexts() {
+        for title in NotificationCopy.actionTitles {
+            XCTAssertTrue(NotificationCopy.allTexts.contains(title), title)
+        }
     }
 
     // MARK: - 企画メモ §15 の文言
@@ -63,6 +85,23 @@ final class NotificationCopyTests: XCTestCase {
     func testRestTodayActionTitle() {
         XCTAssertEqual(NotificationCopy.restTodayActionTitle, "今日は休む")
         XCTAssertFalse(NotificationCopy.restTodayActionIdentifier.isEmpty)
+    }
+
+    func testBusyNowActionTitle() {
+        XCTAssertEqual(NotificationCopy.busyNowActionTitle, "今は話せない")
+        XCTAssertFalse(NotificationCopy.busyNowActionIdentifier.isEmpty)
+        XCTAssertNotEqual(
+            NotificationCopy.busyNowActionIdentifier,
+            NotificationCopy.restTodayActionIdentifier
+        )
+    }
+
+    /// 通知に並ぶ順。軽い「今は話せない」が先で、1 日を手放す「今日は休む」が後ろ。
+    func testActionTitleOrder() {
+        XCTAssertEqual(
+            NotificationCopy.actionTitles,
+            [NotificationCopy.busyNowActionTitle, NotificationCopy.restTodayActionTitle]
+        )
     }
 
     func testDeclarationReminderBody() {

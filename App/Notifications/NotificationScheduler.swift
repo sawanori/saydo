@@ -8,7 +8,9 @@ import SaydoCore
 
 /// 通知識別子の規約（実装計画 §7.4）。
 ///
-/// `<枠>-yyyyMMdd`。組み立ては `NotificationPlan.identifier(for:day:calendar:)` が持つ。
+/// `<枠>-yyyyMMdd`、「今は話せない」の再登録は `<枠>-yyyyMMdd-snooze<n>`。
+/// 組み立ては `NotificationPlan.identifier(for:day:calendar:)` と
+/// `NotificationPlan.snoozeIdentifier(base:attempt:)` が持つ。
 /// ここには「この識別子は SAYDO が管理しているか」の判定だけを置く。
 /// アクター隔離を持たせない（保留通知のコールバックは MainActor 外で走るため）。
 public enum NotificationIdentifier {
@@ -16,14 +18,18 @@ public enum NotificationIdentifier {
     /// SAYDO が登録・取り消しの対象にする接頭辞（`morning-` / `noon-` / `night-` / `action-`）。
     public static let managedPrefixes: [String] = NotificationSlot.allCases.map { "\($0.rawValue)-" }
 
-    /// SAYDO が管理する識別子か。
+    /// SAYDO が管理する識別子か。再登録の識別子も接頭辞は同じなので真になる。
     public static func isManaged(_ identifier: String) -> Bool {
         managedPrefixes.contains { identifier.hasPrefix($0) }
     }
 
     /// その日付印の通知か（`cancelRemainingToday` の判定に使う）。
+    ///
+    /// 再登録（`-snooze<n>`）は接尾辞を外してから比べる。
+    /// 「今日は休む」と再計画で、ずらした通知も元の通知と一緒に消えるため。
     public static func matches(dayStamp: String, identifier: String) -> Bool {
-        isManaged(identifier) && identifier.hasSuffix("-" + dayStamp)
+        isManaged(identifier)
+            && NotificationPlan.baseIdentifier(of: identifier).hasSuffix("-" + dayStamp)
     }
 }
 
@@ -162,9 +168,14 @@ public final class NotificationScheduler {
 
     /// 通知カテゴリとアクションを登録する。起動直後に 1 回だけ呼ぶ。
     ///
-    /// アクションは「今日は休む」1 つ（retention-strategy R3）。
-    /// `.foreground` を付けないので、選んでもアプリは開かない。
+    /// アクションは「今は話せない」（設計判断 D6）と「今日は休む」（retention-strategy R3）の 2 つ。
+    /// 軽い方を先に置く。`.foreground` を付けないので、どちらを選んでもアプリは開かない。
     public func registerCategories() {
+        let busyNow = UNNotificationAction(
+            identifier: NotificationCopy.busyNowActionIdentifier,
+            title: NotificationCopy.busyNowActionTitle,
+            options: []
+        )
         let restToday = UNNotificationAction(
             identifier: NotificationCopy.restTodayActionIdentifier,
             title: NotificationCopy.restTodayActionTitle,
@@ -172,7 +183,7 @@ public final class NotificationScheduler {
         )
         let category = UNNotificationCategory(
             identifier: NotificationCopy.categoryIdentifier,
-            actions: [restToday],
+            actions: [busyNow, restToday],
             intentIdentifiers: [],
             options: []
         )
@@ -270,6 +281,37 @@ public final class NotificationScheduler {
     public func cancel(identifiers: [String]) {
         guard !identifiers.isEmpty else { return }
         center.removePendingNotificationRequests(withIdentifiers: identifiers)
+    }
+
+    // MARK: - 「今は話せない」
+
+    /// 「今は話せない」（設計判断 D6・実装計画 §7.4）。同じ通知を 60 分後に 1 件だけ登録し直す。
+    ///
+    /// - 内容（本文・`userInfo`・割り込みレベル）は元の通知と同じ。`apply` と同じ組み立てを通す。
+    /// - 同日 3 回目は登録しない（`NotificationPlan.maxSnoozesPerDay`）。断らずに黙って何もしない。
+    /// - `Commitment` には何も書かない。先延ばしは記録上の失敗ではない（企画原則 §22-1）。
+    ///
+    /// - Returns: 登録した識別子。上限に達していた場合と枠が読めない通知の場合は nil。
+    @discardableResult
+    public func snooze(_ link: DeepLink, now: Date = Date()) async -> String? {
+        guard let slot = link.slot else { return nil }
+
+        let base = NotificationPlan.identifier(for: slot, day: now, calendar: calendar)
+        let pending = await pendingIdentifiers()
+        guard let attempt = NotificationPlan.nextSnoozeAttempt(base: base, pending: pending) else {
+            logger.info("snooze declined: base=\(base, privacy: .public)")
+            return nil
+        }
+
+        let registration = NotificationRegistration(
+            identifier: NotificationPlan.snoozeIdentifier(base: base, attempt: attempt),
+            fireDate: now.addingTimeInterval(NotificationPlan.snoozeInterval),
+            slot: slot,
+            copyKey: link.copyKey ?? NotificationPlan.copyKey(for: slot, day: now, calendar: calendar)
+        )
+        await add(registration, commitmentID: link.commitmentID)
+        logger.info("snooze registered: \(registration.identifier, privacy: .public)")
+        return registration.identifier
     }
 
     // MARK: - 状態の読み取り
