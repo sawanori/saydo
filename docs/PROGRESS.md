@@ -1540,3 +1540,133 @@ lint-principles: OK
 1. `integration` を main にマージするかの判断（本セッションは `integration` の push まで。main は触っていない）。
 2. 実機検証（音声 10 項目、AlarmKit 6 項目、fm-probe 人手採点 20 件）。従来どおり未実施。
 3. task_006 / 008 の設計判断 4 点（週末通知の既定、aloneTime、plannedPlace、文言履歴の永続化）。
+
+---
+
+## task_016-app — WeeklyInsightView / 3 件目インサイト
+
+- 日時: 2026-09-04
+- 状態: done（3 検証コマンドが exit 0。実機での見た目は未検証）
+- ブランチ / コミット: `task/016-insight-view`（`integration` の 1042720 から分岐） / （このコミット）
+- 担当範囲: task_016 のアプリ側だけ。`InsightCalculator` / `InsightCopy` / `WeeklyStats`（SaydoCore）は
+  task_016-core として完成済みで、本エントリでは 1 行も変更していない。
+
+### 作ったもの
+
+| ファイル | 内容 |
+|---|---|
+| `App/Data/Repository+Insight.swift` | `extension Repository`。`insightInputs(endingAt:days:calendar:)` / `insightInputs(from:to:)` / `recordedCommitmentCount()` / `firstCommitmentDate()` と、集計期間を作る `enum InsightPeriod`。集計値そのものは既存の `weeklyStats(from:to:)` を使う。**`Repository.swift` 本体は触っていない**（F が変更中のため） |
+| `App/Features/Insight/InsightViewModel.swift` | `@MainActor @Observable`。`State` = `.insufficient` / `.firstInsight(line:)` / `.weekly(WeeklyInsight)`。表示用の `WeeklyInsight` / `ReasonShare` もここ |
+| `App/Features/Insight/InsightCardView.swift` | Timeline 上部の 1 行インサイト（26pt の温色ルール + 文 + シェブロン）。タップで `WeeklyInsightView` を `sheet` で開く。`.insufficient` は `EmptyView` |
+| `App/Features/Insight/WeeklyInsightView.swift` | 戻る / 「この1週間」+ 日付範囲 / 上位 5（01 が `.declaration`、以降 `.list`。件数は出さない）/ 「逃げる理由」の帯（高さ 12・隙間 2・`accentRamp` 4 段）+ 凡例 / 振り返り 1 文（`Palette.glow` のパネル） |
+| `App/Features/Insight/InsightViewCopy.swift` | 画面固有の見出しと読み上げラベル、`『』`を温色にする `emphasized(_:emphasis:)`。集計結果の文は `InsightCopy`（SaydoCore）のまま |
+| `Tests/SaydoTests/InsightViewModelTests.swift` | インメモリ `ModelContainer` + `Repository` に固定データを入れた 8 件 |
+
+決めたこと（実装計画 §8 の 3 状態を数値規則に落としたもの）:
+
+- `.insufficient`: 記録が 3 件（`InsightCalculator.firstInsightThreshold`）未満、または偏りが無く
+  `InsightCalculator.firstInsight` が nil。
+- `.weekly`: 最初の記録から暦で 7 日ぶん経ち、かつ直近 7 日の `WeeklyStats.totalCount` が 3 件以上。
+- `.firstInsight`: 上記以外で `firstInsight` が 1 行を返したとき。
+- 実装計画 §8 は「データ不足（3 件未満）」、依頼文は「3 日未満」と書き方が違う。**件数 3**（SaydoCore の
+  `firstInsightThreshold` と同じ）で実装した。3 日ぶんしか無い週は `weeklyReflection` が
+  `InsightCopy.notEnoughData` を返すので、どちらの読み方でもデータ不足の文言になる。
+- 帯の実幅は「利用できる幅 −（隙間 2 × 段数−1）」に割合を掛ける。design-notes の
+  128 / 91 / 70 / 47px は 402 幅・左右余白 30 でこの式と一致する。
+- `InsightInput.outcome` は埋めない。結果内訳をインサイト経路に持ち込まないため（fix-decisions P2.2）。
+  `InsightCalculator` は `outcome` を読まない。
+
+### 証拠
+
+| コマンド | exit code | ログ |
+|---|---|---|
+| `scripts/build-ios.sh` | **0** | `docs/logs/task_016-app-1.txt` |
+| `scripts/test-core.sh` | **0**（SaydoCore 192 / SaydoAI 33 / lint OK） | `docs/logs/task_016-app-2.txt` |
+| `scripts/test-ios.sh` | **0**（SaydoTests **97** / lint OK） | `docs/logs/task_016-app-3.txt` |
+
+スイート別件数（iOS）: AppSettings 7 / AudioFileStore 8 / DataExporter 11 / DeepLink 18 /
+**InsightViewModel 8** / Repository 17 / SessionViewModel 14 / SilenceDetector 13 / Smoke 1 = 97
+（integration の 89 に本タスクの 8 件が増えた）。
+
+`scripts/build-ios.sh`（末尾）:
+
+```
+    builtin-validationUtility /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-.../Build/Products/Debug-iphonesimulator/Saydo.app -shallow-bundle -infoplist-subpath Info.plist
+
+** BUILD SUCCEEDED **
+
+EXIT=0
+```
+
+`scripts/test-ios.sh`（抜粋）:
+
+```
+test-ios: scheme=Saydo device=iPhone 17 runtime=com.apple.CoreSimulator.SimRuntime.iOS-26-3 udid=9D2D913B-5C7B-4969-B86C-C69CDFE434E2
+Test Suite 'InsightViewModelTests' passed at 2026-09-04 11:28:08.313.
+	 Executed 8 tests, with 0 failures (0 unexpected) in 0.107 (0.110) seconds
+	 Executed 97 tests, with 0 failures (0 unexpected) in 0.366 (0.404) seconds
+	 Executed 97 tests, with 0 failures (0 unexpected) in 0.366 (0.409) seconds
+** TEST SUCCEEDED **
+lint-principles: 対象 55 ファイル（App/ と Packages/*/Sources。Tests と Spikes は除外）
+lint-principles: OK
+```
+
+`scripts/test-core.sh`（抜粋）:
+
+```
+	 Executed 192 tests, with 0 failures (0 unexpected) in 0.134 (0.142) seconds
+	 Executed 33 tests, with 0 failures (0 unexpected) in 15.733 (15.736) seconds
+lint-principles: OK
+EXIT=0
+```
+
+lint の WARN は本タスクで増えていない（新規 5 ファイルは 1 件も WARN に出ていない。文言は
+`InsightViewCopy.swift` = `*Copy.swift` に置いたため対象外）。ビルド警告も本タスクの
+ファイルからは 0 件（残る 1 件は既存の `App/Features/Settings/DataExporter.swift:308` の
+`any Error`。所有外なので触っていない）。
+
+**1 回目の `scripts/test-ios.sh` は exit 65 で落ちた**（`Test crashed with signal kill before
+establishing connection.`、コンパイルエラーは 0 件）。同じ tree で再実行したら exit 0 になった。
+第 2 波の並列実行でシミュレータを共有していることによる起動時の失敗と見ている。落ちた回の
+ログは残していない（同じパスに上書きした）。
+
+### task_016 done_definition との対応
+
+| done_definition | 本タスクの対応 |
+|---|---|
+| 7 日分の固定データで割合が正しく計算されるテストが緑 | `testSevenDaysProduceTheWeeklyInsight`。理由 4 件を母数に 50 / 25 / 25%、上位 5 分野の並びも固定。SaydoCore 側は task_016-core の `InsightCalculatorTests` 15 件 |
+| `WeeklyStats` に結果内訳と平均縮小回数が含まれない | 本タスクは `WeeklyStats` を変更していない（task_016-core で確認済み）。`WeeklyInsight`（表示用）にも入れていない |
+| 設定の開発者向け節にだけ結果内訳を表示 | **未対応**。`SettingsView` は C の所有ファイル。継ぎ目として下に記す |
+| 3 件目のデータで 1 行インサイトが Timeline 上部に出る | `testThirdRecordProducesTheOneLineInsight` で `.firstInsight` になることを確認。**Timeline への差し込みは未接続**（`TimelineView` は B の所有） |
+| 実機で Insight カードが表示される | **未検証**（実機なし） |
+| データ不足時の文言が責めない | `InsightCopy.notEnoughData` をそのまま使う。SaydoCore の禁止句テストの母集団に入っている |
+| `WeeklyStats` に done/partial/notYet と縮小回数の平均が無いことをテストで固定 | task_016-core の担当。本タスクでは追加していない |
+| Tier A / Tier B の振り返り文が数字を含まない | Tier B は `InsightCopy` のテンプレート（SaydoCore で固定済み）。Tier A は `reflectionProvider` の戻り値を `Guardrails.sanitize(_:form:.statement:fallback:)` に通し、違反したらテンプレートへ落とす（`testReflectionProviderViolationFallsBackToTheTemplate`）。**数字の有無そのものを禁じる規則は `Guardrails` に無い**（「N 日連続」だけ）。数字禁止を機械で固定したいなら `Guardrails` 側の変更が要る |
+| task_015 未実施ならテンプレート振り返りだけで完了 | 既定は `reflectionProvider == nil` でテンプレート経路。この状態で 3 コマンド緑 |
+
+### 未検証
+
+- 実機・シミュレータでの見た目（帯の実幅、Dynamic Type xxxLarge、iPhone SE 幅での上位 5 の折り返し、
+  `sheet` の遷移）。ユニットテストは `InsightViewModel` の状態までで、View は 1 度も描画していない。
+- `InsightCardView` を `TimelineView` の `topAccessory` に入れた状態での表示（B のブランチが未統合）。
+
+### 統合時の継ぎ目
+
+1. `TimelineView(topAccessory:)`（B）へ `InsightCardView(model:)` を差し込む。`InsightViewModel` は
+   `Repository` を持つ側（`RootView` か `TimelineView` の呼び出し元）で 1 つ作って渡す。
+   **`InsightViewModel` は生成時に `Task { await load() }` で 1 回読む**。記録が足りない間
+   `InsightCardView` は `EmptyView` を返し、`EmptyView` には `.task` が効かない（表示物が無い）ため
+   読み込みの起点を init に置いた。セッション完了後など記録が増えたときは `load()` を呼び直す。
+2. task_015 が Tier A を入れるときは
+   `InsightViewModel(repository:calendar:now:reflectionProvider:)` の
+   `reflectionProvider` に `{ stats in try await engine.weeklyReflection(stats: stats) }` を渡す。
+   失敗・Guardrails 違反はこちらでテンプレートへ落とすので、呼び出し側の後処理は要らない。
+3. 結果内訳（done / partial / notYet）の「開発者向け節」表示は `SettingsView`（C の所有）に残っている。
+   `Repository` には既に `Commitment.outcome` があるので、C か仕上げの task_018 で足す。
+4. `WeeklyInsightView` は `sheet` で開く前提で作った（`NavigationStack` を要求しない）。
+   B の `TimelineView` が `NavigationStack` を持つなら `NavigationLink` へ変えてよい。
+
+### 人間の確認待ち
+
+1. 実機で `WeeklyInsightView` の帯・上位 5・振り返りパネルが design-notes の意匠どおりに見えるか。
+2. `.weekly` へ切り替える条件を「最初の記録から 7 日」にした判断（暦日で数える。記録が無い日も含む）。
