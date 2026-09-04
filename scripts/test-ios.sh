@@ -48,6 +48,33 @@ NAME="$(printf '%s' "$SELECTED" | cut -f2)"
 RUNTIME="$(printf '%s' "$SELECTED" | cut -f3)"
 echo "test-ios: scheme=${SCHEME} device=${NAME} runtime=${RUNTIME} udid=${UDID}"
 
+# 複数の worktree から同時に実行すると 1 台のシミュレータを取り合って install / launch が壊れるため、
+# 同じ Mac では 1 つずつ実行する（mkdir による排他。持ち主のプロセスが消えていれば回収する）。
+LOCK_DIR="${TMPDIR:-/tmp}/saydo-test-ios.lock"
+acquire_lock() {
+  local waited=0
+  while ! mkdir "$LOCK_DIR" 2>/dev/null; do
+    local owner
+    owner="$(cat "$LOCK_DIR/pid" 2>/dev/null || true)"
+    if [ -n "$owner" ] && ! kill -0 "$owner" 2>/dev/null; then
+      rm -rf "$LOCK_DIR"
+      continue
+    fi
+    if [ "$waited" -eq 0 ]; then
+      echo "test-ios: 別の test-ios（pid=${owner:-?}）が実行中。終わるまで待つ（lock=${LOCK_DIR}）"
+    fi
+    sleep 10
+    waited=$((waited + 10))
+    if [ "$waited" -ge 3600 ]; then
+      echo "test-ios: 60 分待っても lock が解放されない。exit 4" >&2
+      exit 4
+    fi
+  done
+  echo $$ > "$LOCK_DIR/pid"
+  trap 'rm -rf "$LOCK_DIR"' EXIT
+}
+acquire_lock
+
 xcodebuild test \
   -project Saydo.xcodeproj \
   -scheme "$SCHEME" \
