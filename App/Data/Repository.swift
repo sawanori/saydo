@@ -185,6 +185,16 @@ actor Repository {
         return snapshot(of: commitment)
     }
 
+    /// 昼 N3 の「今日は捨てる / 明日に回す」、夜 E0 の「明日に回す」、N1 の「やった」を
+    /// 逃げている対象の状態に写す（task_011 scope「選択に応じた AvoidanceItem.status の更新」）。
+    func updateAvoidanceStatus(commitmentID: UUID, status: AvoidanceStatus, at date: Date = .now) throws {
+        let commitment = try requireCommitment(id: commitmentID)
+        guard let item = commitment.avoidanceItem else { return }
+        item.status = status
+        item.lastTouchedAt = date
+        try modelContext.save()
+    }
+
     /// 昼 N3 / 夜 E0 の「もっと小さく」。`shrinkCount` が 1 増える。
     @discardableResult
     func shrink(

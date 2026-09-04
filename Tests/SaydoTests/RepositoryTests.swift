@@ -78,6 +78,23 @@ final class RepositoryTests: XCTestCase {
         XCTAssertNotNil(created.avoidanceID)
     }
 
+    /// task_011: 「今日は捨てる」で dropped にした対象は翌日に同じ言葉で言っても使い回されず、
+    /// 「明日に回す」で carriedOver にした対象は使い回される（生きている対象だけを再利用する）。
+    func testAvoidanceStatusDecidesWhetherTheItemIsReusedTomorrow() async throws {
+        let day1 = try date(2026, 3, 9)
+        let day2 = try date(2026, 3, 10)
+        let day3 = try date(2026, 3, 11)
+
+        let first = try await repository.createCommitment(draft(at: day1))
+        try await repository.updateAvoidanceStatus(commitmentID: first.id, status: .carriedOver, at: day1)
+        let second = try await repository.createCommitment(draft(at: day2))
+        XCTAssertEqual(second.avoidanceID, first.avoidanceID)
+
+        try await repository.updateAvoidanceStatus(commitmentID: second.id, status: .dropped, at: day2)
+        let third = try await repository.createCommitment(draft(at: day3))
+        XCTAssertNotEqual(third.avoidanceID, first.avoidanceID)
+    }
+
     /// done_definition: 同じ dayKey で 2 件目の Commitment を作ると拒否される。
     func testSecondCommitmentOnTheSameDayIsRejected() async throws {
         let morning = try date(2026, 3, 9, 8)

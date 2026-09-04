@@ -40,6 +40,8 @@ protocol SessionStore: Sendable {
         estimatedMinutes: Int,
         at date: Date
     ) async throws -> CommitmentSnapshot
+    /// 昼 N3・夜 E0 の選択と N1 の「やった」を、逃げている対象の状態に写す（task_011）。
+    func updateAvoidanceStatus(commitmentID: UUID, status: AvoidanceStatus, at date: Date) async throws
     func appendVoiceEntry(_ draft: VoiceEntryDraft) async throws -> VoiceEntrySnapshot
     func deleteVoiceEntry(id: UUID) async throws
     func entries(for day: Date) async throws -> [VoiceEntrySnapshot]
@@ -109,6 +111,10 @@ struct RepositorySessionStore: SessionStore {
             estimatedMinutes: estimatedMinutes,
             at: date
         )
+    }
+
+    func updateAvoidanceStatus(commitmentID: UUID, status: AvoidanceStatus, at date: Date) async throws {
+        try await repository.updateAvoidanceStatus(commitmentID: commitmentID, status: status, at: date)
     }
 
     func appendVoiceEntry(_ draft: VoiceEntryDraft) async throws -> VoiceEntrySnapshot {
@@ -304,6 +310,8 @@ final class SessionViewModel {
     private var pendingNotifications: [NotificationRequest] = []
     /// M1 を声で答えた場合の分類結果。
     private var classifiedReason: ReasonCategory?
+    /// 最後に選んだチップ。会話の終わりに `AvoidanceItem.status` へ写すために持つ。
+    private var lastChoiceID: ChoiceID?
     /// 逃げている対象の分野。
     private var classifiedDomain: TaskDomain = .other
     /// 「イヤホンで聞く / 文字で読む」の答えを待って止めてある命令列（retention R8）。
@@ -368,6 +376,8 @@ final class SessionViewModel {
     ) async {
         let today = now()
         let mode: InputMode = (microphoneGranted && !voicelessMode) ? .voice : .text
+        // 会話の間だけ .playAndRecord にする（task_007 の申し送り: deactivate は ViewModel が明示的に呼ぶ）。
+        _ = try? audioSession?.activate(mode: .standard)
         if !microphoneGranted {
             notice = .micDenied
         }
@@ -479,6 +489,7 @@ final class SessionViewModel {
     func select(_ choice: Choice) async {
         cancelSilenceWatch()
         choices = []
+        lastChoiceID = choice.id
         await handle(.choice(choice.id))
     }
 
@@ -944,6 +955,26 @@ final class SessionViewModel {
 
     // MARK: - 終わり
 
+    /// 昼 N3 の「今日は捨てる / 明日に回す」、夜 E0 の「明日に回す」、N1 の「やった」を
+    /// 逃げている対象の状態に写す（task_011 scope）。「もっと小さくする」は対象を open のまま残す。
+    private func avoidanceStatusToPersist(for completion: FlowCompletion) -> AvoidanceStatus? {
+        guard completion == .completed, let current = state else { return nil }
+        if lastChoiceID == .dropToday { return .dropped }
+        if lastChoiceID == .moveToTomorrow || current.nightDecision == .moveToTomorrow { return .carriedOver }
+        if current.sessionType != .morning, commitment?.outcome == .done { return .done }
+        return nil
+    }
+
+    private func persistAvoidanceStatusIfNeeded(_ completion: FlowCompletion) async {
+        guard let status = avoidanceStatusToPersist(for: completion) else { return }
+        var target = commitment
+        if target == nil {
+            target = (try? await store.todayCommitment(on: now())) ?? nil
+        }
+        guard let id = target?.id else { return }
+        try? await store.updateAvoidanceStatus(commitmentID: id, status: status, at: now())
+    }
+
     private func finish(_ completion: FlowCompletion) async {
         stopListening()
         timeboxTask?.cancel()
@@ -951,6 +982,7 @@ final class SessionViewModel {
         choices = []
         examples = []
         pendingListen = nil
+        audioSession?.deactivate()
 
         if completion == .suspended {
             suspendedState = state
@@ -959,6 +991,7 @@ final class SessionViewModel {
         await persistCommitmentIfNeeded()
         await persistShrinkIfNeeded()
         await persistCarryoverIfNeeded()
+        await persistAvoidanceStatusIfNeeded(completion)
 
         for request in pendingNotifications {
             await send(request)

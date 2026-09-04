@@ -49,6 +49,17 @@ struct SessionView: View {
         .sheet(isPresented: $isTextSheetPresented) {
             TextFallbackSheet(viewModel: viewModel)
         }
+        // 再生前の配慮（retention R8）。イヤホン未接続で音量が大きいとき、音を出す前に聞き方を選ばせる。
+        .sheet(isPresented: listenModePrompt) {
+            ListenModeSheet { mode in
+                Task { await viewModel.chooseListenMode(mode) }
+            }
+            .interactiveDismissDisabled()
+        }
+    }
+
+    private var listenModePrompt: Binding<Bool> {
+        Binding(get: { viewModel.listenModePrompt }, set: { _ in })
     }
 
     // MARK: - 会話
@@ -206,24 +217,13 @@ struct SessionView: View {
         }
     }
 
-    /// 昼 N0。統合時にここへ `PlaybackCardView`（task_010 / エージェント F）を差し込む。
-    /// いまは「声なし」の日の宣言テキストを大きく出す最小表示にとどめる。
+    /// 昼 N0（task_010）。宣言音声の再生リボンと宣言テキスト。「声なし」の日はテキストを大きく出す。
     @ViewBuilder
     private var playbackLine: some View {
-        if viewModel.phase == .playback, let declaration = declarationText {
-            Text(declaration)
-                .saydoWrappingQuestion()
-                .multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
+        if viewModel.phase == .playback {
+            PlaybackCardView(viewModel: viewModel)
                 .padding(.top, Layout.blockSpacing)
-                .accessibilityLabel(SessionCopy.declarationLabel)
         }
-    }
-
-    private var declarationText: String? {
-        let text = viewModel.declarationTextToShow ?? viewModel.commitment?.declarationTranscript
-        guard let text, !text.isEmpty else { return nil }
-        return text
     }
 
     @ViewBuilder

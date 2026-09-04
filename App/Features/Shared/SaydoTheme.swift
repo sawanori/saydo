@@ -107,12 +107,13 @@ enum SaydoTheme {
             }
         }
 
+        /// 字送り。**折り返す和文には当てない**: `.tracking` を付けた `Text` は幅に余裕があっても
+        /// 早い位置で折り返して末尾が「…」で切れる（iPhone 17 / iOS 26.3 で実測。task_008-ui）。
+        /// design-notes の .02em / .06em は 1 行に収まる役割（状態行・ラベル・ロゴ・画面タイトル）にだけ使う。
         var tracking: CGFloat {
             switch self {
-            case .question: 0.56
-            case .preface: 1.32
+            case .question, .preface, .declaration, .reflection, .list, .time: 0
             case .screenTitle: 0.8
-            case .declaration, .reflection, .list, .time: 0
             case .status: 2.8
             case .sectionLabel: 2.64
             case .logo: 4.18

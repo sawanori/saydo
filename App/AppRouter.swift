@@ -34,11 +34,17 @@ final class AppRouter: SessionLauncher {
     private(set) var sessionViewModel: SessionViewModel?
     /// オンボーディングを終えているか。`RootView` の分岐に使う。
     private(set) var hasCompletedOnboarding: Bool
+    /// 会話を閉じるたびに増える。`TodayView` を作り直して今日の宣言を読み直すための印。
+    private(set) var sessionGeneration = 0
 
     // MARK: 依存
 
-    private let repository: Repository
+    let repository: Repository
+    /// Today / Timeline の再生に使う共有プレイヤー（同時再生はしない）。
+    let sharedPlayer: VoicePlayer
     private let notifications: NotificationScheduler
+    /// 会話中の AVAudioSession（.playAndRecord・経路・音量）。会話ごとの音声スタックと共有する。
+    private let audioSession: AudioSessionController
     private let settings: AppSettings
     private let now: @Sendable () -> Date
     private let calendar: Calendar
@@ -57,6 +63,9 @@ final class AppRouter: SessionLauncher {
         now: @escaping @Sendable () -> Date = { .now }
     ) {
         self.repository = Repository(modelContainer: modelContainer)
+        let audioSession = AudioSessionController()
+        self.audioSession = audioSession
+        self.sharedPlayer = VoicePlayer(sessionController: audioSession)
         self.notifications = notifications
         self.settings = settings
         self.calendar = calendar
@@ -88,12 +97,33 @@ final class AppRouter: SessionLauncher {
     /// 「今話す」から開く。今日の宣言がまだ無ければ朝、あれば手動チェックイン。
     func startManualSession() async {
         let today = try? await repository.todayCommitment(on: now(), calendar: calendar)
+        await startManualSession(today == nil ? .morning : .adhoc)
+    }
+
+    /// `TodayView` が種類を決めて開く（宣言前は朝、宣言後は手動チェックイン、夜は夜）。
+    func startManualSession(_ sessionType: SessionType) async {
+        let today = try? await repository.todayCommitment(on: now(), calendar: calendar)
         present(
             SessionRequest(
-                sessionType: today == nil ? .morning : .adhoc,
+                sessionType: sessionType,
                 commitmentID: today?.id,
                 source: .manual
             )
+        )
+    }
+
+    // MARK: - 起動時の再計画
+
+    /// 起動ごとに今日からの通知計画を作り直す（実装計画 §7.4、task_009 scope）。
+    /// 今日の宣言があれば行動時刻と結果を計画に反映する。
+    func rescheduleOnLaunch() async {
+        let today = try? await repository.todayCommitment(on: now(), calendar: calendar)
+        let day = today.map { DayCommitment(plannedAt: $0.plannedAt, outcome: $0.outcome) } ?? .noCommitment
+        _ = await notifications.reschedule(
+            now: now(),
+            settings: settings.notificationSettings,
+            today: day,
+            commitmentID: today?.id
         )
     }
 
@@ -110,7 +140,12 @@ final class AppRouter: SessionLauncher {
         sessionViewModel = viewModel
 
         let granted = isAudioStorageDegraded ? false : await Self.microphonePermission()
-        await viewModel.start(sessionType: request.sessionType, microphoneGranted: granted)
+        // 「話せない時を自動で使う時間帯」（task_013）なら最初から選択肢 + テキスト経路で始める。
+        await viewModel.start(
+            sessionType: request.sessionType,
+            microphoneGranted: granted,
+            voicelessMode: settings.isQuietMode(at: now())
+        )
     }
 
     /// 会話を閉じる。途中で閉じた場合は中断として保存し、録音と読み上げを止める。
@@ -121,6 +156,7 @@ final class AppRouter: SessionLauncher {
         activeSession = nil
         sessionViewModel = nil
         hasStartedActiveSession = false
+        sessionGeneration += 1
     }
 
     // MARK: - オンボーディング
@@ -129,6 +165,11 @@ final class AppRouter: SessionLauncher {
     func completeOnboarding() {
         settings.hasCompletedOnboarding = true
         hasCompletedOnboarding = true
+    }
+
+    /// 設定の「全削除」で `AppSettings.reset()` が走った後など、保存値から状態を読み直す。
+    func reloadOnboardingState() {
+        hasCompletedOnboarding = settings.hasCompletedOnboarding
     }
 
     // MARK: - 内部
@@ -149,12 +190,14 @@ final class AppRouter: SessionLauncher {
         let audioFiles = audioFileStore()
         return SessionViewModel(
             store: RepositorySessionStore(repository),
-            synthesizer: SpeechSynthesisService(),
+            synthesizer: SpeechSynthesisService(sessionController: audioSession),
             capture: VoiceCapture(),
             transcriber: TranscriptionService(),
-            player: VoicePlayer(),
+            player: VoicePlayer(sessionController: audioSession),
             notifications: notifications,
             audioFiles: audioFiles,
+            // 再生前の配慮（R8）の判定に使う。渡さないと確認は一度も出ない。
+            audioSession: audioSession,
             calendar: calendar,
             now: now
         )

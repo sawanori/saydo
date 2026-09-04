@@ -6,36 +6,72 @@ import SaydoCore
 /// `TabView` は「今日」「記録」の 2 タブだけ。設定は「今日」の右上（task_013）。
 /// 通知タップは `TodayView` を経由せず `SessionView` を直接出して即開始する。
 ///
-/// 統合時の差し替え:
-/// - `TodayTabPlaceholder` → `TodayView`（task_010 / エージェント F）
-/// - `TimelineTabPlaceholder` → `TimelineView`（task_012 / エージェント B。上部に `InsightCardView`）
-/// - `OnboardingPlaceholder` → `OnboardingView`（task_013 / エージェント C）
+/// 「今日」は `TodayView`（task_010）、「記録」は `VoiceTimelineView`（task_012）で上部に
+/// `InsightCardView`（task_016）。初回だけ `OnboardingView`（task_013）を出す。
 struct RootView: View {
 
     let router: AppRouter
+
+    @State private var notificationHealth: NotificationHealth?
+    @State private var insightModel: InsightViewModel?
+    @State private var isSettingsPresented = false
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         Group {
             if router.hasCompletedOnboarding {
                 tabs
             } else {
-                OnboardingPlaceholder { router.completeOnboarding() }
+                OnboardingView { router.completeOnboarding() }
             }
         }
         .fullScreenCover(isPresented: isSessionPresented) {
             SessionCover(router: router)
         }
+        .sheet(isPresented: $isSettingsPresented) {
+            SettingsView { router.reloadOnboardingState() }
+        }
+        .task(id: router.hasCompletedOnboarding) {
+            guard router.hasCompletedOnboarding else { return }
+            await router.rescheduleOnLaunch()
+            notificationHealth = await NotificationScheduler.shared.health()
+            if insightModel == nil {
+                insightModel = InsightViewModel(repository: router.repository)
+            }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            guard phase == .active, router.hasCompletedOnboarding else { return }
+            Task {
+                notificationHealth = await NotificationScheduler.shared.health()
+                await insightModel?.load()
+            }
+        }
+        .onChange(of: router.sessionGeneration) { _, _ in
+            Task { await insightModel?.load() }
+        }
     }
 
     private var tabs: some View {
         TabView {
-            TodayTabPlaceholder {
-                Task { await router.startManualSession() }
-            }
+            TodayView(
+                repository: router.repository,
+                player: router.sharedPlayer,
+                notificationHealth: notificationHealth,
+                onStartSession: { sessionType in
+                    Task { await router.startManualSession(sessionType) }
+                },
+                onOpenSettings: { isSettingsPresented = true }
+            )
+            // 会話を閉じたら作り直して、今日の宣言を読み直す。
+            .id(router.sessionGeneration)
             .tabItem { Text(RootCopy.todayTab) }
 
-            TimelineTabPlaceholder()
-                .tabItem { Text(RootCopy.timelineTab) }
+            VoiceTimelineView(player: router.sharedPlayer) {
+                if let insightModel {
+                    InsightCardView(model: insightModel)
+                }
+            }
+            .tabItem { Text(RootCopy.timelineTab) }
         }
         .tint(SaydoTheme.Palette.accent)
     }
@@ -73,92 +109,5 @@ private struct SessionCover: View {
         .task(id: router.activeSession?.id) {
             await router.beginSession()
         }
-    }
-}
-
-// MARK: - タブの中身（統合時に差し替える）
-
-/// 「今日」タブの仮置き。宣言カードと通知再許可の導線は `TodayView`（F）が持つ。
-private struct TodayTabPlaceholder: View {
-
-    let onSpeakNow: () -> Void
-
-    var body: some View {
-        VStack {
-            Spacer()
-            Button(action: onSpeakNow) {
-                Text(RootCopy.speakNow)
-                    .saydoText(.screenTitle)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: SaydoTheme.Metric.primaryButtonHeight)
-                    .background(
-                        Capsule().fill(SaydoTheme.Palette.chipFill)
-                    )
-                    .overlay(
-                        Capsule().stroke(SaydoTheme.Palette.hairline, lineWidth: 1)
-                    )
-            }
-            .buttonStyle(.plain)
-            .padding(.horizontal, Layout.sideMargin)
-            .padding(.bottom, Layout.bottomMargin)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .saydoGround()
-    }
-
-    private enum Layout {
-        static let sideMargin: CGFloat = 30
-        static let bottomMargin: CGFloat = 40
-    }
-}
-
-/// 「記録」タブの仮置き。日ごとの一覧は `TimelineView`（B）が持つ。
-private struct TimelineTabPlaceholder: View {
-    var body: some View {
-        Text(RootCopy.timelineEmpty)
-            .saydoText(.list)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .saydoGround()
-    }
-}
-
-/// オンボーディングの仮置き。権限・時刻・音声モデルの案内は `OnboardingView`（C）が持つ。
-private struct OnboardingPlaceholder: View {
-
-    let onStart: () -> Void
-
-    var body: some View {
-        VStack(spacing: Layout.spacing) {
-            Spacer()
-            Text(RootCopy.onboardingLead)
-                .saydoWrappingQuestion()
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: .infinity)
-                .fixedSize(horizontal: false, vertical: true)
-            Spacer()
-            Button(action: onStart) {
-                Text(RootCopy.onboardingStart)
-                    .saydoText(.screenTitle)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: SaydoTheme.Metric.primaryButtonHeight)
-                    .background(
-                        Capsule().fill(SaydoTheme.Palette.chipFill)
-                    )
-                    .overlay(
-                        Capsule().stroke(SaydoTheme.Palette.hairline, lineWidth: 1)
-                    )
-            }
-            .buttonStyle(.plain)
-        }
-        .padding(.horizontal, Layout.sideMargin)
-        .padding(.bottom, Layout.bottomMargin)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .saydoGround()
-    }
-
-    private enum Layout {
-        static let spacing: CGFloat = 24
-        static let sideMargin: CGFloat = 30
-        static let bottomMargin: CGFloat = 40
     }
 }

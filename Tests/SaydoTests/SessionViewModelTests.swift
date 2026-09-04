@@ -26,6 +26,7 @@ actor InMemorySessionStore: SessionStore {
     private(set) var entries: [VoiceEntrySnapshot] = []
     private(set) var carryovers: [CarryoverSnapshot] = []
     private(set) var logs: [SessionLogRecord] = []
+    private(set) var avoidanceStatuses: [UUID: AvoidanceStatus] = [:]
 
     private let calendar: Calendar
 
@@ -120,6 +121,13 @@ actor InMemorySessionStore: SessionStore {
         commitments[index].microAction = commitments[index].microAction
             .shrunk(to: text, estimatedMinutes: estimatedMinutes)
         return commitments[index]
+    }
+
+    func updateAvoidanceStatus(commitmentID: UUID, status: AvoidanceStatus, at date: Date) throws {
+        guard commitments.contains(where: { $0.id == commitmentID }) else {
+            throw RepositoryError.commitmentNotFound(id: commitmentID)
+        }
+        avoidanceStatuses[commitmentID] = status
     }
 
     func appendVoiceEntry(_ draft: VoiceEntryDraft) throws -> VoiceEntrySnapshot {
@@ -701,6 +709,85 @@ final class SessionViewModelTests: XCTestCase {
         let entries = try await store.entries(for: reference)
         XCTAssertEqual(entries.filter { $0.kind == .status }.count, 1)
         XCTAssertEqual(entries.filter { $0.kind == .blocker }.count, 1)
+    }
+
+    // MARK: - 選択に応じた AvoidanceItem.status（task_011 scope）
+
+    /// N3 で「今日は捨てる」を選ぶと逃げている対象が dropped になる。
+    func testNoonDropTodayMarksTheAvoidanceDropped() async throws {
+        let seeded = makeCommitment(outcome: .pending, plannedAt: reference.addingTimeInterval(-3_600))
+        await store.seed(seeded)
+        let (viewModel, _) = makeViewModel()
+        await viewModel.start(sessionType: .noon, microphoneGranted: false)
+
+        await viewModel.select(Choice(.status(.notYet)))
+        await viewModel.submit(text: "何から書けばいいかわからない")
+        await viewModel.select(Choice(.dropToday))
+
+        XCTAssertEqual(viewModel.completion, .completed)
+        let statuses = await store.avoidanceStatuses
+        XCTAssertEqual(statuses[seeded.id], .dropped)
+    }
+
+    /// N3 で「明日に回す」を選ぶと carriedOver になる。
+    func testNoonMoveToTomorrowMarksTheAvoidanceCarriedOver() async throws {
+        let seeded = makeCommitment(outcome: .pending, plannedAt: reference.addingTimeInterval(-3_600))
+        await store.seed(seeded)
+        let (viewModel, _) = makeViewModel()
+        await viewModel.start(sessionType: .noon, microphoneGranted: false)
+
+        await viewModel.select(Choice(.status(.notYet)))
+        await viewModel.submit(text: "何から書けばいいかわからない")
+        await viewModel.select(Choice(.moveToTomorrow))
+
+        XCTAssertEqual(viewModel.completion, .completed)
+        let statuses = await store.avoidanceStatuses
+        XCTAssertEqual(statuses[seeded.id], .carriedOver)
+    }
+
+    /// N1 の「やった」で対象は done になる。「まだ」→ 言い直しの経路では状態を変えない。
+    func testNoonDoneMarksTheAvoidanceDoneAndShrinkLeavesItOpen() async throws {
+        let seeded = makeCommitment(outcome: .pending, plannedAt: reference.addingTimeInterval(-3_600))
+        await store.seed(seeded)
+        let (viewModel, _) = makeViewModel()
+        await viewModel.start(sessionType: .noon, microphoneGranted: false)
+
+        await viewModel.select(Choice(.status(.done)))
+
+        XCTAssertEqual(viewModel.completion, .completed)
+        let statuses = await store.avoidanceStatuses
+        XCTAssertEqual(statuses[seeded.id], .done)
+    }
+
+    func testNoonShrinkLeavesTheAvoidanceStatusUntouched() async throws {
+        let seeded = makeCommitment(outcome: .pending, plannedAt: reference.addingTimeInterval(-3_600))
+        await store.seed(seeded)
+        let (viewModel, _) = makeViewModel()
+        await viewModel.start(sessionType: .noon, microphoneGranted: false)
+
+        await viewModel.select(Choice(.status(.notYet)))
+        await viewModel.submit(text: "何から書けばいいかわからない")
+        await viewModel.submit(text: "宛先だけ書く")
+
+        XCTAssertEqual(viewModel.completion, .completed)
+        let statuses = await store.avoidanceStatuses
+        XCTAssertNil(statuses[seeded.id])
+    }
+
+    /// 夜 E0 で前進が無く「明日に回す」を選ぶと carriedOver になる。
+    func testNightMoveToTomorrowMarksTheAvoidanceCarriedOver() async throws {
+        let seeded = makeCommitment(outcome: .pending, plannedAt: reference.addingTimeInterval(-3_600))
+        await store.seed(seeded)
+        let (viewModel, _) = makeViewModel()
+        await viewModel.start(sessionType: .night, microphoneGranted: false)
+
+        await viewModel.submit(text: "何もできなかった")
+        await viewModel.select(Choice(.moveToTomorrow))
+        await viewModel.submit(text: "午前中に送る")
+
+        XCTAssertEqual(viewModel.completion, .completed)
+        let statuses = await store.avoidanceStatuses
+        XCTAssertEqual(statuses[seeded.id], .carriedOver)
     }
 
     // MARK: - 夜 → 翌朝の引き継ぎ
