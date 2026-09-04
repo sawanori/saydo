@@ -40,7 +40,7 @@ SAYDO/
 
 - 画面は Today / Timeline / Insight / Onboarding / Settings の 5 つ（TabView 2 タブ + 設定）。
 - ネットワーク層は存在しない。SwiftData と端末内の音声ファイルだけを使う。
-- ユーザー向け文言は `DialogueCopy` / `NotificationCopy` に置き、View と ViewModel に直書きしない。
+- ユーザー向け文言は `*Copy`（`DialogueCopy` / `NotificationCopy` / `InsightCopy`）に置き、View と ViewModel に直書きしない。lint は名前が `Copy.swift` で終わるファイルだけを除外する。
 
 ## 2. 検証コマンド（5 本。エージェントは xcodebuild を直接叩かない）
 
@@ -54,11 +54,10 @@ SAYDO/
 
 `Saydo.xcodeproj` は `project.yml` からの生成物で、リポジトリには含めない。`build-ios.sh` / `test-ios.sh` / `build-mac.sh` が先頭で `scripts/generate-project.sh` を呼んで毎回作り直す（xcodegen が無ければ exit 3）。手で作りたいときは `xcodegen generate`。
 
-### 現在の環境制約（task_001 時点・未解消）
+### 環境の履歴（task_001 時点のブロッカーは 2026-09-04 に解消）
 
-- iOS 26.x のシミュレータランタイムが未導入。`xcodebuild -downloadPlatform iOS` は空き容量不足（要 8.39 GB / 空き 7.6 GB）で失敗する。
-- そのため (a) `generic/platform=iOS Simulator` の destination が解決できず、(b) `actool` が「No simulator runtime version from ["22F77"] available to use with iphonesimulator SDK version 23C53」で失敗する。**アセットカタログを含む iOS ターゲットは現在ビルドできない**（プロジェクト側の問題ではない。空のカタログでも同じ）。
-- 解消は人間の作業: 空き容量を 9 GB 以上確保して `xcodebuild -downloadPlatform iOS` を実行する（古い iOS 18.5 ランタイムの削除でも空く）。詳細は `docs/PROGRESS.md` の task_001 エントリ。
+- iOS 26.3.1 のシミュレータランタイム（23D8133）が導入済み。`scripts/build-ios.sh` は本来の `generic/platform=iOS Simulator` 経路で動き、`scripts/test-ios.sh` は iPhone 17 / iOS 26.3 でテストを実行できる（初回成功の証拠は `docs/PROGRESS.md` の integration エントリ）。
+- ランタイム未導入の環境では `build-ios.sh` が `-target` 形式（コンパイルとリンクのみ）へ自動で切り替わり、`test-ios.sh` は exit 2 で止まる。その場合の導入手順は task_001 エントリを参照。
 
 ## 3. Executor への固定指示（harness-design.md §2 より転記）
 

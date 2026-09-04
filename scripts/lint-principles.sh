@@ -1,7 +1,7 @@
 #!/bin/bash
 # 企画原則の機械チェック。
 # 1) 禁止 API（ネットワーク・並行性警告の握りつぶし）を見つけたら exit 1。
-# 2) DialogueCopy.swift / NotificationCopy.swift 以外の日本語文字列リテラルを警告として列挙する（exit code には影響しない）。
+# 2) *Copy.swift（DialogueCopy / NotificationCopy / InsightCopy など）以外の日本語文字列リテラルを警告として列挙する（exit code には影響しない）。
 # 走査対象は App/ と Packages/*/Sources のみ。Tests と Spikes は対象外。
 set -uo pipefail
 
@@ -45,7 +45,6 @@ if [ "$COUNT" -gt 0 ]; then
 import re
 import sys
 
-allowed = {"DialogueCopy.swift", "NotificationCopy.swift"}
 literal = re.compile(r'"(?:[^"\\\n]|\\.)*"')
 japanese = re.compile(r'[぀-ゟ゠-ヿ一-鿿]')
 
@@ -54,7 +53,8 @@ with open(sys.argv[1], encoding="utf-8") as handle:
 
 warnings = []
 for path in paths:
-    if path.rsplit("/", 1)[-1] in allowed:
+    # 文言は *Copy.swift に集約する規約。名前がそれで終わるファイルは対象外。
+    if path.rsplit("/", 1)[-1].endswith("Copy.swift"):
         continue
     try:
         with open(path, encoding="utf-8") as handle:
@@ -71,7 +71,7 @@ for path in paths:
                 break
 
 if warnings:
-    print("WARN: DialogueCopy.swift / NotificationCopy.swift 以外に日本語の文字列リテラルがある（文言は Copy に集約する）")
+    print("WARN: *Copy.swift 以外に日本語の文字列リテラルがある（文言は Copy に集約する）")
     for warning in warnings:
         print(warning)
 PY
