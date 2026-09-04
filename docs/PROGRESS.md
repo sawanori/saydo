@@ -1571,6 +1571,36 @@ lint-principles: OK
 - **content の組み立ては `apply` と同じ経路**。`snooze` は `NotificationRegistration` を作って既存の `add(_:commitmentID:)` に渡すだけで、本文・`userInfo`・`interruptionLevel` の分岐を複製していない。`interruptionLevel` は元と同じ枠を渡すので `slot == .action` のときだけ `.timeSensitive` になる。
 - **`PendingDiagnostics.logLine` は変更不要だった**。`countsBySlot` は `identifier.hasPrefix("\(slot.rawValue)-")` で数えるので `noon-20260904-snooze1` は `noon` に入り、`managedCount` にも入る。実測ログの `managed=` と `noon=` に再登録ぶんが含まれることをコードで確認した（`NotificationScheduler.swift` の `PendingDiagnostics.init(requests:)`）。
 - **`Commitment` には触っていない**。`.snooze` は `AppDelegate` で return するので `SessionLauncher` にも渡らない。
+## task_013 — オンボーディング・設定（+ task_019 の UI）
+
+- 日時: 2026-09-04
+- 状態: done（`scripts/build-ios.sh` と `scripts/test-ios.sh` が exit 0。実機項目とオンボーディングの初回体験は未検証）
+- ブランチ: `task/013-onboarding-settings`（`integration` の 1042720 から分岐。第 2 波エージェント C）
+
+### 作ったもの
+
+| 変更 | 内容 |
+|---|---|
+| `App/Data/AppSettings.swift`（追加のみ） | 「話せない時を自動で使う時間帯」= `quietModeScheduleEnabled`（既定 false）/ `quietModeStart`（既定 9:00）/ `quietModeEnd`（既定 18:00）/ `isQuietMode(at:calendar:)`。`Key.all` に 3 キーを追加（`reset()` の対象に入る）。橋渡しとして `TimeOfDay.core` / `TimeOfDay.init(date:calendar:)` / `TimeOfDay.date(on:calendar:)` / `NotificationMode.core` / `AppSettings.notificationSettings`（`SaydoCore.NotificationSettings` へ変換）。既存のキーと既定値は変えていない |
+| `App/Features/Onboarding/OnboardingCopy.swift`（新規） | オンボーディングの全文言 |
+| `App/Features/Onboarding/PermissionsViewModel.swift`（新規） | `@MainActor @Observable`。マイク（`AVAudioApplication.shared.recordPermission` / `AVAudioApplication.requestRecordPermission()`）と通知（`NotificationScheduler.requestAuthorization()` / `authorizationStatus()`）の状態・要求・設定アプリへの導線 |
+| `App/Features/Onboarding/AssetDownloadView.swift`（新規） | ja-JP の聞き取りアセットの状態と進捗、読み上げ音声の品質と追加手順 |
+| `App/Features/Onboarding/OnboardingView.swift`（新規） | 7 段階（コンセプト → マイク → 通知 → 回数と時刻 → 一人で話せる時間 → 音声 → バックアップ注意）。`init(settings:onFinished:)`。完了で `hasCompletedOnboarding = true` → `NotificationScheduler.shared.reschedule(settings:)` → `onFinished()`。`OnboardingPrimaryButtonStyle` / `OnboardingSecondaryButtonStyle` も同ファイル |
+| `App/Features/Settings/SettingsCopy.swift`（新規） | 設定画面の全文言と数値の書式 |
+| `App/Features/Settings/SettingsView.swift`（新規） | 通知時刻・3 回モード・週末オフ・一人で話せる時間・TTS 音声選択・無音秒数・「話せない時」の時間帯・バックアップ注意・書き出し（`DataExporter.export()` + `ShareLink`）・全削除（確認ダイアログ → `Repository.deleteAll` → `AppSettings.reset()`）・開発者向け節。`init(settings:onDataDeleted:)` |
+| `App/Data/Repository+Developer.swift`（新規） | `Repository.DeveloperStats` / `SessionCount` と `developerStats(now:windowDays:calendar:)`。`Repository.swift` 本体は触っていない |
+| `Tests/SaydoTests/AppSettingsTests.swift`（追加のみ） | 6 件追加（既定値・境界・日跨ぎ・幅 0・往復と reset・`notificationSettings` 変換）。7 → 13 件 |
+
+**触っていない**: `App/SaydoApp.swift`、`App/AppRouter.swift`（未作成）、`App/RootView.swift`（未作成）、`App/Features/Session/*`、`App/Notifications/*`、`App/Audio/*`、`project.yml`、`Packages/*`。`Saydo.xcodeproj` は生成物なのでコミットしない。
+
+### 設計
+
+- **`AppSettings` は `@Observable` ではない**（`UserDefaults` の薄い包み）。画面は複製（`SettingsView.Draft` / `OnboardingView` の `@State`）を持ち、`onChange` でまとめて書き戻す。通知に関わる値が変わったときだけ `reschedule` を呼び、時刻の輪を回している間に 30 件超の登録を繰り返さないよう 400 ms 遅らせて最後の 1 回だけ実行する。
+- **`isQuietMode` の境界**: 開始と同じ時刻は含み、終了と同じ時刻は含まない。終了が開始より前なら日跨ぎ（22:00–6:00 なら 23:00 も 5:00 も中）。開始と終了が同じなら幅 0 として常に false。純計算部分は `AppSettings.isWithin(minutesFromMidnight:start:end:)` に切り出してテストしている。
+- **ja-JP アセットの取得**（AssetDownloadView の根拠。読んだ API 名）: `TranscriptionService.prepare()` が `SpeechTranscriber.supportedLocales` / `installedLocales` を見て、無ければ `AssetInventory.assetInstallationRequest(supporting:)` → `downloadAndInstall()` まで行う。取得だけを始める API は無いので、`prepare()` を呼ぶことが「取得を始める手段」になる。進捗は `TranscriptionService.assetState`（`TranscriptionAssetState` = `.unknown` / `.unsupported` / `.installed` / `.downloading(Double)`）を読む。
+- **読み上げ音声**: `SpeechSynthesisService.preferredJapaneseVoice()` と `SynthesisVoiceQuality` で品質を判定する。`AVSpeechSynthesisVoice` に enhanced / premium をアプリから取得する API は無いので、設定アプリでの手順を示すだけにした（fix-decisions P5.8）。
+- **全削除の順序**: `Repository.deleteAll(cancelPendingNotifications:)` のコールバックで `NotificationScheduler.shared.removeAllManagedPending()` を起こし、戻ってから `AppSettings.reset()` → `onDataDeleted()`。コールバックは同期・`@Sendable` なので `Task { await … }` で MainActor へ渡している（待ち合わせはしていない。取り消しと保存データの削除は互いに独立）。
+- **開発者向け節は `weeklyStats` に混ぜない**（fix-decisions P2.2）。`Repository+Developer.swift` の別メソッドにした。
 
 ### 証拠
 
@@ -1589,6 +1619,8 @@ lint-principles: 対象 49 ファイル（App/ と Packages/*/Sources。Tests �
 lint-principles: OK
 EXIT=0
 ```
+| `scripts/build-ios.sh` | **0** | `docs/logs/task_013-1.txt` |
+| `scripts/test-ios.sh` | **0**（SaydoTests **95** / lint OK） | `docs/logs/task_013-2.txt` |
 
 `scripts/build-ios.sh`（末尾）:
 
@@ -1661,3 +1693,79 @@ integration の `integration-3-build-ios-saydo.txt` は増分ビルドで当該�
 1. Apple Developer の App ID `com.nonturn.saydo` に **Time Sensitive Notifications** capability を追加し、開発用プロビジョニングプロファイルを再発行する（実機ビルドの前に必要。Certificates, Identifiers & Profiles → Identifiers → com.nonturn.saydo → Time Sensitive Notifications にチェック → Profiles を再生成）。
 2. 実機での通知長押し 2 アクション・60 分後の再通知・集中モード中の行動時刻通知の確認。
 3. `App/Features/Settings/DataExporter.swift:308` の `Error?` → `(any Error)?`（本タスクの所有外。task_018 か task_019 の担当で直す）。
+build-ios: scheme=Saydo
+（中略）
+2026-09-04 11:21:56.733 appintentsmetadataprocessor[12336:97562] warning: Metadata extraction skipped. No AppIntents.framework dependency found.
+** BUILD SUCCEEDED **
+```
+
+`scripts/test-ios.sh`（末尾）:
+
+```
+test-ios: scheme=Saydo device=iPhone 17 runtime=com.apple.CoreSimulator.SimRuntime.iOS-26-3 udid=9D2D913B-5C7B-4969-B86C-C69CDFE434E2
+test-ios: 別の test-ios（pid=12356）が実行中。終わるまで待つ（lock=/var/folders/…/saydo-test-ios.lock）
+Test Suite 'All tests' passed at 2026-09-04 11:22:42.130.
+	 Executed 95 tests, with 0 failures (0 unexpected) in 0.410 (0.571) seconds
+** TEST SUCCEEDED **
+lint-principles: 対象 57 ファイル（App/ と Packages/*/Sources。Tests と Spikes は除外）
+lint-principles: OK
+```
+
+スイート別件数: AppSettings **13**（+6）/ AudioFileStore 8 / DataExporter 11 / DeepLink 18 / Repository 17 / SessionViewModel 14 / SilenceDetector 13 / Smoke 1 = 95（統合時 89 から +6）。
+
+- lint の WARN 行数は **118 行のまま**（本ブランチ着手前に同じツリーで計測した値と同数）。追加した 7 ファイルからの WARN は 0（`App/` 始まりの WARN 行なし）。
+- ビルドの `warning:` は 3 件で、いずれも既存（`DataExporter.swift:308` の `any Error` 2 件と AppIntents のメタデータ 1 件）。追加分の警告なし。`@unchecked Sendable` / `nonisolated(unsafe)` は使っていない。
+
+### done_definition との対応
+
+task_013:
+
+| done_definition | 状態 |
+|---|---|
+| 初回起動でオンボーディングが 1 回だけ表示される | **部品は満たした・配線は未**。`OnboardingView` の完了で `hasCompletedOnboarding = true` を書く（`AppSettingsTests` の往復テストで保存を確認）。`RootView` の分岐は A の担当で本ブランチには無いため、画面が 1 回だけ出ることは**未検証** |
+| 2 回目以降、通知タップからノータップで会話が始まる | **未検証**（`AppRouter` / `SessionView` は A・F の担当。実機確認項目） |
+| 設定で 3 回モード・週末オフ・『一人で話せる時間』を変更でき、変更が通知の再計画に反映される | **満たした**（`SettingsView` の該当行 → `AppSettings` へ保存 → `notificationSettings` を `NotificationScheduler.reschedule` へ渡す。変換は `testNotificationSettingsBridgeCarriesTheChosenValues` で確認。実機での pending 本数は未検証） |
+| iCloud バックアップ無効時の注意文がオンボーディングと設定の両方にある | **満たした**（`OnboardingCopy.backupWarning` = 段階 7、`SettingsCopy.backupNotice` = データ節のフッタ） |
+| phase-gate.js の実行結果が合格 | **未実施**。統合セッションが実行する（第 2 波の取り決め） |
+
+task_019 の UI 部分:
+
+| done_definition（UI に関わる分） | 状態 |
+|---|---|
+| zip に音声と JSON が含まれる | 中核は task_019 で確認済み。UI からは `DataExporter.export()` → `ShareLink(item: zipURL)` を繋いだ。**シミュレータ・実機での共有は未検証** |
+| 全削除で空状態に戻る | `Repository.deleteAll` → `NotificationScheduler.removeAllManagedPending()` → `AppSettings.reset()` を繋いだ。`reset()` で `hasCompletedOnboarding` が false に戻ることは `testResetRestoresDefaults` で確認済み。**画面がオンボーディングへ戻ることは `RootView` 待ちで未検証** |
+| 復元確認・容量実測 | 本タスクの範囲外（人間の実機作業。`docs/backup-restore-check.md`） |
+
+### 開発者向け節に出せた値・出せなかった値
+
+出せた（`Repository.developerStats`、直近 30 日）: 会話の完走率（全体と種別ごとの件数）、種別ごとの所要時間の中央値、宣言のあとの答えの内訳（`CommitmentOutcome` 別件数）、「もっと小さく」の平均回数、声を使わずに宣言した件数（`Commitment.isVoiceless`）、宣言が無かった日数。
+
+出せなかった（記録が無いので画面に出していない）:
+
+- **北極星指標**（3 日以内に「宣言 → 行動時刻通知タップ → やった / 少しやった」）。通知タップの記録が `SessionLog` にも `DeepLink` にも残らない。`SessionLog` に「どの通知から始まったか」を持たせないと出せない。
+- **「今日は休む」の使用回数**。`NotificationScheduler.cancelRemainingToday` は呼ばれた記録を残さない（休みを `SessionLog` に残す実装は未着手。実装計画 §7.4 では「`SessionLog` にだけ休みとして残す」）。
+- **R1 の「後で声で」の使用率**。宣言を後回しにしたことを表すフラグが `Commitment` に無い（`isVoiceless` は「声なしで宣言した」であって「後回しにした」ではない）。
+
+### 未検証
+
+- **実機・シミュレータで画面を 1 度も開いていない。** 検証はビルドとユニットテストのみ。オンボーディングの「初回だけ 2 つの権限ダイアログ」「2 回目以降ノータップ」は実機でしか確認できない。
+- `ShareLink` での共有、`confirmationDialog` での全削除、`DatePicker` の連続変更で通知が再計画されること、`AssetDownloadView` の進捗表示（ja-JP アセットが未取得の端末が要る）は未確認。
+- `AssetDownloadView` は `TranscriptionService.prepare()` を呼ぶ。シミュレータで `SpeechTranscriber` が ja-JP を持たない場合の分岐（`.unsupported` 表示）は実行していない。
+- `phase-gate.js` は未実行（統合セッションの担当）。
+
+### 統合時の継ぎ目
+
+1. **`RootView` の分岐**: `AppSettings.shared.hasCompletedOnboarding == false` のとき `OnboardingView(onFinished:)` を出す。`onFinished` で自分の状態を更新して会話画面へ移る（`AppSettings` は `@Observable` ではないので、`RootView` 側に `@State` のフラグが要る）。
+2. **「今日」右上の設定**: `.sheet { SettingsView(onDataDeleted:) }` で出す。`SettingsView` は自前で `NavigationStack` と「閉じる」を持つので、**外側で `NavigationStack` に包まない**。`onDataDeleted` で `hasCompletedOnboarding` を読み直し、オンボーディングへ戻す。
+3. **`isQuietMode` の読み手**: `AppSettings.shared.isQuietMode(at: .now)` が true のセッションを、最初から選択肢 + テキスト経路で始める（TTS を文字表示 + 短いハプティクスに置換、マイクを自動で開かない）。読むのは `SessionViewModel` / `SessionView`（F / A の担当）。本ブランチは設定と判定だけを持ち、会話側は一切触っていない。
+4. **TTS 音声の選択が効いていない**: `SettingsView` は `AppSettings.speechVoiceIdentifier` に保存するが、`SpeechSynthesisService.preferredJapaneseVoice()` は設定を読まず端末で最良の ja-JP 音声を選ぶ。`App/Audio/` は本ブランチの所有外なので直していない。**統合時に `preferredJapaneseVoice()` へ「保存された識別子があればそれを使う」を足す必要がある。** 足さない限り、設定画面の音声選択は表示だけで効かない。
+5. **`OnboardingPrimaryButtonStyle` / `OnboardingSecondaryButtonStyle`** を `OnboardingView.swift` に置いた。A が `SessionView` 側で同じ役割のスタイルを作っている場合は、統合時にどちらかへ寄せる（名前は衝突しないようにしてある）。
+6. `AppSettings.notificationSettings` が `AppSettings` → `SaydoCore.NotificationSettings` の唯一の変換口。起動時の再計画（A の `SaydoApp` / `AppRouter`）でもこれを使い、各画面で組み立て直さない。
+7. `phase-gate.js` の実行は統合セッション。
+
+### 人間の確認待ち
+
+1. 実機で「初回だけマイクと通知の 2 ダイアログが出る」「2 回目以降はノータップで会話が始まる」を確認する（task_013 の done_definition 1・2）。
+2. 実機で設定の時刻・3 回モード・週末オフを変えたあと、保留通知の本数と発火日が計画どおりかを `NotificationScheduler.logPendingDiagnostics()` の 1 行で確認する。
+3. 実機で書き出しの `ShareLink` から zip を取り出し、全削除のあとオンボーディングに戻ることを確認する（task_019 の done_definition 2）。
+4. ja-JP の読み上げ音声が enhanced / premium で入っていない端末で、設定アプリの手順どおりに追加できるかを確認する（fix-decisions P5.8、H6）。
