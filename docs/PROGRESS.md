@@ -1540,3 +1540,152 @@ lint-principles: OK
 1. `integration` を main にマージするかの判断（本セッションは `integration` の push まで。main は触っていない）。
 2. 実機検証（音声 10 項目、AlarmKit 6 項目、fm-probe 人手採点 20 件）。従来どおり未実施。
 3. task_006 / 008 の設計判断 4 点（週末通知の既定、aloneTime、plannedPlace、文言履歴の永続化）。
+
+---
+
+## task_008-ui — SessionView / AppRouter / RootView
+
+- 日時: 2026-09-04
+- 状態: done（`scripts/build-ios.sh` と `scripts/test-ios.sh` が exit 0。実機での 1.5 秒・タップ 0 回・3 分中央値・iPhone SE 実測は未検証）
+- ブランチ / コミット: `task/008-session-ui`（`integration` の 1042720 から分岐） / （このコミット）
+- 担当範囲: 第 2 波エージェント A（`docs/review/integration-decisions-2026-09-04.md` B 表）。task_008 の UI 部分 + task_009 残件のうち `AppRouter`
+
+### 作ったもの
+
+| ファイル | 中身 |
+|---|---|
+| `App/Features/Session/SessionView.swift` | 会話画面。ロゴ / 1 行の質問 / 波形（チップが無い質問は大 320×132、ある質問は小 280×64）/ 状態行 / M0 の文字起こし 1 行と 1 タップの録り直し / 例示（チップではない）/ `ChoiceChipsView` / `.playback` の宣言テキスト大表示 / `.done` の締め 1 行と閉じるボタン / マイク拒否の掲示と設定アプリ導線。下部に「話せない時」トグルと 44×44 のキーボードボタンを **`phase` に依らず常時** 置き、どちらも `switchToTextMode()` を呼ぶ |
+| `App/Features/Session/WaveformView.swift` | `Canvas` + `TimelineView(.animation)`。design-notes の `y(x) = cy − env(u)·A·norm·Σ aᵢ·sin(2π·fᵢ·u + φᵢ + t·ωᵢ)` を 3 成分 4 層（bloom → 太線 → 反転線 → 芯）で描く。`WaveformSampler` のレベルで振幅を変調（下限 0.55 で声が無くても線は生きている）。Reduce Motion では位相ドリフト `t` を止めて振幅バーに切り替える |
+| `App/Features/Session/ChoiceChipsView.swift` | チップ（高さ 46・角丸 15・`Palette.chipFill`）と `ChipFlowLayout`（実測幅で左から詰め、行ごとに中央寄せ） |
+| `App/Features/Session/TextFallbackSheet.swift` | 短文入力。`acceptsTextInput` が false のあいだは送れない。「スキップ」は `viewModel.skip()` |
+| `App/Features/Session/SessionCopy.swift` | 画面固有の文言（状態行・締めの 1 行・ボタン・マイク拒否の掲示・アクセシビリティ）と `RootCopy`（タブ名とプレースホルダ） |
+| `App/AppRouter.swift` | `@MainActor @Observable`、`SessionLauncher` 準拠。`launch(_:)` は `.open` だけ会話を開く。`startManualSession()` は今日の `Commitment` の有無で `.morning` / `.adhoc`。`beginSession()` が `SessionViewModel` を作り、マイク権限（`AVAudioApplication`）を確かめてから `start` を呼ぶ。`dismissSession()` は途中なら `interrupt()` してから閉じる |
+| `App/RootView.swift` | オンボーディング分岐 + `TabView` 2 タブ（今日 / 記録）+ `fullScreenCover` の `SessionCover`（`.task(id:)` で表示と同時に開始）。タブの中身は `TodayTabPlaceholder` / `TimelineTabPlaceholder` の 2 つの private View |
+| `App/SaydoApp.swift`（変更） | `RootView` を表示し、最初のフレームの `onAppear` で `appDelegate.setLauncher(router)` |
+| `App/Notifications/NotificationScheduler+SessionScheduling.swift` | `NotificationScheduler` を `NotificationScheduling`（`SessionViewModel` の契約）に準拠させる extension。本体（task_009 / エージェント D 所有）は触っていない |
+| `Tests/SaydoTests/AppRouterTests.swift` | 7 件（通知 `.open` / `.rest` / 朝の通知 / 手動の朝・手動の adhoc / 閉じる / オンボーディング完了） |
+
+### 証拠
+
+| コマンド | exit code | 内容 | ログ |
+|---|---|---|---|
+| `scripts/build-ios.sh` | **0** | `** BUILD SUCCEEDED **`。この増分ビルドの `warning:` は 1 件（AppIntents のメタデータ抽出スキップ）で、Swift の警告は 0 件。フルビルドでは既存の `App/Features/Settings/DataExporter.swift:308`（`any Error`）が出るが、本タスクのファイル由来の警告は 0 件 | `docs/logs/task_008-ui-1.txt` |
+| `scripts/test-ios.sh` | **0** | `Executed 96 tests, with 0 failures`（統合時 89 + `AppRouterTests` 7）。`lint-principles: OK` | `docs/logs/task_008-ui-2.txt` |
+
+`scripts/build-ios.sh`（末尾）:
+
+```
+2026-09-04 11:35:11.530 appintentsmetadataprocessor[20161:163180] Starting appintentsmetadataprocessor export
+2026-09-04 11:35:11.532 appintentsmetadataprocessor[20161:163180] warning: Metadata extraction skipped. No AppIntents.framework dependency found.
+
+** BUILD SUCCEEDED **
+```
+
+`scripts/test-ios.sh`（末尾の要点）:
+
+```
+Test Suite 'SaydoTests.xctest' passed at 2026-09-04 11:35:32.056.
+	 Executed 96 tests, with 0 failures (0 unexpected) in 0.212 (0.230) seconds
+Test Suite 'All tests' passed at 2026-09-04 11:35:32.056.
+	 Executed 96 tests, with 0 failures (0 unexpected) in 0.212 (0.231) seconds
+** TEST SUCCEEDED **
+lint-principles: 対象 58 ファイル（App/ と Packages/*/Sources。Tests と Spikes は除外）
+WARN: *Copy.swift 以外に日本語の文字列リテラルがある（文言は Copy に集約する）
+    …（118 行。すべて既存の SaydoCore / SaydoAI 由来。App/ の行は 0）
+lint-principles: OK
+```
+
+lint の WARN は **118 行で統合時（`docs/logs/integration-8-test-ios-final.txt`）と同数**。新しい日本語リテラルはすべて
+`SessionCopy.swift`（lint 対象外）に置いたので、`App/` の WARN は 0 のまま。
+
+### シミュレータでの目視（xcodebuild は使わず、`build-ios.sh` の生成物を `simctl` で起動）
+
+`xcrun simctl install` + `launch` で iPhone 17 / iOS 26.3 に入れ、`xcrun simctl io … screenshot` で確認した。
+
+1. **朝 M0（実画面）**: ロゴ「SAYDO」・質問「おはよう。今日、いちばん逃げたいことは何？」（2 行、切れなし）・
+   大波形（芯 + bloom + 反転線、横グラデーション）・「話せない時」トグル・キーボードボタンが最初のフレームから出る。
+   TTS 終了後に状態行「聞いています…」が出る。シミュレータには音声入力が無いため `VoiceCapture.start` が失敗し、
+   `SessionViewModel` の設計どおりマイク拒否の掲示（設定アプリ導線つき）を出してテキスト経路に落ちた。
+2. **理由チップ 7 個**（`ReasonCategory.allCases` を仮の画面に置いて計測。この診断コードはコミットに含まない）:
+   既定の文字サイズで **3 / 2 / 2 の 3 行**、`.dynamicTypeSize(.xxxLarge)` で **2 / 2 / 1 / 1 / 1 の 5 行（270pt）**。
+
+### 見つけた不具合と対処（他エージェントに関係する）
+
+**`SaydoTheme.saydoText` の `tracking` を当てた和文は、幅が足りていても早い位置で折り返し、末尾が「…」で切れる。**
+iPhone 17 シミュレータ（iOS 26.3 / SDK 26.2）で実測。同じ文字列で比較した:
+
+| 書き方 | 結果 |
+|---|---|
+| `.font(.title.weight(.medium))` だけ | 全文が 2 行で出る |
+| `+ .tracking(0.56)` | **6 文字で折り返し、2 行目が「…」で切れる** |
+| `+ .lineSpacing(8)` | 全文が出る |
+| `.saydoText(.question)`（tracking + lineSpacing） | **切れる** |
+| `.saydoText(.question)` + `.frame(width: 342)` | **切れる**（幅を明示しても直らない） |
+| `.saydoText(.question)` + `.fixedSize(horizontal: false, vertical: true)` | **切れる** |
+
+`SaydoTheme.swift` は本タスクの所有ファイルではないので直していない。代わりに
+`App/Features/Session/SessionView.swift` に `View.saydoWrappingQuestion()`（`TextRole.question` の
+font / lineSpacing / color をそのまま使い、字送りだけ当てない）を置き、折り返す 3 か所
+（`SessionView` の質問と `.playback` の宣言、`RootView` のオンボーディング文）で使っている。
+**1 行しか出ない短いラベル（状態行・ロゴ・セクションラベル・チップ）は `saydoText` のままで問題ない。**
+統合時に `SaydoTheme` 側で直す（`tracking` を捨てるか、`AttributedString` の kern に置き換える）のが本筋。
+
+**チップの並べ方に `ViewThatFits` は使えない。** 「3 個 / 2 個 / 1 個」の候補を並べる方法だと、
+長い 1 個（「何から始めるかわからない」）が入らないだけで候補全体が落ち、xxxLarge で 1 行 1 個
+（7 行 = 382pt。iPhone SE の残り高さに入らない）まで転落する。実測して `ChipFlowLayout`（`Layout` プロトコルで
+実測幅から行を決める）に置き換え、xxxLarge で 5 行 270pt に収まることを確認した。
+
+### task_008 done_definition との対応
+
+| done_definition | 状態 | 根拠 |
+|---|---|---|
+| 通知タップまたは起動から 1.5 秒以内に TTS、タップ 0 回で M4 まで | **未検証（実機）** | 経路は作った（`AppRouter.beginSession()` は権限確認以外の待ちを入れず、`RootView` は `fullScreenCover` の `.task` で即開始）。時間の実測は実機の画面録画が要る |
+| M4 完了時に m4a と Commitment が保存されている | 対象外（task_008-core が実装済み・テスト済み） | `SessionViewModelTests` 14 件 |
+| SessionLog に開始・終了・完走・tier・lastStep | 対象外（同上） | 同上 |
+| M0 の文字起こしが 1 行表示され、1 タップで再録音できる | **UI は実装済み** | `SessionView.avoidanceLine`（`avoidanceTranscript` を 1 行 + `canRetakeAvoidance` のとき「録り直す」1 タップ） |
+| SessionViewModelTests が緑 | **緑** | 14 件、`docs/logs/task_008-ui-2.txt` |
+| 朝フロー完走後に VoiceEntry 3 件 | 対象外（task_008-core） | — |
+| 理由チップ 7 個が iPhone SE × xxxLarge でスクロール無しに収まる | **部分検証** | iPhone 17 の xxxLarge で 5 行 270pt。SE（375×667）のシミュレータランタイムが本機に無いため実測できていない |
+| 実機で朝フロー 3 回の中央値 3 分以内 | **未検証（実機）** | — |
+
+### 未検証
+
+- 実機での「起動 → TTS 開始 1.5 秒以内」「タップ 0 回で M4 まで」「朝フロー 3 回の中央値 3 分以内」。
+- iPhone SE（3 世代）実機／シミュレータでの xxxLarge 表示（SE のランタイムが本機に無い）。
+- 通知タップからの `AppRouter.launch` 経路（`AppDelegate` の `pendingLink` を含む）。シミュレータでは通知を発火させていない。
+- `NotificationScheduler+SessionScheduling` の `schedule(.actionTime)` が実際に届くか（実機の通知確認は task_009）。
+- Reduce Motion 時の振幅バー表示（コードは書いたが、シミュレータで Reduce Motion を有効にした画面は撮っていない）。
+
+### 統合時の継ぎ目
+
+1. `SessionView` の `.playback` は宣言テキストを大きく出すだけの最小表示。ここに **`PlaybackCardView`（F）** を差し込む。
+   R8 の「イヤホンで聞く / 文字で読む」（`ListenModeSheet`。F）は `SessionViewModel` に判定 API が要るので未配線。
+2. `RootView` の `TodayTabPlaceholder` → **`TodayView`（F）**、`TimelineTabPlaceholder` → **`TimelineView`（B）**、
+   `OnboardingPlaceholder` → **`OnboardingView`（C）**。オンボーディング完了は `AppRouter.completeOnboarding()` を呼ぶ。
+   設定（C）は「今日」の右上に置く。
+3. **`SaydoTheme` の `tracking` 問題**（上記）。`saydoText(.question)` / `.preface` を折り返す画面で使う人は、
+   いまは `saydoWrappingQuestion()` と同じ回避が要る。`SaydoTheme` を直したら回避を消す。
+4. `AppRouter.launch` は `.open` 以外を無視する。**D6 の「今は話せない」（`.snooze`）** が入っても、
+   `AppRouter` 側の変更は不要（無視され続ける）。
+5. `NotificationScheduler+SessionScheduling`:
+   - `schedule(.declarationReminder)` は **登録していない**。`morning-` / `noon-` / `night-` / `action-` の
+     どれにも当てはまらない 1 回だけの通知で、識別子の規約が未定のため（R1 の「一人になれる時刻に 1 回だけ」）。
+     規約を決めるのは task_009 / エージェント D。
+   - 宣言後の全体再計画（`rescheduleAfterDeclaration`）も未配線。`AppSettings` の `TimeOfDay` /
+     `NotificationMode`（App 側）と `SaydoCore` の同名型が **別の型として二重に存在** しており、
+     `NotificationSettings` を組み立てるにはその変換を決める必要がある。ここで勝手に決めず継ぎ目として残す。
+   - `NotificationScheduler` 本体に `add(_:commitmentID:)` 相当を公開してもらえたら、この extension の
+     private な `add` は消せる。
+6. `SessionViewModel` に欲しい API（今回は既存 API から導出して回避した）:
+   - 「録り直す」の表示期間。`canRetakeAvoidance` は M0 で立ってから会話の終わりまで true のままなので、
+     M4 でも「録り直す」が出る。M0/M1 の間だけに絞るなら ViewModel 側で落とすのが素直。
+   - 保存先が開けない日（`AudioFileStore.applicationSupport()` が失敗）を表す `SessionFailure`。
+     いまは `microphoneGranted: false` で始めて `.micDenied` の掲示に相乗りしている。
+   - `voicelessMode` の初期値。設定（C の task_013）で「話せない時を既定にする」を作るなら、
+     `AppRouter.beginSession()` から渡す口が要る。
+
+### 人間の確認待ち
+
+1. 実機で朝フローを 3 回通し、TTS 開始までの時間・タップ回数・所要時間の中央値を記録する（task_008 の done_definition 3 項目）。
+2. iPhone SE（3 世代）＋ Dynamic Type xxxLarge で理由チップ 7 個が 1 画面に収まるか。
+3. `SaydoTheme.saydoText` の `tracking` を残すか捨てるかの判断（意匠 0.02em と、和文の折り返しが壊れないことのどちらを取るか）。
