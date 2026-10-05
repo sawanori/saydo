@@ -64,6 +64,11 @@ protocol SessionStore: Sendable {
     func updateAvoidanceStatus(commitmentID: UUID, status: AvoidanceStatus, at date: Date) async throws
     func appendVoiceEntry(_ draft: VoiceEntryDraft) async throws -> VoiceEntrySnapshot
     func deleteVoiceEntry(id: UUID) async throws
+    /// 宣言を新しい録音に差し替える。失敗したら古い宣言が残る（task_038）。
+    func replaceDeclaration(
+        commitmentID: UUID,
+        with replacement: DeclarationReplacement
+    ) async throws -> CommitmentSnapshot
     func entries(for day: Date) async throws -> [VoiceEntrySnapshot]
     func carryover(for day: Date) async throws -> CarryoverSnapshot?
     func saveCarryover(
@@ -143,6 +148,13 @@ struct RepositorySessionStore: SessionStore {
 
     func deleteVoiceEntry(id: UUID) async throws {
         try await repository.deleteVoiceEntry(id: id)
+    }
+
+    func replaceDeclaration(
+        commitmentID: UUID,
+        with replacement: DeclarationReplacement
+    ) async throws -> CommitmentSnapshot {
+        try await repository.replaceDeclaration(commitmentID: commitmentID, with: replacement)
     }
 
     func entries(for day: Date) async throws -> [VoiceEntrySnapshot] {
@@ -284,6 +296,21 @@ final class SessionViewModel {
     private(set) var guardrailReplacedCount = 0
     /// 中断して保存した途中状態。次回起動時に `start(resume:)` へ渡す。
     private(set) var suspendedState: FlowState?
+    /// 完了画面の「聞いてみる」で、いま録った宣言を鳴らしている途中か（task_038）。
+    private(set) var isPreviewingDeclaration = false
+    /// 言い直しを残せず、最初の宣言を保ったか。完了画面で 1 文を出す（task_038）。
+    private(set) var declarationRetakeFailed = false
+
+    /// 完了画面に「聞いてみる」を出すか。朝の会話が成立して終わり、その中で宣言を声で録った場合だけ。
+    var canPreviewDeclaration: Bool {
+        completion == .completed
+            && state?.sessionType == .morning
+            && hasVoicedDeclaration
+            && commitment?.declarationAudioPath != nil
+    }
+
+    /// 完了画面に「言い直す」を出すか。1 回の会話で 1 回だけ（実装計画 §16.6 の 5）。
+    var canRetakeDeclaration: Bool { canPreviewDeclaration && !hasRetakenDeclaration }
 
     /// いまテキスト入力を受ける状態か。
     var acceptsTextInput: Bool { pendingListen?.input == .text }
@@ -342,6 +369,12 @@ final class SessionViewModel {
     private var classifiedDomain: TaskDomain = .other
     /// 「イヤホンで聞く / 文字で読む」の答えを待って止めてある命令列（retention R8）。
     private var pendingPlaybackCommands: [FlowCommand] = []
+    /// この会話の中で、宣言を声で録って約束を保存したか。
+    private var hasVoicedDeclaration = false
+    /// 宣言の言い直しをもう使ったか（1 回だけ。成功しても失敗しても使ったことにする）。
+    private var hasRetakenDeclaration = false
+    /// 完了した後の、宣言の言い直しの録音が動いているか。この間だけ、完了済みでも聞き取りを有効に扱う。
+    private var isRetakingDeclaration = false
 
     // MARK: 進行の直列化（実装計画 §16.7）
 
@@ -356,6 +389,10 @@ final class SessionViewModel {
         case retakeAvoidance
         case switchToText
         case listenMode(ListenMode)
+        /// 完了画面の「聞いてみる」。
+        case previewDeclaration
+        /// 完了画面の「言い直す」。
+        case retakeDeclaration
     }
 
     private struct Envelope: Sendable {
@@ -478,6 +515,16 @@ final class SessionViewModel {
 
     private func process(_ envelope: Envelope) async {
         turnMark = envelope.mark
+        if isRetakingDeclaration {
+            // 会話は完了していて、動いているのは言い直しの録音だけ。受けるのは録音の終わりだけにし、
+            // ほかの入力（閉じる・割り込み・文字への切り替えなど）は言い直しをやめる合図として扱う。
+            if case .captureEnded(let generation, let relativePath, let duration) = envelope.input {
+                await finishListening(generation: generation, relativePath: relativePath, duration: duration)
+            } else {
+                abandonDeclarationRetake()
+            }
+            return
+        }
         switch envelope.input {
         case .start(let sessionType, let microphoneGranted, let voicelessMode, let resume):
             await open(
@@ -501,6 +548,10 @@ final class SessionViewModel {
             await enterTextMode()
         case .listenMode(let mode):
             await continuePlayback(in: mode)
+        case .previewDeclaration:
+            await previewDeclaration()
+        case .retakeDeclaration:
+            await restartDeclaration()
         }
     }
 
@@ -953,8 +1004,9 @@ final class SessionViewModel {
     // MARK: - 聞く
 
     /// その聞き取りがまだ有効か。世代が進んでいるか会話が終わっていれば、もう古い。
+    /// 完了した後に動く聞き取りは、宣言の言い直しの録音だけ。
     private func isCurrent(_ generation: Int) -> Bool {
-        generation == listenGeneration && completion == nil
+        generation == listenGeneration && (completion == nil || isRetakingDeclaration)
     }
 
     private func beginListening(_ request: ListenRequest) async {
@@ -1121,6 +1173,11 @@ final class SessionViewModel {
         transcriber.reset()
         listenGeneration += 1
         waiting = nil
+        if isRetakingDeclaration {
+            // 会話は完了済み。`FlowMachine` には渡さず、宣言だけを差し替える。
+            await replaceDeclaration(text: text, relativePath: relativePath, duration: duration)
+            return
+        }
         lastRecording = (relativePath, duration)
         await handle(.transcript(text))
     }
@@ -1219,6 +1276,122 @@ final class SessionViewModel {
             waiting = .listen(fallback)
             phase = .listening
         }
+    }
+
+    // MARK: - 宣言を聞いて確かめ、1 回だけ言い直す（完了画面。task_038）
+
+    /// 完了画面の「聞いてみる」。いま録った宣言を鳴らす。鳴っている間にもう一度呼ぶと止める。
+    ///
+    /// 会話の読み上げとは重ならない。完了画面は受領文を読み終えてから出て、`finish` が読み上げを
+    /// 止めている。聞き方（retention R8）は尋ねない。いまこの場所で自分が声に出した言葉だから。
+    func playDeclarationPreview() async {
+        guard canPreviewDeclaration, !isRetakingDeclaration else { return }
+        if isPreviewingDeclaration {
+            // 再生は進行の中で終わりを待っている。止めれば、その待ちが終わる。
+            player.stop()
+            return
+        }
+        await deliver(.previewDeclaration)
+    }
+
+    private func previewDeclaration() async {
+        guard !isInterrupted, canPreviewDeclaration else { return }
+        // `finish` で閉じた音声セッションを、鳴らす間だけ開ける。
+        _ = try? audioSession?.activate(mode: .standard)
+        isPreviewingDeclaration = true
+        await playDeclarationAudio(preferReceiver: false)
+        isPreviewingDeclaration = false
+        audioSession?.deactivate()
+    }
+
+    /// 完了画面の「言い直す」。宣言だけを録り直して差し替える。1 回の会話で 1 回だけ。
+    ///
+    /// 行動・時刻・通知・SessionLog は変えない。会話は完了済みなので `FlowMachine` は通さない
+    /// （もう一度 `commit` を出すと、1 日 1 件の制約で保存に失敗する）。
+    func retakeDeclaration() async {
+        guard canRetakeDeclaration else { return }
+        hasRetakenDeclaration = true
+        // 「聞いてみる」が鳴っていれば止める。
+        cutIn(stoppingSound: true)
+        await deliver(.retakeDeclaration)
+    }
+
+    /// 録音の上限・無音での終了・文字起こしは、最初の宣言の録音（`beginDeclarationRecording`）と同じ。
+    /// 違うのは、始められなかったときに文字へ切り替えず、最初の宣言を保って終えること。
+    private func restartDeclaration() async {
+        guard let commitment, commitment.declarationAudioPath != nil else { return }
+        declarationRetakeFailed = false
+        isRetakingDeclaration = true
+        guard !isInterrupted else {
+            // 録り始める前に閉じられた・割り込まれた。
+            abandonDeclarationRetake()
+            return
+        }
+        // `finish` で閉じた音声セッションを、録る間だけ開ける。
+        _ = try? audioSession?.activate(mode: .standard)
+        listenGeneration += 1
+        let generation = listenGeneration
+        partialTranscript = ""
+        do {
+            let format = try await prepareTranscriber()
+            guard isCurrent(generation) else {
+                logger.info("declaration retake dropped stage=prepare")
+                return
+            }
+            guard let started = try await startCapture(format: format, limit: .declaration, generation: generation) else {
+                return
+            }
+            detector = SilenceDetector(duration: .long)
+            phase = .recordingDeclaration
+            observe(started.session, relativePath: started.relativePath, generation: generation)
+        } catch {
+            guard isCurrent(generation) else { return }
+            logger.error("declaration retake start failed: \(error.localizedDescription, privacy: .public)")
+            abandonDeclarationRetake()
+        }
+    }
+
+    /// 言い直しの録音が終わった。文字起こしがあれば差し替える。
+    private func replaceDeclaration(text: String, relativePath: String, duration: TimeInterval) async {
+        guard let id = commitment?.id,
+              !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        else {
+            logger.info("declaration retake empty")
+            endDeclarationRetake(failed: true)
+            return
+        }
+        do {
+            commitment = try await store.replaceDeclaration(
+                commitmentID: id,
+                with: DeclarationReplacement(
+                    audioPath: relativePath,
+                    transcript: text,
+                    durationSec: duration,
+                    recordedAt: now()
+                )
+            )
+            declarationDurationSec = duration
+            endDeclarationRetake(failed: false)
+        } catch {
+            // 保存の側が古い宣言を残している。新しい音声ファイルは起動時の孤児掃除が消す。
+            logger.error("declaration replace failed: \(error.localizedDescription, privacy: .public)")
+            endDeclarationRetake(failed: true)
+        }
+    }
+
+    /// 言い直しを途中でやめる。録音を止め、最初の宣言を保つ。
+    private func abandonDeclarationRetake() {
+        stopListening()
+        endDeclarationRetake(failed: true)
+    }
+
+    /// 完了画面に戻り、録る間だけ開けていた音声セッションを閉じる。
+    private func endDeclarationRetake(failed: Bool) {
+        isRetakingDeclaration = false
+        declarationRetakeFailed = failed
+        partialTranscript = ""
+        phase = .done
+        audioSession?.deactivate()
     }
 
     // MARK: - 宣言の再生（N0）
@@ -1405,6 +1578,7 @@ final class SessionViewModel {
         commitment = saved
         plannedPlace = place ?? ""
         isVoiceless = voiceless
+        hasVoicedDeclaration = declaration.audioPath != nil
 
         // 声で宣言していない日は `createCommitment` が宣言の `VoiceEntry` を作らないので、
         // ここで文字だけの 1 件を足す。入力方式に依らず当日 3 件そろえる（task_008 done_definition）。

@@ -42,6 +42,15 @@ actor InMemorySessionStore: SessionStore {
         failingCreates = count
     }
 
+    /// 宣言の差し替え（`replaceDeclaration`）を頼まれた記録。
+    private(set) var replacements: [DeclarationReplacement] = []
+    /// 宣言の差し替えを失敗させるか。
+    private var failsReplacements = false
+
+    func failReplacements() {
+        failsReplacements = true
+    }
+
     // MARK: 事前に積む
 
     func seed(_ commitment: CommitmentSnapshot) {
@@ -159,6 +168,41 @@ actor InMemorySessionStore: SessionStore {
 
     func deleteVoiceEntry(id: UUID) throws {
         entries.removeAll { $0.id == id }
+    }
+
+    /// `Repository.replaceDeclaration` と同じく、宣言の `VoiceEntry` を新しい 1 件に入れ替え、
+    /// 約束の宣言文と音声を新しいものにする。失敗させた場合は何も変えない。
+    func replaceDeclaration(
+        commitmentID: UUID,
+        with replacement: DeclarationReplacement
+    ) throws -> CommitmentSnapshot {
+        replacements.append(replacement)
+        if failsReplacements {
+            throw CocoaError(.fileWriteUnknown)
+        }
+        guard let index = commitments.firstIndex(where: { $0.id == commitmentID }) else {
+            throw RepositoryError.commitmentNotFound(id: commitmentID)
+        }
+        let isOldDeclaration: (VoiceEntrySnapshot) -> Bool = {
+            $0.kind == .declaration && $0.commitmentID == commitmentID
+        }
+        let sessionType = entries.first(where: isOldDeclaration)?.sessionType ?? .morning
+        entries.removeAll(where: isOldDeclaration)
+        entries.append(
+            VoiceEntrySnapshot(
+                id: UUID(),
+                recordedAt: replacement.recordedAt,
+                sessionType: sessionType,
+                kind: .declaration,
+                audioPath: replacement.audioPath,
+                transcript: replacement.transcript,
+                durationSec: replacement.durationSec,
+                commitmentID: commitmentID
+            )
+        )
+        commitments[index].declarationAudioPath = replacement.audioPath
+        commitments[index].declarationTranscript = replacement.transcript
+        return commitments[index]
     }
 
     func entries(for day: Date) throws -> [VoiceEntrySnapshot] {
@@ -379,15 +423,29 @@ final class MockPlayer: Playing {
     var isPlaying = false
     var currentURL: URL?
 
+    /// true にすると、再生は `stop()` されるまで終わらない（実物は鳴り終わるか止められるまで戻らない）。
+    var holdsPlayback = false
+    private var unfinished: [AsyncStream<Void>.Continuation] = []
+
     func play(_ url: URL, preferReceiver: Bool) async throws {
         playedURLs.append(url)
         preferReceiverFlags.append(preferReceiver)
         currentURL = url
+        guard holdsPlayback else { return }
+        isPlaying = true
+        let (completion, continuation) = AsyncStream<Void>.makeStream()
+        unfinished.append(continuation)
+        for await _ in completion {}
+        isPlaying = false
     }
 
     func stop() {
         stopCount += 1
         isPlaying = false
+        for continuation in unfinished {
+            continuation.finish()
+        }
+        unfinished = []
     }
 }
 
@@ -612,6 +670,7 @@ final class SessionViewModelTests: XCTestCase {
     override func tearDown() async throws {
         // 読み上げの完了を待ったままのタスクを残さない。
         synthesizer?.releaseAll()
+        player?.stop()
         if let root, FileManager.default.fileExists(atPath: root.path(percentEncoded: false)) {
             try FileManager.default.removeItem(at: root)
         }
@@ -2387,6 +2446,357 @@ final class SessionViewModelTests: XCTestCase {
         // 宣言の再通知は登録しない（「後で声で」は task_036 で一時停止）。
         let scheduled = await notifications.scheduled
         XCTAssertFalse(scheduled.contains { $0.kind == .declarationReminder })
+    }
+
+    // MARK: - 宣言を聞いて確かめ、1 回だけ言い直す（task_038）
+
+    private static let voicedMorning = [
+        "見積書を送るのが嫌だ",
+        "気まずいから",
+        "見積書のファイルを開く",
+        "14時に自宅で",
+        "今日、14時に見積書のファイルを開く",
+    ]
+
+    /// 朝の会話を声で最後まで通す。`retake` は言い直しで返す文字起こし。
+    private func completeVoicedMorning(
+        retake: [String] = [],
+        transcriber: MockTranscriber? = nil,
+        audioSession: (any AudioSessionControlling)? = nil
+    ) async -> SessionViewModel {
+        let (viewModel, _) = makeViewModel(
+            transcript: Self.voicedMorning + retake,
+            transcriber: transcriber,
+            audioSession: audioSession
+        )
+        await viewModel.start(sessionType: .morning)
+        await settle(until: { viewModel.completion != nil })
+        XCTAssertEqual(viewModel.completion, .completed)
+        XCTAssertEqual(viewModel.phase, .done)
+        return viewModel
+    }
+
+    /// done_definition: 完了画面で宣言を再生できる。鳴るのは、いま録った宣言の音声ファイル。
+    func testThePreviewPlaysTheDeclarationThatWasJustRecorded() async throws {
+        let audioSession = MockAudioSession(requiresConfirmation: true)
+        let viewModel = await completeVoicedMorning(audioSession: audioSession)
+        let path = try XCTUnwrap(viewModel.commitment?.declarationAudioPath)
+        XCTAssertTrue(viewModel.canPreviewDeclaration)
+        XCTAssertTrue(viewModel.canRetakeDeclaration)
+        XCTAssertFalse(audioSession.isActive, "会話が終わると音声セッションは閉じている")
+        XCTAssertFalse(synthesizer.isSpeaking, "受領文は読み終えている")
+        let linesBefore = synthesizer.spokenLines
+
+        await viewModel.playDeclarationPreview()
+
+        XCTAssertEqual(player.playedURLs, [audioFiles.url(forRelativePath: path)])
+        XCTAssertEqual(player.preferReceiverFlags, [false])
+        XCTAssertFalse(viewModel.isPreviewingDeclaration)
+        XCTAssertFalse(viewModel.listenModePrompt, "いま自分で言った言葉なので、聞き方は尋ねない")
+        XCTAssertFalse(audioSession.isActive, "鳴らし終えたら音声セッションを戻す")
+        XCTAssertEqual(synthesizer.spokenLines, linesBefore, "会話の読み上げは足さない")
+        XCTAssertEqual(viewModel.phase, .done)
+        XCTAssertEqual(viewModel.completion, .completed)
+    }
+
+    /// 再生中にもう一度押すと止まる。
+    func testPressingThePreviewAgainStopsThePlayback() async throws {
+        let audioSession = MockAudioSession(requiresConfirmation: false)
+        let viewModel = await completeVoicedMorning(audioSession: audioSession)
+        player.holdsPlayback = true
+
+        let playing = Task { await viewModel.playDeclarationPreview() }
+        await settle(until: { viewModel.isPreviewingDeclaration })
+        XCTAssertTrue(viewModel.isPreviewingDeclaration)
+        XCTAssertTrue(player.isPlaying)
+        XCTAssertTrue(audioSession.isActive, "鳴らす前に音声セッションを有効にする")
+
+        await viewModel.playDeclarationPreview()
+        await playing.value
+
+        XCTAssertFalse(player.isPlaying)
+        XCTAssertFalse(viewModel.isPreviewingDeclaration)
+        XCTAssertEqual(player.playedURLs.count, 1, "止めるための 2 回目は、もう一度鳴らさない")
+        XCTAssertFalse(audioSession.isActive)
+    }
+
+    /// 文字で約束した日は宣言の音声が無い。どちらのボタンも出さず、呼んでも何も鳴らない。
+    func testATextDeclarationOffersNeitherThePreviewNorTheRetake() async throws {
+        let (viewModel, _) = makeViewModel(at: moment(hour: 9))
+        await walkThroughDeclaration(viewModel, timeAnswer: "16時から")
+        XCTAssertEqual(viewModel.completion, .completed)
+        XCTAssertNil(viewModel.commitment?.declarationAudioPath)
+
+        XCTAssertFalse(viewModel.canPreviewDeclaration)
+        XCTAssertFalse(viewModel.canRetakeDeclaration)
+
+        await viewModel.playDeclarationPreview()
+        await viewModel.retakeDeclaration()
+
+        XCTAssertTrue(player.playedURLs.isEmpty)
+        XCTAssertEqual(capture.startCount, 0)
+        let replacements = await store.replacements
+        XCTAssertTrue(replacements.isEmpty)
+    }
+
+    /// 昼の会話は、朝の宣言の音声があっても、どちらのボタンも出さない。
+    func testANoonSessionOffersNeitherThePreviewNorTheRetake() async throws {
+        await store.seed(makeCommitment(outcome: .pending, plannedAt: reference.addingTimeInterval(-3_600)))
+        let (viewModel, _) = makeViewModel()
+        await viewModel.start(sessionType: .noon, microphoneGranted: false)
+        await viewModel.select(Choice(.status(.done)))
+        XCTAssertEqual(viewModel.completion, .completed)
+        XCTAssertNotNil(viewModel.commitment?.declarationAudioPath)
+
+        XCTAssertFalse(viewModel.canPreviewDeclaration)
+        XCTAssertFalse(viewModel.canRetakeDeclaration)
+    }
+
+    /// 成立しなかった会話と、途中で閉じた会話でも出さない。
+    func testAnAbandonedOrSuspendedSessionOffersNeitherThePreviewNorTheRetake() async throws {
+        let (abandoned, _) = makeViewModel()
+        await abandoned.start(sessionType: .morning, microphoneGranted: false)
+        await abandoned.skip()
+        XCTAssertEqual(abandoned.completion, .abandoned)
+        XCTAssertFalse(abandoned.canPreviewDeclaration)
+        XCTAssertFalse(abandoned.canRetakeDeclaration)
+
+        capture.autoSilenceStarts = 4
+        let (suspended, _) = makeViewModel(transcript: Self.voicedMorning)
+        await suspended.start(sessionType: .morning)
+        await settle(until: { suspended.phase == .recordingDeclaration })
+        await suspended.interrupt()
+        XCTAssertEqual(suspended.completion, .suspended)
+        XCTAssertFalse(suspended.canPreviewDeclaration)
+        XCTAssertFalse(suspended.canRetakeDeclaration)
+    }
+
+    /// done_definition: 言い直しは 1 回の会話で 1 回だけ。差し替えは新しい録音で 1 回呼ばれ、
+    /// 通知は登録し直さず、SessionLog も作り直さない。
+    func testRetakingTheDeclarationReplacesItOnceAndIsNotOfferedAgain() async throws {
+        // 6 回目の録音（言い直し）は、テストが話し終えさせるまで開いたままにする。
+        capture.autoSilenceStarts = 5
+        let audioSession = MockAudioSession(requiresConfirmation: false)
+        let viewModel = await completeVoicedMorning(
+            retake: ["今日、14時に見積書を開いて金額を見る"],
+            audioSession: audioSession
+        )
+        let original = try XCTUnwrap(viewModel.commitment)
+        let oldPath = try XCTUnwrap(original.declarationAudioPath)
+        let scheduledBefore = await notifications.scheduled
+        let logsBefore = await store.logs
+        let linesBefore = synthesizer.spokenLines
+        XCTAssertEqual(capture.startCount, 5)
+
+        await viewModel.retakeDeclaration()
+
+        XCTAssertEqual(viewModel.phase, .recordingDeclaration)
+        XCTAssertTrue(capture.isCapturing)
+        XCTAssertEqual(capture.startCount, 6)
+        XCTAssertEqual(capture.limit, .declaration, "録音の上限は最初の宣言と同じ")
+        XCTAssertTrue(audioSession.isActive, "録り直しの前に音声セッションを有効にする")
+        XCTAssertFalse(viewModel.canRetakeDeclaration)
+        let notYet = await store.replacements
+        XCTAssertTrue(notYet.isEmpty)
+
+        capture.speakThenFallSilent()
+        await settle(until: { viewModel.phase == .done })
+
+        XCTAssertEqual(viewModel.phase, .done)
+        XCTAssertEqual(viewModel.completion, .completed)
+        XCTAssertFalse(capture.isCapturing)
+        XCTAssertFalse(audioSession.isActive, "終わったら音声セッションを戻す")
+        XCTAssertFalse(viewModel.declarationRetakeFailed)
+
+        let replacements = await store.replacements
+        XCTAssertEqual(replacements.count, 1)
+        let replacement = try XCTUnwrap(replacements.first)
+        XCTAssertNotEqual(replacement.audioPath, oldPath)
+        XCTAssertEqual(replacement.transcript, "今日、14時に見積書を開いて金額を見る")
+        XCTAssertEqual(replacement.durationSec, 3.5, accuracy: 0.0001)
+        XCTAssertEqual(replacement.recordedAt, reference)
+
+        let updated = try XCTUnwrap(viewModel.commitment)
+        XCTAssertEqual(updated.id, original.id)
+        XCTAssertEqual(updated.declarationAudioPath, replacement.audioPath)
+        XCTAssertEqual(updated.declarationTranscript, "今日、14時に見積書を開いて金額を見る")
+        XCTAssertEqual(updated.plannedAt, original.plannedAt, "時刻は変わらない")
+        XCTAssertEqual(updated.microAction, original.microAction, "行動は変わらない")
+        XCTAssertEqual(viewModel.declarationDurationSec, 3.5, accuracy: 0.0001)
+        let entries = try await store.entries(for: reference)
+        XCTAssertEqual(entries.filter { $0.kind == .declaration }.map(\.audioPath), [replacement.audioPath])
+
+        // 通知・SessionLog・会話の読み上げは増えない。
+        let scheduledAfter = await notifications.scheduled
+        XCTAssertEqual(scheduledAfter, scheduledBefore)
+        let rejected = await notifications.rejected
+        XCTAssertTrue(rejected.isEmpty)
+        let logsAfter = await store.logs
+        XCTAssertEqual(logsAfter, logsBefore)
+        XCTAssertEqual(logsAfter.first?.completed, true)
+        XCTAssertEqual(synthesizer.spokenLines, linesBefore)
+        let commitments = await store.commitments
+        XCTAssertEqual(commitments.count, 1)
+
+        // 以降「言い直す」は出ない。押しても録音は始まらない。
+        XCTAssertFalse(viewModel.canRetakeDeclaration)
+        await viewModel.retakeDeclaration()
+        XCTAssertEqual(capture.startCount, 6)
+        let afterSecondTry = await store.replacements
+        XCTAssertEqual(afterSecondTry.count, 1)
+
+        // 「聞いてみる」は新しい録音を鳴らす。
+        XCTAssertTrue(viewModel.canPreviewDeclaration)
+        await viewModel.playDeclarationPreview()
+        XCTAssertEqual(player.playedURLs, [audioFiles.url(forRelativePath: replacement.audioPath)])
+    }
+
+    /// 再生の途中で「言い直す」を押すと、再生を止めてから録り始める。
+    func testRetakingWhileThePreviewPlaysStopsThePlaybackFirst() async throws {
+        capture.autoSilenceStarts = 5
+        let viewModel = await completeVoicedMorning(retake: ["今日、14時に見積書を開いて金額を見る"])
+        player.holdsPlayback = true
+        var playingWhenRecordingStarted: Bool?
+        capture.onStart = { [player] in playingWhenRecordingStarted = player?.isPlaying }
+
+        let playing = Task { await viewModel.playDeclarationPreview() }
+        await settle(until: { viewModel.isPreviewingDeclaration })
+        XCTAssertTrue(player.isPlaying)
+
+        await viewModel.retakeDeclaration()
+        await playing.value
+
+        XCTAssertEqual(viewModel.phase, .recordingDeclaration)
+        XCTAssertEqual(playingWhenRecordingStarted, false)
+        XCTAssertFalse(viewModel.isPreviewingDeclaration)
+    }
+
+    /// 差し替えに失敗したら、約束は古い宣言のまま。責めない 1 文を出し、「言い直す」はもう出さない。
+    func testAFailedReplacementKeepsTheOldDeclarationAndSaysSo() async throws {
+        await store.failReplacements()
+        let viewModel = await completeVoicedMorning(retake: ["今日、14時に見積書を開いて金額を見る"])
+        let original = try XCTUnwrap(viewModel.commitment)
+        XCTAssertFalse(viewModel.declarationRetakeFailed)
+
+        await viewModel.retakeDeclaration()
+        await settle(until: { viewModel.declarationRetakeFailed })
+
+        XCTAssertTrue(viewModel.declarationRetakeFailed)
+        XCTAssertEqual(viewModel.phase, .done)
+        XCTAssertEqual(viewModel.completion, .completed)
+        XCTAssertEqual(viewModel.commitment, original)
+        let saved = await store.commitments
+        XCTAssertEqual(saved, [original])
+        let attempts = await store.replacements
+        XCTAssertEqual(attempts.count, 1, "差し替えは 1 回だけ試みる")
+        XCTAssertFalse(viewModel.canRetakeDeclaration)
+        XCTAssertFalse(SessionCopy.declarationRetakeKept.isEmpty)
+
+        // 古い宣言はそのまま聞ける。
+        XCTAssertTrue(viewModel.canPreviewDeclaration)
+        await viewModel.playDeclarationPreview()
+        let oldPath = try XCTUnwrap(original.declarationAudioPath)
+        XCTAssertEqual(player.playedURLs, [audioFiles.url(forRelativePath: oldPath)])
+    }
+
+    /// 言い直しの文字起こしが空なら、差し替えを頼まず古い宣言を保つ。
+    func testAnEmptyRetakeKeepsTheOldDeclaration() async throws {
+        let viewModel = await completeVoicedMorning(retake: ["  "])
+        let original = try XCTUnwrap(viewModel.commitment)
+
+        await viewModel.retakeDeclaration()
+        await settle(until: { viewModel.declarationRetakeFailed })
+
+        XCTAssertTrue(viewModel.declarationRetakeFailed)
+        XCTAssertEqual(viewModel.phase, .done)
+        XCTAssertEqual(viewModel.commitment, original)
+        let attempts = await store.replacements
+        XCTAssertTrue(attempts.isEmpty)
+        XCTAssertFalse(viewModel.canRetakeDeclaration)
+    }
+
+    /// 言い直しの録音を始められなかったら（やり直しても駄目だった）、古い宣言を保つ。
+    func testARetakeThatCannotStartRecordingKeepsTheOldDeclaration() async throws {
+        let audioSession = MockAudioSession(requiresConfirmation: false)
+        let viewModel = await completeVoicedMorning(audioSession: audioSession)
+        let original = try XCTUnwrap(viewModel.commitment)
+        capture.failingAttempts = [6, 7]
+
+        await viewModel.retakeDeclaration()
+
+        XCTAssertTrue(viewModel.declarationRetakeFailed)
+        XCTAssertEqual(viewModel.phase, .done)
+        XCTAssertFalse(capture.isCapturing)
+        XCTAssertFalse(audioSession.isActive)
+        XCTAssertEqual(viewModel.commitment, original)
+        XCTAssertFalse(viewModel.isVoiceless, "その日を声なしにはしない")
+        XCTAssertNil(viewModel.notice, "文字で受ける掲示は出さない")
+        XCTAssertFalse(viewModel.acceptsTextInput)
+        let attempts = await store.replacements
+        XCTAssertTrue(attempts.isEmpty)
+        XCTAssertFalse(viewModel.canRetakeDeclaration)
+    }
+
+    /// 録り直しの途中で閉じると、録音が止まり、約束は古い宣言のまま。完了した会話の記録も変わらない。
+    func testClosingDuringTheRetakeStopsTheRecordingAndKeepsTheOldDeclaration() async throws {
+        capture.autoSilenceStarts = 5
+        let audioSession = MockAudioSession(requiresConfirmation: false)
+        let viewModel = await completeVoicedMorning(
+            retake: ["今日、14時に見積書を開いて金額を見る"],
+            audioSession: audioSession
+        )
+        let original = try XCTUnwrap(viewModel.commitment)
+        let logsBefore = await store.logs
+
+        await viewModel.retakeDeclaration()
+        XCTAssertTrue(capture.isCapturing)
+
+        await viewModel.interrupt()
+        await drain()
+
+        XCTAssertFalse(capture.isCapturing)
+        XCTAssertFalse(audioSession.isActive)
+        XCTAssertEqual(viewModel.phase, .done)
+        XCTAssertEqual(viewModel.completion, .completed, "完了した会話を中断に書き換えない")
+        XCTAssertNil(viewModel.suspendedState)
+        XCTAssertEqual(viewModel.commitment, original)
+        let saved = await store.commitments
+        XCTAssertEqual(saved, [original])
+        let attempts = await store.replacements
+        XCTAssertTrue(attempts.isEmpty)
+        let logsAfter = await store.logs
+        XCTAssertEqual(logsAfter, logsBefore)
+        XCTAssertFalse(viewModel.canRetakeDeclaration)
+
+        // 止めた後に録音が話し終えても、差し替えは起きない。
+        capture.speakThenFallSilent()
+        await drain()
+        let late = await store.replacements
+        XCTAssertTrue(late.isEmpty)
+    }
+
+    /// 録り直しの文字起こしの確定を待つあいだに閉じても、差し替えは起きない。
+    func testClosingWhileTheRetakeIsFinalizingDiscardsIt() async throws {
+        let transcriber = MockTranscriber(script: Self.voicedMorning + ["今日、14時に見積書を開いて金額を見る"])
+        let viewModel = await completeVoicedMorning(transcriber: transcriber)
+        let original = try XCTUnwrap(viewModel.commitment)
+        let gate = Gate()
+        transcriber.finishGate = gate
+
+        await viewModel.retakeDeclaration()
+        await settle(until: { gate.waitingCount == 1 })
+        XCTAssertEqual(gate.waitingCount, 1)
+
+        let closing = Task { await viewModel.interrupt() }
+        await drain()
+        gate.open()
+        await closing.value
+        await drain()
+
+        XCTAssertEqual(viewModel.phase, .done)
+        XCTAssertEqual(viewModel.commitment, original)
+        let attempts = await store.replacements
+        XCTAssertTrue(attempts.isEmpty)
     }
 
     // MARK: - 補助
