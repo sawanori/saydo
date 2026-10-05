@@ -14,10 +14,15 @@ struct SaydoApp: App {
     private let router: AppRouter
 
     init() {
-        let container = Self.makeModelContainer()
+        let (container, isPersistent) = Self.makeModelContainer()
         modelContainer = container
         router = AppRouter(modelContainer: container)
-        Task { await Self.sweepOrphanAudioFiles(in: container) }
+        if Self.shouldSweepOrphanAudio(isPersistent: isPersistent) {
+            Task { await Self.sweepOrphanAudioFiles(in: container) }
+        } else {
+            // 空のメモリ内ストアを基準にすると、端末上の全録音が孤児として消えてしまう。
+            Self.logger.error("orphan audio sweep skipped: running on in-memory store")
+        }
     }
 
     var body: some Scene {
@@ -33,17 +38,24 @@ struct SaydoApp: App {
 
     /// 保存先が開けない場合もアプリは立ち上げる。会話だけは始められる方が、
     /// 起動できないより本人の役に立つ（記録はその起動の間だけ残る）。
-    private static func makeModelContainer() -> ModelContainer {
+    /// 戻り値の `isPersistent` は、永続ストアで開けたかどうか（メモリ内ストアなら false）。
+    private static func makeModelContainer() -> (container: ModelContainer, isPersistent: Bool) {
         do {
-            return try SaydoModelContainer.make()
+            return (try SaydoModelContainer.make(), true)
         } catch {
             logger.error("persistent store unavailable: \(error.localizedDescription, privacy: .public)")
         }
         do {
-            return try SaydoModelContainer.make(inMemory: true)
+            return (try SaydoModelContainer.make(inMemory: true), false)
         } catch {
             fatalError("SwiftData container could not be created: \(error)")
         }
+    }
+
+    /// 孤児ファイルの掃除をしてよいか。永続ストアで開けた起動だけ true。
+    /// メモリ内ストアは `VoiceEntry` が空なので、掃除すると端末上の全録音が消える。
+    nonisolated static func shouldSweepOrphanAudio(isPersistent: Bool) -> Bool {
+        isPersistent
     }
 
     /// 起動時に 1 回だけ孤児ファイルを掃除する（実装計画 §10）。

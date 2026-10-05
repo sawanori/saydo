@@ -2420,3 +2420,67 @@ EXIT=0
 
 1. App Store Connect → TestFlight でビルド 202609041358 の処理完了を待ち、内部テスト（Internal Testing）グループに自分を追加して TestFlight アプリから入れる。
 2. `docs/device/device-check-2026-09-04.md` の A・B を実施し、結果を記入する。
+
+## task_030 — 録音が消える経路を塞ぐ（メモリ内ストアで起動したときは音声ファイルを掃除しない）
+
+- 日時: 2026-10-06
+- 状態: done（シミュレータでの単体テストまで。実機で永続ストアを開けない状況は再現していない）
+- ブランチ / コミット: task/030-recording-safety / このエントリを含むコミット（ハッシュは `git log` の `task_030:` 行）
+
+### 証拠
+
+| コマンド | exit code | ログ |
+|---|---|---|
+| `scripts/test-ios.sh` | 0（`** TEST SUCCEEDED **`、Executed 141 tests, 0 failures、lint-principles: OK） | `docs/logs/task_030-1.txt` |
+
+done_definition との対応:
+
+- メモリ内ストアで起動した場合に掃除が呼ばれない: `SaydoApp.shouldSweepOrphanAudio(isPersistent:)` に判定を切り出し、`init` はこれが false のとき掃除を呼ばず `logger.error` に 1 行残す。`LaunchSafetyTests.testSweepIsSkippedOnInMemoryStore`（false）と `testSweepRunsOnPersistentStore`（true）が passed。
+- 永続ストアの掃除は従来どおり: `sweepOrphanAudioFiles` / `removeOrphans` は無変更。既存の AudioFileStoreTests と RepositoryTests を含む 141 テストが緑。
+- `scripts/test-ios.sh` が exit 0: 上表。
+
+変更: `App/SaydoApp.swift`（`makeModelContainer()` が `(container, isPersistent)` を返す。判定の静的関数を追加。判定関数は `nonisolated`。テストから同期で呼ぶため）、`Tests/SaydoTests/LaunchSafetyTests.swift`（新規）。
+
+`scripts/test-ios.sh` の末尾 30 行:
+
+```
+    Packages/SaydoCore/Sources/SaydoCore/Domain/FlowStep.swift:65: "今日の前進"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/FlowStep.swift:66: "明日のこと"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/FlowStep.swift:67: "終わり"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/ReasonCategory.swift:22: "気まずい"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/ReasonCategory.swift:23: "完璧にやりたい"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/ReasonCategory.swift:24: "面倒"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/ReasonCategory.swift:25: "不安・怖い"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/ReasonCategory.swift:26: "量が多い"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/ReasonCategory.swift:27: "何から始めるかわからない"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/ReasonCategory.swift:28: "期限が怖い"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/SessionType.swift:15: "朝"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/SessionType.swift:16: "昼"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/SessionType.swift:17: "夜"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/SessionType.swift:18: "手動"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/TaskDomain.swift:20: "人への返信"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/TaskDomain.swift:21: "お金"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/TaskDomain.swift:22: "大きなタスク"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/TaskDomain.swift:23: "営業"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/TaskDomain.swift:24: "書類"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/TaskDomain.swift:25: "健康"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/TaskDomain.swift:26: "その他"
+    Packages/SaydoCore/Sources/SaydoCore/Flows/MorningFlow.swift:131: "特にない"
+    Packages/SaydoCore/Sources/SaydoCore/Flows/NightFlow.swift:56: "ない"
+    Packages/SaydoCore/Sources/SaydoCore/Flows/NightFlow.swift:57: "何もできなかった"
+    Packages/SaydoCore/Sources/SaydoCore/Flows/NoonFlow.swift:184: "少し"
+    Packages/SaydoCore/Sources/SaydoCore/Flows/NoonFlow.swift:185: "まだ"
+    Packages/SaydoCore/Sources/SaydoCore/Flows/NoonFlow.swift:187: "やった"
+    Packages/SaydoCore/Sources/SaydoCore/Flows/NoonFlow.swift:188: "終わった"
+lint-principles: OK
+EXIT=0
+```
+
+### 未解決
+
+- `init` 本体の分岐（`shouldSweepOrphanAudio` の戻り値で掃除を呼ぶか）は、`SaydoApp.init` を単体テストから起動できないため、テストでは判定関数の戻り値までしか確かめていない。実際に掃除が呼ばれないことのテストは無い。
+- `isPersistent` は `AppRouter` へ渡していない（task_035 で行う）。メモリ内ストアで起動した日に、本人へ保存先が一時的であることを伝える画面側の受領文は未実装。
+
+### 人間の確認待ち
+
+なし（実機の確認は task_035 の受領文と合わせて行う）。
