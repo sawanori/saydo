@@ -71,6 +71,8 @@ public enum CopyKey: String, Sendable, Equatable, Hashable, Codable, CaseIterabl
     case requiredTextPrompt
     /// 必須の質問を本人が飛ばして、約束を作らずに終えるときの締め。
     case sessionAbandoned
+    /// M3 の時刻が受け取れなかったとき、時刻のチップを出して 1 回だけ聞き直す一言。
+    case morningTimeChipsPrompt
     /// N0 朝の宣言を返す前の一言。
     case noonIntro
     /// 昼の入口: すでに done。
@@ -269,6 +271,10 @@ public enum DialogueCopy {
             [
                 CopyLine("今日はここまでにしよう。また話したくなったら、いつでも。", .statement),
             ]
+        case .morningTimeChipsPrompt:
+            [
+                CopyLine("時間だけ、もう一度教えて。押すだけでも大丈夫。", .statement),
+            ]
         case .noonIntro:
             [
                 CopyLine("朝のあなたからです。", .statement),
@@ -369,6 +375,12 @@ public enum DialogueCopy {
         .timeInOneHour, .timeAfternoon, .timeEvening, .timePick,
     ]
 
+    /// M3 の聞き直しで出す時刻のチップ。「決めない」以外の文言は、そのまま
+    /// `JapaneseTimeParser` が時刻として読める表現にする。
+    public static let timeChipIDs: [ChoiceID] = [
+        .timeInThirtyMinutes, .timeNoon, .timeEvening, .timeUndecided,
+    ]
+
     /// 選択肢の表示名。
     public static func label(_ id: ChoiceID) -> String {
         switch id {
@@ -390,6 +402,9 @@ public enum DialogueCopy {
         case .timeAfternoon: "午後"
         case .timeEvening: "夕方"
         case .timePick: "時刻を選ぶ"
+        case .timeInThirtyMinutes: "30分後"
+        case .timeNoon: "昼"
+        case .timeUndecided: "決めない"
         case .declareNow: "今、声で言う"
         case .declareLater: "後で声で"
         case .status(let outcome): outcome.displayName

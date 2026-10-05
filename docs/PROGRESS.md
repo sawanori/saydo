@@ -2800,3 +2800,124 @@ task_033-4.txt:1513:EXIT=0
 
 - 新しい文言 7 つ（上の表）の言い回しの確認。特に、成立しなかった会話の締め（読み上げと完了画面）と、時間切れの 3 つ。
 - 実機で、朝フローの M2 で黙り続けて例のチップが出ること、M0 で黙り続けて文字の入力待ちになること、聞き取り中に 3 分を越えても話し終えるまで切られないことを確かめる（task_039 の実機確認に含めてよい）。
+
+## task_034 — 時刻を 1 回だけ解釈し、保存と通知で共用する
+
+- 日時: 2026-10-06
+- 状態: done（macOS の `swift test` とシミュレータの単体テストまで。実機では確かめていない）
+- ブランチ / コミット: task/034-resolve-time / このエントリを含むコミット（ハッシュは `git log` の `task_034:` 行）
+
+### 証拠
+
+| コマンド | exit code | ログ |
+|---|---|---|
+| `scripts/test-core.sh`（修正前の挙動。型の宣言と文言だけ足した状態: `ResolvedTime`、`TimeResolutionStage`、`FlowCommand.resolveTime`、`FlowEvent.timeResolved`、`FlowState.plannedTime` / `timeResolution`、`ChoiceID` 3 つ、`DialogueCopy.timeChipIDs`、`CopyKey.morningTimeChipsPrompt`。`MorningFlow` の処理は未変更） | **1**（SaydoCore: Executed 235 tests, 33 failures。12 件が失敗。`set -e` のため SaydoAI と lint は走っていない） | `docs/logs/task_034-1.txt` |
+| `scripts/test-ios.sh`（同じ修正前の状態。`SessionViewModel` は `resolveTime` を何もしない命令として受けるだけ） | **65**（Executed 168 tests, 12 failures。4 件が失敗） | `docs/logs/task_034-2.txt` |
+| `scripts/test-core.sh`（修正後。コミットした内容） | 0（SaydoCore: Executed 235 tests, 0 failures。SaydoAI: Executed 33 tests, 0 failures。lint-principles: OK） | `docs/logs/task_034-3.txt` |
+| `scripts/test-ios.sh`（修正後。コミットした内容） | 0（`** TEST SUCCEEDED **`、Executed 168 tests, 0 failures、lint-principles: OK） | `docs/logs/task_034-4.txt` |
+| `scripts/test-ios.sh`（確認用。修正後のコードから「待たせた時間切れでは `resolveTime` を実行しない」の 1 行だけを外した状態。コミットには含めていない） | **65**（Executed 168 tests, 2 failures。`testADeferredTimeboxAtThePlannedTimeEndsWithoutAskingForTheDeclaration` だけが失敗） | `docs/logs/task_034-5.txt` |
+
+`docs/logs/task_034-2.txt` は 2 回目の実行である。1 回目は先に書いたテストの書き方の誤り（`XCTUnwrap` の引数の中で `await` した）でビルドが通らなかったので、テストを直して取り直した。
+
+変更の中身:
+
+- `FlowMachine.swift`: `ResolvedTime`（日時・読み上げ用の句・場所。Sendable / Equatable / Hashable / Codable）、`FlowCommand.resolveTime(String)`、`FlowEvent.timeResolved(ResolvedTime?)`、`FlowState.plannedTime: ResolvedTime?` を足した。聞き直しが 1 回だけであることを持つために `FlowState.timeResolution: TimeResolutionStage?`（`awaitingFirst` / `reasking` / `awaitingSecond`）も足した。どちらも Optional で、初期化子では既定値 nil、nil のときは符号化されないので、これまでの形の `FlowState` もそのまま復号できる。`FlowMachine.enter` は質問に入るたびに `timeResolution` を nil に戻す（中断からの再開を含む）。`FlowMachine` は時計に触らない。
+- `MorningFlow.swift`（M3）: 声・文字の答えは `plannedAnswer` に生の発話を残し、`[.resolveTime(答え)]` だけを出して M3 に留まる。`timeResolved(値)` で `plannedTime` に入れて M4 へ進む。`timeResolved(nil)` の 1 回目は、一言（`morningTimeChipsPrompt`）と時刻のチップ（`showChoices`）と聞き取り（`listen`）を出す。チップ（決めない以外）と声の答えは同じ `resolveTime` に回す。2 回目の nil と「決めない」は `plannedTime == nil` のまま M4 へ進む。最初の質問の時刻の例（1時間後 / 午後 / 夕方）も同じ `resolveTime` に回す。頼んでいない `timeResolved` と、結果待ちのあいだの答えは受け流す。M4 は触っていない。
+- `DialogueCopy.swift`: `ChoiceID.timeInThirtyMinutes`（30分後）・`timeNoon`（昼）・`timeUndecided`（決めない）の文言、`timeChipIDs`（30分後 / 昼 / 夕方 / 決めない。夕方は既存の `timeEvening`）、`CopyKey.morningTimeChipsPrompt` を足した。
+- `JapaneseTimeParser.swift`: 変更なし。「30分後」「昼」「夕方」は元から読める。`JapaneseTimeParserTests` で固定した。
+- `SessionViewModel.swift`: `resolveTime` を受けたら、現在時刻と `JapaneseTimeParser` で 1 回だけ解釈し、同じ進行の中で `handle(.timeResolved(…))` を呼んで返す（昼の再生の終わりを `playbackFinished` で返すのと同じ形）。解釈できない答えと、解釈した日時が現在時刻以前の答えは nil で返す。約束の保存（`persistCommitmentIfNeeded`）は `state.plannedTime` の日時と場所を使い、解釈し直さない。通知の登録（`send`）は、朝の会話では行動時刻の通知に `state.plannedTime?.date` を渡し、解釈し直さない。待たせていた時間切れ（task_033）が M3 の答えで来た場合は `resolveTime` を実行せずに終える（結果を受けると宣言の質問が始まるため）。
+
+done_definition との対応（MFT = `Packages/SaydoCore/Tests/SaydoCoreTests/MorningFlowTests.swift`、VMT = `Tests/SaydoTests/SessionViewModelTests.swift`、JTP = `JapaneseTimeParserTests.swift`）:
+
+| done_definition | 証拠（テスト名） | 修正前 | 修正後 |
+|---|---|---|---|
+| 時刻の解釈が 1 回の会話で 1 回だけ行われ、保存と通知が同じ日時を使う（VMT） | `testRelativeTimeIsCountedFromWhenItWasSaid`（9:00 に「30分後に机で」と答え、時計を 9:10 に進めてから宣言。`plannedAt` も `fireDate` も 9:30、場所は「机」）、`testSpokenTimeIsSavedAndNotifiedAsTheSameDate`（「16時から」と答え、時計を進めてから宣言。`plannedAt` は 16:00、`fireDate` は `plannedAt` と同じ） | failed（9:40 になっていた） / **passed**（下の注） | passed / passed |
+| 解釈できない答えと過ぎた時刻は、チップで 1 回だけ聞き直される（MFT / VMT） | MFT `testPlannedTimeAnswerAsksTheAppToResolveIt`、`testUnresolvedTimeShowsTheTimeChipsOnceThenGoesOnWithoutATime`、`testChoosingATimeChipIsResolvedThroughTheSameRoute`、`testResolvedTimeIsKeptAndTheDeclarationFollows`、`testSilenceOrSkipWhileReaskingTheTimeGoesOnWithoutATime`、`testTimeExampleIsResolvedThroughTheSameRoute`、`testTimeResolvedIsIgnoredUnlessItWasAskedFor`。VMT `testAPastTimeIsAskedAgainWithTheTimeChips`（15:00 に「午後2時に会社で」。M3 に留まり、チップ 4 つと一言が出る。「夕方」を選ぶと 17:00 で保存・通知）、`testThePastTimeIsAskedAgainOnlyOnce`（15:00 に「午後2時」→「昼」。2 回目は聞き直さず時刻なし）、`testAnUnreadableTimeThenUndecidedSavesNoTime` | MFT 7 件とも failed、VMT 3 件とも failed | passed |
+| 「決めない」で時刻なしのまま宣言へ進める（MFT） | `testChoosingUndecidedGoesOnWithoutATime`、VMT `testAnUnreadableTimeThenUndecidedSavesNoTime`（`plannedAt` は nil、通知に日時は渡らない） | failed / failed | passed / passed |
+| `scripts/test-core.sh` と `scripts/test-ios.sh` が exit 0 | `docs/logs/task_034-3.txt`、`docs/logs/task_034-4.txt` | 1 / 65 | 0 / 0 |
+| 新しい文言と Guardrails（依頼の条件） | `GuardrailsTests.testTimeReaskLinePassesGuardrails`、`testEveryChoiceLabelPassesGuardrails`（`timeChipIDs` を足した）、既存の `testEveryDialogueCopyLinePassesGuardrails`。`Guardrails.swift` は無変更。`GuardrailsTests.swift` は 13 行の追加だけで削除なし | passed（文言は修正前の実行の時点で足してあった） | passed |
+| チップの文言がそのまま解釈できる（依頼の仕様 4） | JTP `testTimeChipLabelsAreParseableAsTheyAre`、`testUndecidedChipLabelIsNotATime`、`testNoonSaidInTheAfternoonIsTodaysNoon` | passed（パーサは変えていない） | passed |
+| `FlowState` の既存の形を壊さない（依頼の仕様 8） | MFT `testFlowStateWithoutThePlannedTimeStillDecodes`、`testShortMorningNeverAsksToResolveATime` | failed（後半の `plannedTime` の往復の確認が、修正前は値が入らないため） / passed | passed / passed |
+
+注: `testSpokenTimeIsSavedAndNotifiedAsTheSameDate`（「16時から」）は修正前でも passed だった。修正前は保存と通知の両方が会話の終わりに同じ時刻で解釈し直していて、「16時」のような時計の時刻は解釈する時点が変わっても同じ日時になるためである。修正前の不一致（言った時点と解釈する時点のずれ）を失敗として示せたのは、相対時刻の `testRelativeTimeIsCountedFromWhenItWasSaid` である。`testADeferredTimeboxAtThePlannedTimeEndsWithoutAskingForTheDeclaration` も修正前は passed で（修正前は `resolveTime` が無い）、これが見張っている分岐は `docs/logs/task_034-5.txt` で外して失敗することを確かめた。
+
+修正前（`docs/logs/task_034-1.txt` の SaydoCore、`docs/logs/task_034-2.txt` の Saydo）で failed だったテスト:
+
+```
+SaydoCoreTests.MorningFlowTests testChoosingATimeChipIsResolvedThroughTheSameRoute
+SaydoCoreTests.MorningFlowTests testChoosingUndecidedGoesOnWithoutATime
+SaydoCoreTests.MorningFlowTests testFlowStateWithoutThePlannedTimeStillDecodes
+SaydoCoreTests.MorningFlowTests testInterruptedAtDeclarationResumesAtDeclaration
+SaydoCoreTests.MorningFlowTests testMorningWalksM0ToM4AndSavesThreeEntries
+SaydoCoreTests.MorningFlowTests testPlannedTimeAnswerAsksTheAppToResolveIt
+SaydoCoreTests.MorningFlowTests testResolvedTimeIsKeptAndTheDeclarationFollows
+SaydoCoreTests.MorningFlowTests testSilenceOrSkipWhileReaskingTheTimeGoesOnWithoutATime
+SaydoCoreTests.MorningFlowTests testTimeExampleIsResolvedThroughTheSameRoute
+SaydoCoreTests.MorningFlowTests testTimeResolvedIsIgnoredUnlessItWasAskedFor
+SaydoCoreTests.MorningFlowTests testUnresolvedTimeShowsTheTimeChipsOnceThenGoesOnWithoutATime
+SaydoCoreTests.MorningFlowTests testVoicelessModeListensWithTextInputThroughM0ToM3
+	 Executed 235 tests, with 33 failures (0 unexpected) in 0.085 (0.094) seconds
+EXIT=1
+
+SaydoTests.SessionViewModelTests testAnUnreadableTimeThenUndecidedSavesNoTime
+SaydoTests.SessionViewModelTests testAPastTimeIsAskedAgainWithTheTimeChips
+SaydoTests.SessionViewModelTests testRelativeTimeIsCountedFromWhenItWasSaid
+SaydoTests.SessionViewModelTests testThePastTimeIsAskedAgainOnlyOnce
+	 Executed 168 tests, with 12 failures (0 unexpected) in 0.694 (0.743) seconds
+** TEST FAILED **
+EXIT=65
+```
+
+修正後（`docs/logs/task_034-3.txt`、`docs/logs/task_034-4.txt`）:
+
+```
+task_034-3.txt:521:	 Executed 235 tests, with 0 failures (0 unexpected) in 0.043 (0.051) seconds
+task_034-3.txt:635:	 Executed 33 tests, with 0 failures (0 unexpected) in 12.272 (12.275) seconds
+task_034-3.txt:762:lint-principles: OK
+task_034-3.txt:763:EXIT=0
+task_034-4.txt:1558:	 Executed 168 tests, with 0 failures (0 unexpected) in 0.730 (0.780) seconds
+task_034-4.txt:1568:** TEST SUCCEEDED **
+task_034-4.txt:1691:lint-principles: OK
+task_034-4.txt:1692:EXIT=0
+```
+
+書き換えた既存テスト（すべて MorningFlowTests。理由は共通で、M3 の答えの直後に M4 の命令が出なくなり、間に `resolveTime` と `timeResolved` が入るため。テスト名は変えていない）:
+
+| テスト | 変更 |
+|---|---|
+| `testMorningWalksM0ToM4AndSavesThreeEntries` | M3 の答えの直後の期待値を「M3 に留まり、命令は `[.resolveTime("14時に自宅で")]`」に変え、`timeResolved(値)` を渡した後に M4 の録音命令と `plannedTime` を確かめる形にした。保存 3 件・通知命令・`plannedAnswer` の確認は変えていない |
+| `morning(at:)`（テスト内の補助関数） | M3 の答えの後に `timeResolved(値)` を渡す 1 行を足した。これを使う既存テスト（M4 の必須の質問、聞き直しの上限、スキップ）の期待値は変えていない |
+| `testVoicelessModeListensWithTextInputThroughM0ToM3`、`testDeferredDeclarationSchedulesASingleReminder`、`testDeclareNowInVoicelessModeStartsRecording` | M3 の答えの後に `timeResolved(値)` を渡す 1 行を足した。期待値は変えていない |
+| `testInterruptedAtDeclarationResumesAtDeclaration` | 同じ 1 行を足し、再開後も `plannedTime` が残ることの確認を 1 行足した |
+
+`SessionViewModelTests` の既存テストは書き換えていない（`makeViewModel` に時計を差し替える引数 `clock` を足し、補助関数 `moment` / `walkToPlannedTime` / `declare` を足しただけ）。モックは変えていない。
+
+新しく足した文言:
+
+| 置き場所 | キー | 文言 |
+|---|---|---|
+| `DialogueCopy` | `morningTimeChipsPrompt` | 時間だけ、もう一度教えて。押すだけでも大丈夫。 |
+| `DialogueCopy.label` | `timeInThirtyMinutes` | 30分後 |
+| `DialogueCopy.label` | `timeNoon` | 昼 |
+| `DialogueCopy.label` | `timeUndecided` | 決めない |
+
+変更: `Packages/SaydoCore/Sources/SaydoCore/Flows/FlowMachine.swift`、`Flows/MorningFlow.swift`、`Dialogue/DialogueCopy.swift`、`App/Features/Session/SessionViewModel.swift`、テスト 4 ファイル（`MorningFlowTests`、`JapaneseTimeParserTests`、`GuardrailsTests`、`SessionViewModelTests`）。`GuardrailsTests.swift` は task-list.json の files_to_modify には無いが、新しい文言を通すために足した。
+
+### 未解決
+
+- 受領文は触っていない（task_035）。M4 は今も `plannedAnswer`（生の発話）を受領文に差し込み、`plannedAnswer` があれば行動時刻の通知命令を出す。そのため、時刻が決まらなかった会話（「あとでやる」→「決めない」、または 2 回とも解釈できない）でも、読み上げは「受け取りました。あとでやるに、朝のあなたから届きます。」になり、通知命令は `fireDate` が nil のまま `NotificationScheduling.schedule` に渡る。修正前から、解釈できない答えでは同じことが起きていた。task_035 は受領文と通知命令の両方を `state.plannedTime`（句は `plannedTime.phrase`）で出し分けること。
+- チップを選んだ場合、`plannedAnswer` はチップの文言（「夕方」）で上書きされる。聞き直しで声で答え直した場合も、後の答えで上書きされる。最初の発話は残らない。
+- 時刻が決まらなかった会話では、場所も保存されない。修正前は、時刻が読めなくても残りの言葉を場所として保存していた（「自宅で」→ 場所「自宅」、時刻なし）。`ResolvedTime` が日時を必ず持つ形のため、時刻なしの場所を運ぶ場所が無い。
+- 「16時から」のように時刻の後ろに助詞以外の語が付くと、パーサはそれを場所として返す（「から」が `plannedPlace` に入る）。修正前からのパーサの挙動で、今回は触っていない。
+- 「昼」のチップは 12:00 として解釈されるので、正午を過ぎてから押すと過ぎた時刻になり、時刻なしで宣言へ進む（聞き直しは 1 回だけのため）。チップを時間帯で出し分けてはいない。
+- 聞き直しのチップは、声で答えた後や沈黙で M4 へ進んだ後も画面（`choices`）に残る。M1 のチップと同じ、task_031 からの既知の挙動である。M4 で押されても `FlowMachine` は受け流し、録音は続く。画面の整理は task_040。
+- 昼フローにも言い回しの再解釈がある。直していない。`NoonFlow` の「時間を変える」と「1 時間後にもう一度」は `scheduleNotification(timePhrase:)` を出し、`SessionViewModel.send` が登録の時点の現在時刻で `JapaneseTimeParser` にかける（昼の会話のときだけこの経路が残る）。解釈できなくても黙って進み、過ぎた時刻も確かめない。また「時間を変える」は通知を登録し直すだけで、`Commitment.plannedAt` は書き換えない（`SessionStore` に時刻を更新する操作が無い）。
+- 短縮版の朝フローは時刻を聞かないので `plannedTime` は常に nil である（変えていない）。
+- 中断からの再開は M3 の質問からやり直す。結果待ち・聞き直しの途中の状態は持ち越さない（`FlowMachine.enter` が `timeResolution` を nil に戻す）。
+- `SessionViewModelTests` は `Calendar.current` を使う。既存の朝フローのテストは基準時刻（日本時間 0:33）に「14時」と答えていて、この基準時刻が 14 時を過ぎる時間帯の環境で走らせると、今回から過ぎた時刻として聞き直しに入り、期待と合わなくなる。この環境（JST）でしか走らせていない。
+- 実機では何も確かめていない。
+
+### 人間の確認待ち
+
+- 新しい文言 4 つ（上の表）の言い回しの確認。特に聞き直しの一言。
+- 実機で、朝フローの M3 に過ぎた時刻・読めない言葉を声で答えて、チップが出て声でもチップでも答えられること、通知が言った時刻に鳴ることを確かめる（task_039 の実機確認に含めてよい）。

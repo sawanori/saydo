@@ -132,6 +132,41 @@ final class JapaneseTimeParserTests: XCTestCase {
         XCTAssertNil(JapaneseTimeParser.resolve(hour: 10, minute: 99, isPM: nil, now: now(), calendar: calendar))
     }
 
+    // MARK: - M3 の聞き直しのチップ（task_034）
+
+    /// 時刻のチップの文言は、そのまま時刻として読める。読み取った語は文言そのもので、場所は残らない。
+    func testTimeChipLabelsAreParseableAsTheyAre() {
+        let expected: [ChoiceID: (hour: Int, minute: Int)] = [
+            .timeInThirtyMinutes: (8, 30),
+            .timeNoon: (12, 0),
+            .timeEvening: (17, 0),
+        ]
+        let chips = DialogueCopy.timeChipIDs.filter { $0 != .timeUndecided }
+        XCTAssertEqual(Set(chips), Set(expected.keys))
+
+        for id in chips {
+            let label = DialogueCopy.label(id)
+            let result = parse(label)
+            XCTAssertEqual(components(result.date)?.day, 4, label)
+            XCTAssertEqual(components(result.date)?.hour, expected[id]?.hour, label)
+            XCTAssertEqual(components(result.date)?.minute, expected[id]?.minute, label)
+            XCTAssertEqual(result.matchedPhrase, label)
+            XCTAssertEqual(result.place, "", label)
+        }
+    }
+
+    /// 「決めない」は時刻として読まない。
+    func testUndecidedChipLabelIsNotATime() {
+        XCTAssertNil(parse(DialogueCopy.label(.timeUndecided)).date)
+    }
+
+    /// 午後に「昼」と言えば、今日の 12 時（もう過ぎた時刻）を返す。過ぎたかどうかは呼び出し側が現在時刻と比べる。
+    func testNoonSaidInTheAfternoonIsTodaysNoon() {
+        let result = parse(DialogueCopy.label(.timeNoon), at: 15)
+        XCTAssertEqual(components(result.date)?.day, 4)
+        XCTAssertEqual(components(result.date)?.hour, 12)
+    }
+
     // MARK: - M3 の答えをそのまま渡せること
 
     func testParsesTheAnswerTheFlowMachineStores() {

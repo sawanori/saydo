@@ -290,29 +290,75 @@ public enum MorningFlow {
 
     // MARK: - M3
 
+    /// 時刻の答えは、ここでは解釈しない（時計を持たないため）。生の発話を `plannedAnswer` に残し、
+    /// `resolveTime` でアプリに解釈を頼んで、結果（`timeResolved`）を待つ（実装計画 §16.7）。
     private static func plannedTime(_ event: FlowEvent, in state: FlowState) -> FlowTransition {
         var state = state
+        let isAwaiting = state.timeResolution == .awaitingFirst || state.timeResolution == .awaitingSecond
+
+        /// 答え（発話またはチップの文言）の解釈を頼む。
+        func resolve(_ answer: String) -> FlowTransition {
+            state.plannedAnswer = answer
+            state.timeResolution = state.timeResolution == .reasking ? .awaitingSecond : .awaitingFirst
+            return FlowTransition(state: state, commands: [.resolveTime(answer)])
+        }
+
         switch event {
+        case .timeResolved(let resolved):
+            // 頼んでいない結果は受け流す。
+            guard isAwaiting else {
+                return FlowTransition(state: state, commands: [])
+            }
+            if let resolved {
+                state.plannedTime = resolved
+                return FlowMachine.advance(from: state)
+            }
+            guard state.timeResolution == .awaitingFirst else {
+                // 聞き直しても決まらなかった。時刻なしで宣言へ進む。
+                return FlowMachine.advance(from: state)
+            }
+            // 解釈できなかった、またはもう過ぎた時刻だった。時刻のチップを出して 1 回だけ聞き直す。
+            state.timeResolution = .reasking
+            state.silenceCount = 0
+            state.retryCount = 0
+            let line = state.picker.pickText(.morningTimeChipsPrompt)
+            return FlowTransition(
+                state: state,
+                commands: [
+                    .speak(line),
+                    .showChoices(DialogueCopy.timeChipIDs.map(Choice.init)),
+                    .listen(FlowMachine.listenRequest(for: state, silenceSeconds: FlowMachine.firstSilenceSeconds)),
+                ]
+            )
+
         case .transcript(let raw):
+            guard !isAwaiting else {
+                return FlowTransition(state: state, commands: [])
+            }
             let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
             guard FlowMachine.isUsable(text) else {
                 return FlowMachine.retryOrFallback(state)
             }
             // 「何時に、どこで」を 1 つの答えとして受け取る（retention R11）。
-            // 時刻と場所への分解は JapaneseTimeParser（task_005b）が行う。
-            state.plannedAnswer = text
-            return FlowMachine.advance(from: state)
+            return resolve(text)
 
         case .choice(let id):
-            guard DialogueCopy.timeExampleIDs.contains(id) else {
+            guard !isAwaiting else {
+                return FlowTransition(state: state, commands: [])
+            }
+            if id == .timeUndecided {
+                // 時刻を決めないまま宣言へ進む。
+                return FlowMachine.advance(from: state)
+            }
+            guard DialogueCopy.timeExampleIDs.contains(id) || DialogueCopy.timeChipIDs.contains(id) else {
                 return FlowTransition(state: state, commands: [])
             }
             if id == .timePick {
                 // 時刻の選択は画面側の仕事。もう一度この質問で受け直す。
                 return enter(.morningPlannedTime, in: state)
             }
-            state.plannedAnswer = DialogueCopy.label(id)
-            return FlowMachine.advance(from: state)
+            // チップと例示の文言も、声の答えと同じ経路で解釈する。
+            return resolve(DialogueCopy.label(id))
 
         default:
             return FlowTransition(state: state, commands: [])

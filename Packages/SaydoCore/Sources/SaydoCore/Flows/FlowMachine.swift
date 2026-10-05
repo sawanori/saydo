@@ -16,6 +16,8 @@ public enum FlowEvent: Sendable, Equatable, Hashable, Codable {
     case skip
     /// 着信・Siri 起動・オーディオ経路変更で中断した。
     case interrupted
+    /// `FlowCommand.resolveTime` の結果。解釈できなかった・もう過ぎた時刻だった場合は nil。
+    case timeResolved(ResolvedTime?)
 
     public enum TimeoutKind: String, Sendable, Equatable, Hashable, Codable {
         /// 聞く区間が沈黙のまま終わった。
@@ -23,6 +25,34 @@ public enum FlowEvent: Sendable, Equatable, Hashable, Codable {
         /// セッション全体のタイムボックス（朝 3 分 / 昼 1 分 / 夜 1 分）を超えた。
         case timebox
     }
+}
+
+/// 解釈が済んだ行動時刻（実装計画 §16.7）。
+///
+/// 時計を持つアプリ側が、本人の答えを 1 回だけ解釈して作る。保存も通知もこの値を使い、解釈し直さない。
+public struct ResolvedTime: Sendable, Equatable, Hashable, Codable {
+    /// 行動する日時。
+    public var date: Date
+    /// 読み上げ用の句（「16時」「30分後」「夕方」）。本人の答えから時刻として読み取った語。
+    public var phrase: String
+    /// 場所（本人の言葉のまま）。言わなかったら nil。
+    public var place: String?
+
+    public init(date: Date, phrase: String, place: String? = nil) {
+        self.date = date
+        self.phrase = phrase
+        self.place = place
+    }
+}
+
+/// M3 の時刻の解釈がどこまで進んだか。
+public enum TimeResolutionStage: String, Sendable, Equatable, Hashable, Codable {
+    /// 最初の答えの解釈を待っている。
+    case awaitingFirst
+    /// 解釈できなかったので、時刻のチップを出して聞き直している（1 回だけ）。
+    case reasking
+    /// 聞き直しの答えの解釈を待っている。
+    case awaitingSecond
 }
 
 /// 選択肢の識別子。
@@ -54,6 +84,11 @@ public enum ChoiceID: Sendable, Equatable, Hashable, Codable {
     case timeAfternoon
     case timeEvening
     case timePick
+
+    // M3 の聞き直しで出す時刻のチップ（夕方は `timeEvening` を使う）
+    case timeInThirtyMinutes
+    case timeNoon
+    case timeUndecided
 
     // M4（「話せない時」モードのみ）
     case declareNow
@@ -238,6 +273,9 @@ public enum FlowCommand: Sendable, Equatable, Hashable, Codable {
     case save(SaveInstruction)
     case scheduleNotification(NotificationRequest)
     case cancelNotification(NotificationRequest.Kind)
+    /// 時刻の答え（生の発話、またはチップの文言）の解釈を頼む。結果は `FlowEvent.timeResolved` で受ける。
+    /// 遷移の最後の命令として出す。
+    case resolveTime(String)
     case finish(FlowCompletion)
 }
 
@@ -257,8 +295,12 @@ public struct FlowState: Sendable, Equatable, Hashable, Codable {
     public var reason: ReasonCategory?
     /// 5 分以下の行動。
     public var microAction: MicroAction?
-    /// M3 の答え（「14時に自宅で」）。時刻と場所への分解は task_005b が行う。
+    /// M3 の答え（「14時に自宅で」）。生の発話を記録用に残す。日時としては `plannedTime` を使う。
     public var plannedAnswer: String?
+    /// 解釈が済んだ行動時刻。時刻を決めなかった・解釈できなかった日は nil。
+    public var plannedTime: ResolvedTime?
+    /// M3 の時刻の解釈の途中か。途中でなければ nil。
+    public var timeResolution: TimeResolutionStage?
     /// 宣言の言葉。
     public var declaration: String
     /// 宣言を「後で声で」に回したか（retention R1）。
@@ -306,6 +348,8 @@ public struct FlowState: Sendable, Equatable, Hashable, Codable {
         reason: ReasonCategory? = nil,
         microAction: MicroAction? = nil,
         plannedAnswer: String? = nil,
+        plannedTime: ResolvedTime? = nil,
+        timeResolution: TimeResolutionStage? = nil,
         declaration: String = "",
         isDeclarationDeferred: Bool = false,
         blocker: String? = nil,
@@ -333,6 +377,8 @@ public struct FlowState: Sendable, Equatable, Hashable, Codable {
         self.reason = reason
         self.microAction = microAction
         self.plannedAnswer = plannedAnswer
+        self.plannedTime = plannedTime
+        self.timeResolution = timeResolution
         self.declaration = declaration
         self.isDeclarationDeferred = isDeclarationDeferred
         self.blocker = blocker
@@ -542,6 +588,8 @@ public enum FlowMachine {
         state.step = step
         state.silenceCount = 0
         state.retryCount = 0
+        // どの質問に入るときも、時刻の解釈の途中ではない。
+        state.timeResolution = nil
 
         if step == .finished {
             state.isFinished = true
