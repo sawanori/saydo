@@ -2921,3 +2921,163 @@ task_034-4.txt:1692:EXIT=0
 
 - 新しい文言 4 つ（上の表）の言い回しの確認。特に聞き直しの一言。
 - 実機で、朝フローの M3 に過ぎた時刻・読めない言葉を声で答えて、チップが出て声でもチップでも答えられること、通知が言った時刻に鳴ることを確かめる（task_039 の実機確認に含めてよい）。
+
+---
+
+## task_035 — 約束の保存と通知の登録の結果を会話に返し、結果に合う受領文だけを読む
+
+- 日時: 2026-10-06
+- 状態: done（macOS の `swift test` とシミュレータの単体テストまで。実機では確かめていない。`UNUserNotificationCenter` を使う実装側の分岐は単体テストが無い）
+- ブランチ / コミット: task/035-commit-receipt / このエントリを含むコミット（ハッシュは `git log` の `task_035:` 行）
+
+### 証拠
+
+| コマンド | exit code | ログ |
+|---|---|---|
+| `scripts/test-core.sh`（修正前の挙動。型の宣言と文言のキーだけ足した状態: `CommitRequest`、`CommitResult`、`CommitStage`、`FlowCommand.commit`、`FlowEvent.commitResult`、`FlowState.commitStage`、`CopyKey.morningCommitRetry` / `morningCommitFailed`。`MorningFlow` の M4 と受領文の文言は未変更） | **1**（SaydoCore: Executed 250 tests, 57 failures。15 件が失敗。`set -e` のため SaydoAI と lint は走っていない） | `docs/logs/task_035-1.txt` |
+| `scripts/test-ios.sh`（SaydoCore は修正後、アプリ側は修正前。`SessionViewModel` は `commit` を何もしない命令として受けるだけで、約束の保存は会話の終了処理のまま。通知のプロトコルの戻り値・`isStorePersistent` の引数・テスト用モックは足してある） | **65**（Executed 179 tests, 69 failures。24 件が失敗） | `docs/logs/task_035-2.txt` |
+| `scripts/test-core.sh`（修正後。コミットした内容） | 0（SaydoCore: Executed 250 tests, 0 failures。SaydoAI: Executed 33 tests, 0 failures。lint-principles: OK） | `docs/logs/task_035-3.txt` |
+| `scripts/test-ios.sh`（修正後。コミットした内容） | 0（`** TEST SUCCEEDED **`、Executed 179 tests, 0 failures、lint-principles: OK） | `docs/logs/task_035-4.txt` |
+| `TEST_RUNNER_TZ=UTC scripts/test-ios.sh`（確認用。テストの暦を日本時間に固定した後、テストの実行プロセスの時間帯を変えても通るかを見るため。スクリプトは変えていない） | 0（Executed 179 tests, 0 failures） | `docs/logs/task_035-5.txt` |
+
+`docs/logs/task_035-5.txt` の注意: 環境変数 `TZ` がシミュレータ上のテストのプロセスに実際に効いたかは確かめていない。効いていなければ、この実行は 4 行目と同じ条件である。
+
+手順からの逸脱: `MorningFlow` を書き換えた直後に、コンパイルの確認のため `swift build --package-path Packages/SaydoCore` を 1 回だけ直接呼んだ（`Build complete!`）。テストの実行はすべて上の 2 本のスクリプトで行った。
+
+変更の中身:
+
+- `FlowMachine.swift`: `CommitRequest`（逃げたいこと・行動・宣言・`plannedTime`・「後で声で」か）、`CommitResult`（`scheduled` / `savedWithoutNotification(理由)` / `saveFailed` / `incomplete`。理由は `noTime` / `notAuthorized` / `schedulingFailed` / `temporaryStore`）、`FlowCommand.commit(CommitRequest)`、`FlowEvent.commitResult(CommitResult)` を足した。保存のやり直しが 1 回だけであることを持つために `FlowState.commitStage: CommitStage?`（`awaitingFirst` / `retrying` / `awaitingSecond`）も足した。Optional で既定値 nil、nil のときは符号化されないので、これまでの形の `FlowState` も復号できる。`FlowMachine.enter` は質問に入るたびに nil に戻す。
+- `MorningFlow.swift`（M4）: 宣言を受けると、宣言の保存命令と `commit` だけを出し、M4 に留まる（`isFinished` にしない。受領文も終了も出さない）。`commitResult` を受けて言葉を選ぶ。`scheduled` は `plannedTime.phrase` を差し込んだ受領文、`savedWithoutNotification` は時刻にも「届きます」にも触れない受領文で、どちらも `completed` で終える。`saveFailed` の 1 回目は一言（`morningCommitRetry`）の後に宣言の録音（文字で宣言した日は文字の入力待ち）へ戻し、2 回目は一言（`morningCommitFailed`）で `abandoned`。`incomplete` は task_033 の未成立の締め（`FlowMachine.abandon`）。頼んでいない `commitResult` と、結果待ちのあいだの答え・チップは受け流す。行動時刻の通知命令（`.scheduleNotification(.actionTime, timePhrase: plannedAnswer)`）は出さなくなった。「後で声で」の通知命令（`.declarationReminder`）と一言は、保存できた結果を受けた後に、これまでと同じ順（通知命令、後回しの一言、受領文、終了）で出す。
+- `DialogueCopy.swift`: `morningDeclarationReceiptNoTime` の文言を差し替え、`morningCommitRetry`・`morningCommitFailed` を足した（下の表）。
+- `SessionViewModel.swift`: `commit` を受けたら約束を保存し、行動時刻の通知を登録し、同じ進行の中で `handle(.commitResult(…))` を呼んで返す（`resolveTime` と同じ形）。逃げたいこと・行動・宣言のどれかが空なら保存せず `incomplete`。`createCommitment` が投げたら `saveFailed`。保存先が一時的なら通知を頼まず `savedWithoutNotification(.temporaryStore)`、時刻が無ければ頼まず `.noTime`、通知の結果が未許可なら `.notAuthorized`、過去の時刻・失敗なら `.schedulingFailed`、登録できたら `scheduled`。発火時刻は `CommitRequest.plannedTime.date`（＝ `state.plannedTime.date`）。`persistCommitmentIfNeeded` と `pendingNotifications` は外した（`finish` は朝の約束を保存しない）。`resolveTime` はパーサが返した場所を覚えておき、時刻が決まらなかった会話でも約束の `plannedPlace` に入れる。初期化子に `isStorePersistent: Bool = true` を足した。
+- 通知: `NotificationScheduling.schedule` を `async throws` から、`NotificationScheduleOutcome`（`scheduled` / `notAuthorized` / `pastTime` / `failed`）を返す `async` に変えた（`@discardableResult`）。`NotificationScheduler` の実装は、許可状態を確かめ、過ぎた時刻を弾き、新しい `registerActionTime` で計画を作り直して行動時刻の通知の `UNUserNotificationCenter.add` の成否を返す。そのために `add` は成否を、`apply` は登録できなかった識別子を返す形にした（どちらも `@discardableResult`。他の呼び出し元は変えていない）。昼フローの呼び出しは戻り値を使わない。
+- `AppRouter.swift` / `SaydoApp.swift`: `SaydoApp` の `isPersistent` を `AppRouter(isStorePersistent:)`（既定値 true）経由で `SessionViewModel` に渡す。
+
+done_definition との対応（MFT = `MorningFlowTests.swift`、VMT = `Tests/SaydoTests/SessionViewModelTests.swift`、DCT = `DialogueCopyTests.swift`、GT = `GuardrailsTests.swift`。「修正前」は `task_035-1.txt` / `task_035-2.txt`、「修正後」は `task_035-3.txt` / `task_035-4.txt`）:
+
+| done_definition | 証拠（テスト名） | 修正前 | 修正後 |
+|---|---|---|---|
+| 受領文が読まれた会話では約束が保存されている（VMT） | `testAScheduledPromiseIsNotifiedAtItsPlannedTimeAndTheReceiptSaysThatTime`（受領文が 1 つ読まれ、ストアの約束が 1 件）、`testASaveFailureReadsNoReceiptAndAsksForTheDeclarationOnceMore`（保存できるまで受領文が 0 件）、未許可・登録失敗・過去の時刻・時刻なし・保存先が一時的の 5 件（補助関数 `assertSavedWithAReceiptThatNamesNoTime` がストアの約束 1 件を確かめる） | failed | passed |
+| 「届きます」と読まれた会話では、同じ時刻の通知が登録されている（VMT） | `testAScheduledPromiseIsNotifiedAtItsPlannedTimeAndTheReceiptSaysThatTime`（9:00 に「16時から」。行動時刻の通知は 1 件で、`fireDate` は約束の `plannedAt`＝16:00、`commitmentID` は約束の id。受領文は「受け取りました。16時に、朝のあなたから届きます。」）。既存の `testSpokenTimeIsSavedAndNotifiedAsTheSameDate`、`testRelativeTimeIsCountedFromWhenItWasSaid` も同じ日時を確かめる | failed | passed |
+| 通知が未許可・登録失敗・時刻なし・保存先が一時的の日は、受領文が時刻に触れない（MFT / VMT） | MFT `testSavedWithoutNotificationNeverMentionsATimeOrADelivery`（4 つの理由すべて）、`testUndecidedTimeReceiptDoesNotQuoteTheAnswer`、`testShortMorningCommitsWithoutATime`。VMT `testAnUnauthorizedNotificationSavesThePromiseAndTheReceiptNamesNoTime`、`testAFailedNotificationSavesThePromiseAndTheReceiptNamesNoTime`、`testANotificationInThePastSavesThePromiseAndTheReceiptNamesNoTime`、`testAPromiseWithoutATimeIsSavedAndTheReceiptNamesNoTime`、`testATemporaryStoreSavesThePromiseButPromisesNoDelivery`。DCT `testOnlyTheScheduledReceiptPromisesADelivery` | failed | passed |
+| 保存に失敗した会話で受領文が読まれない（VMT） | `testASaveFailureReadsNoReceiptAndAsksForTheDeclarationOnceMore`（1 回目の失敗で受領文 0 件・約束 0 件・通知 0 件、宣言の入力待ちに戻る。言い直すと成立）、`testASecondSaveFailureEndsWithoutACommitmentOrAReceipt`（`abandoned`、約束 0 件、受領文 0 件）、`testASaveFailureInAVoiceSessionRecordsTheDeclarationAgain`（声の会話で宣言を 2 回録り、2 回目の声と言葉で成立）。MFT `testSaveFailedOnceGoesBackToTheDeclarationWithoutAReceipt`、`testSaveFailedTwiceEndsAbandonedWithoutAReceipt`、`testSaveFailedOnATypedDeclarationGoesBackToTextInput` | failed | passed |
+| 受領文に生の発話の重複や「。に」が現れない（MFT） | `testReceiptNeverInsertsTheRawAnswer`（`plannedAnswer` が「16時から」と「16時から 16時から。」、句が「16時」。受領文は「16時に」を含み、「16時から」「。に」を含まない）、`testScheduledResultReadsTheReceiptWithTheResolvedPhrase` | failed（修正前の読み上げは「受け取りました。14時に自宅でに、朝のあなたから届きます。」） | passed |
+| `scripts/test-core.sh` と `scripts/test-ios.sh` が exit 0 | `docs/logs/task_035-3.txt`、`docs/logs/task_035-4.txt` | 1 / 65 | 0 / 0 |
+| 宣言の直後に `commit` だけが出る（依頼の仕様 2） | MFT `testDeclarationAsksTheAppToCommitAndSaysNothingYet`（命令列が保存と `commit` の 2 つだけ） | failed | passed |
+| 成立に必要な値が欠けたら保存しない（依頼の仕様 3・5） | MFT `testIncompleteResultEndsAbandonedWithTheAbandonedClosing`、VMT `testADeclarationWithoutTheRequiredValuesSavesNothing`（逃げたいことと行動が空の状態から再開して宣言。`abandoned`、約束 0 件） | failed | passed |
+| 時刻なし・場所ありの答えで場所が保存される（依頼の仕様 10） | VMT `testThePlaceIsSavedEvenWhenNoTimeWasDecided`（「自宅で」→「決めない」。`plannedAt` は nil、`plannedPlace` は「自宅」） | failed | passed |
+| 新しい文言と Guardrails | GT `testCommitReceiptAndSaveFailureLinesPassGuardrails`（受領文 2 キーと保存失敗の 2 キー。時刻の句「16時」「30分後」「夕方」を差し込んで検査）、既存の `testEveryDialogueCopyLinePassesGuardrails`。DCT `testSaveFailureLinesDoNotClaimAReceiptOrBlame`。`Guardrails.swift` は無変更、`GuardrailsTests.swift` は追加だけ | passed（保存失敗の 2 文は修正前の実行の時点で足してあった） | passed |
+
+修正前でも passed だった新しいテスト（修正を見張る証拠にはならない）: MFT `testCommitResultIsIgnoredUnlessItWasAskedFor`、`testFlowStateWithoutTheCommitStageStillDecodes`、GT `testCommitReceiptAndSaveFailureLinesPassGuardrails`、DCT `testSaveFailureLinesDoNotClaimAReceiptOrBlame`。
+
+修正前に failed だったテスト（`docs/logs/task_035-1.txt` の SaydoCore 15 件、`docs/logs/task_035-2.txt` の Saydo 24 件）:
+
+```
+SaydoCoreTests.DialogueCopyTests testOnlyTheScheduledReceiptPromisesADelivery
+SaydoCoreTests.MorningFlowTests testDeclarationAsksTheAppToCommitAndSaysNothingYet
+SaydoCoreTests.MorningFlowTests testDeferredDeclarationSchedulesASingleReminder
+SaydoCoreTests.MorningFlowTests testIncompleteResultEndsAbandonedWithTheAbandonedClosing
+SaydoCoreTests.MorningFlowTests testMorningWalksM0ToM4AndSavesThreeEntries
+SaydoCoreTests.MorningFlowTests testReceiptNeverInsertsTheRawAnswer
+SaydoCoreTests.MorningFlowTests testRetryLimitAtDeclarationWaitsForTextInsteadOfFinishing
+SaydoCoreTests.MorningFlowTests testSavedWithoutNotificationNeverMentionsATimeOrADelivery
+SaydoCoreTests.MorningFlowTests testSaveFailedOnATypedDeclarationGoesBackToTextInput
+SaydoCoreTests.MorningFlowTests testSaveFailedOnceGoesBackToTheDeclarationWithoutAReceipt
+SaydoCoreTests.MorningFlowTests testSaveFailedTwiceEndsAbandonedWithoutAReceipt
+SaydoCoreTests.MorningFlowTests testScheduledResultReadsTheReceiptWithTheResolvedPhrase
+SaydoCoreTests.MorningFlowTests testShortMorningCommitsWithoutATime
+SaydoCoreTests.MorningFlowTests testUndecidedTimeReceiptDoesNotQuoteTheAnswer
+SaydoCoreTests.NoonFlowTests testNoCommitmentOpensTheShortMorningFlow
+	 Executed 250 tests, with 57 failures (0 unexpected) in 0.502 (0.513) seconds
+EXIT=1
+
+SaydoTests.SessionViewModelTests testADeclarationWithoutTheRequiredValuesSavesNothing
+SaydoTests.SessionViewModelTests testAFailedNotificationSavesThePromiseAndTheReceiptNamesNoTime
+SaydoTests.SessionViewModelTests testANotificationInThePastSavesThePromiseAndTheReceiptNamesNoTime
+SaydoTests.SessionViewModelTests testAnUnauthorizedNotificationSavesThePromiseAndTheReceiptNamesNoTime
+SaydoTests.SessionViewModelTests testAnUnreadableTimeThenUndecidedSavesNoTime
+SaydoTests.SessionViewModelTests testAPastTimeIsAskedAgainWithTheTimeChips
+SaydoTests.SessionViewModelTests testAPromiseWithoutATimeIsSavedAndTheReceiptNamesNoTime
+SaydoTests.SessionViewModelTests testASaveFailureInAVoiceSessionRecordsTheDeclarationAgain
+SaydoTests.SessionViewModelTests testASaveFailureReadsNoReceiptAndAsksForTheDeclarationOnceMore
+SaydoTests.SessionViewModelTests testAScheduledPromiseIsNotifiedAtItsPlannedTimeAndTheReceiptSaysThatTime
+SaydoTests.SessionViewModelTests testASecondSaveFailureEndsWithoutACommitmentOrAReceipt
+SaydoTests.SessionViewModelTests testATemporaryDeclarationRecordingFailureIsRetried
+SaydoTests.SessionViewModelTests testATemporaryStoreSavesThePromiseButPromisesNoDelivery
+SaydoTests.SessionViewModelTests testMorningFlowCompletesAndSavesCommitmentWithThreeVoiceEntries
+SaydoTests.SessionViewModelTests testMorningFlowWithoutMicrophoneStillSavesThreeVoiceEntries
+SaydoTests.SessionViewModelTests testNoonWithoutCommitmentOpensShortMorningFlow
+SaydoTests.SessionViewModelTests testPlannedPlaceIsSavedWithTheCommitment
+SaydoTests.SessionViewModelTests testRecordingNeverStartsBeforeSpeechCompletesThroughMorningFlow
+SaydoTests.SessionViewModelTests testRelativeTimeIsCountedFromWhenItWasSaid
+SaydoTests.SessionViewModelTests testSpokenTimeIsSavedAndNotifiedAsTheSameDate
+SaydoTests.SessionViewModelTests testThePastTimeIsAskedAgainOnlyOnce
+SaydoTests.SessionViewModelTests testThePlaceIsSavedEvenWhenNoTimeWasDecided
+SaydoTests.SessionViewModelTests testTimeboxWhileRecordingTheDeclarationLetsThePromiseComplete
+SaydoTests.SessionViewModelTests testTwoDeclarationRecordingFailuresFallBackToTextForTheDeclarationOnly
+	 Executed 179 tests, with 69 failures (0 unexpected) in 0.936 (0.995) seconds
+** TEST FAILED **
+EXIT=65
+```
+
+`task_035-2.txt` で既存の朝フローのテストがまとめて failed なのは、SaydoCore が `commit` を出すようになり、アプリ側がまだ結果を返さないので、会話が M4 で止まるためである。
+
+修正後（`docs/logs/task_035-3.txt`、`docs/logs/task_035-4.txt`）:
+
+```
+task_035-3.txt:553:	 Executed 250 tests, with 0 failures (0 unexpected) in 0.045 (0.055) seconds
+task_035-3.txt:666:	 Executed 33 tests, with 0 failures (0 unexpected) in 12.412 (12.415) seconds
+task_035-3.txt:791:lint-principles: OK
+task_035-3.txt:792:EXIT=0
+task_035-4.txt:1927:	 Executed 179 tests, with 0 failures (0 unexpected) in 1.055 (1.163) seconds
+task_035-4.txt:1935:** TEST SUCCEEDED **
+task_035-4.txt:2058:lint-principles: OK
+task_035-4.txt:2059:EXIT=0
+```
+
+書き換えた既存テスト（テスト名は変えていない）:
+
+| テスト | 変更と理由 |
+|---|---|
+| MFT `testMorningWalksM0ToM4AndSavesThreeEntries` | 宣言の直後の期待値を「終了は出ず、`commit`（`plannedTime` 付き）が出て、通知命令は出ない」に変え、`commitResult(.scheduled)` を渡した後に `completed` を確かめる形にした。M4 が宣言の直後に終了と行動時刻の通知命令（`timePhrase: "14時に自宅で"`）を出さなくなったため。保存 3 件の確認は変えていない |
+| MFT `testRetryLimitAtDeclarationWaitsForTextInsteadOfFinishing` | 最後の宣言の後、`commit` が出ることを確かめ、`commitResult(.scheduled)` を渡してから `completed` を確かめる形にした。理由は同じ |
+| MFT `testDeferredDeclarationSchedulesASingleReminder` | 「後で声で」の通知命令と一言の確認を、宣言の直後ではなく `commitResult(.scheduled)` を渡した後に移した。宣言の直後は `commit`（`isDeclarationDeferred == true`）だけが出て通知命令が出ないことを足した。通知命令 1 件・`onlyOnce`・`completed` の期待値は変えていない |
+| `NoonFlowTests.testNoCommitmentOpensTheShortMorningFlow` | 短縮版の朝フローの宣言の後に、時刻なしの `commit` が出ることを確かめ、`commitResult(.savedWithoutNotification(.noTime))` を渡してから `completed` を確かめる形にした。task-list.json の files_to_modify には無いファイルだが、M4 を通るため |
+| VMT のモックと補助 | `SpyNotificationScheduler.schedule` を新しい戻り値に合わせた（`respond(with:)` で返す結果を決められる。`.scheduled` 以外は `scheduled` ではなく `rejected` に積む）。`InMemorySessionStore` に `failCreates(_:)` を足した。`makeViewModel` に `isStorePersistent` を足した |
+| VMT の暦 | `Calendar.current` を、日本時間に固定した暦（`SessionViewModelTests.tokyo`）に置き換えた（ストア、`SessionViewModel`、`moment`、翌朝の日付、`makeCommitment` の `dayKey`）。既存のテストの期待値は変えていない |
+
+`SessionViewModelTests` の既存のテスト本体は 1 つも書き換えていない。
+
+新しい文言:
+
+| 置き場所 | キー | 文言 | 変更 |
+|---|---|---|---|
+| `DialogueCopy` | `morningDeclarationReceiptNoTime` | 受け取りました。今日の約束として残しました。 | 差し替え（前は「受け取りました。時間になったら、朝のあなたから届きます。」。通知が無い日に「届きます」と言っていたため） |
+| `DialogueCopy` | `morningCommitRetry` | ごめん、いまの約束をうまく残せなかった。もう一度だけお願い。 | 追加 |
+| `DialogueCopy` | `morningCommitFailed` | ごめん、今日は約束を残せなかった。また話したくなったら、いつでも。 | 追加 |
+
+`morningDeclarationReceipt`（「受け取りました。{{time}}に、朝のあなたから届きます。」ほか 1 種）の文言は変えていない。差し込む値を生の発話から `plannedTime.phrase` に変えた。
+
+変更: `Packages/SaydoCore/Sources/SaydoCore/Flows/FlowMachine.swift`、`Flows/MorningFlow.swift`、`Dialogue/DialogueCopy.swift`、`App/Features/Session/SessionViewModel.swift`、`App/Notifications/NotificationScheduler.swift`、`App/Notifications/NotificationScheduler+SessionScheduling.swift`、`App/AppRouter.swift`、`App/SaydoApp.swift`、テスト 5 ファイル（`MorningFlowTests`、`NoonFlowTests`、`DialogueCopyTests`、`GuardrailsTests`、`SessionViewModelTests`）。
+
+### 未解決
+
+- **当日の約束がすでにある日に朝の会話を最後まで進めると、2 回とも保存できずに終わる。** `createCommitment` は 1 日 1 件なので投げ、結果は `saveFailed` になる。言い直しても同じ理由で失敗し、「ごめん、今日は約束を残せなかった。」で `abandoned` になる。修正前は、保存しないまま「受け取りました…届きます」と読んでいた（`persistCommitmentIfNeeded` の `commitment == nil` の条件）。朝の通知を宣言の後で開いた場合などに起きうる。入口で朝の会話を開かないか、宣言の差し替え（task_038）で扱うかは決めていない。
+- **「後で声で」の一言は、今も実際には起きないことを言う。** `morningDeclarationDeferred`（「一人になれる時間に、もう一度だけ声をかけるね。」）を読むが、`NotificationScheduler` は `.declarationReminder` を登録しない（今回から `.failed` を返すが、会話はその戻り値を使わない）。依頼どおり挙動は変えず、`commit` の後ろに通しただけである。task_036 で分岐ごと外すこと。外すときは `MorningFlow.receive` の `isDeclarationDeferred` の 2 行、`CommitRequest.isDeclarationDeferred`、`SessionViewModel.send` の朝の分岐（朝の会話から来る通知命令が無くなる）、`saveFailed` の後に文字の入力待ちへ戻す分岐（`isDeclarationDeferred` で見分けている）を一緒に見直す。
+- 保存に失敗して宣言を言い直すと、1 回目の宣言の録音ファイルは約束に紐づかないまま端末に残る（次の起動の孤児ファイルの掃除で消える）。聞き取りの失敗で文字に落ちた宣言（task_033）の後に保存が失敗した場合、やり直しは文字ではなく録音から始まる。
+- 文字で宣言した日の、宣言の `VoiceEntry`（文字だけの 1 件）の追加が失敗しても、結果は変えない（約束は保存済みで、宣言の言葉は約束が持っている）。失敗はログに出すだけで、タイムラインにはその日の宣言の行が出ない。
+- 時刻が決まらなかった日の場所は、M3 の**最後の**答えからパーサが読み取ったものである。パーサは時刻として読めない答えの残りをそのまま場所として返すので、「あとでやる」→「決めない」の日は、場所に時刻でも場所でもない言葉が入る（task_034 より前と同じ挙動）。「午後2時に会社で」（過ぎた時刻）の後にチップ（「夕方」）を選ぶと、場所はチップの答えのもの（無し）になり、「会社」は残らない。
+- 「16時から」の「から」が場所に入る（task_034 の未解決のまま。受領文には差し込まなくなったが、`plannedPlace` には入る）。
+- 通知の過去の時刻（`pastTime`）は、会話には「登録の失敗」（`schedulingFailed`）として返している。`CommitResult` の理由は依頼の 4 つのままにした。
+- 行動時刻が翌日以降の日時になる答え（あれば）は、通知の計画が当日の行動時刻しか入れないので `failed` になり、時刻に触れない受領文になる。約束の `plannedAt` には残る。
+- `NotificationScheduler.rescheduleAfterDeclaration` は、呼び出し元が無くなった（`registerActionTime` に置き換えた）。消していない。
+- 昼フローは触っていない（task_034 の未解決のまま）。「時間を変える」「1 時間後にもう一度」は `scheduleNotification(timePhrase:)` を出し、`SessionViewModel.send` が登録の時点で解釈し直す。解釈できない・過ぎた・未許可のどれでも、`NoonFlow` は結果を見ずに「また声をかけるね。」と言う。「時間を変える」は `Commitment.plannedAt` を書き換えない。今回 `schedule` が理由を返すようになったので、同じ形（命令と結果）で直せる。
+- 通知が未許可の日に、許可を求める導線は無い（task_045・task_047）。受領文が時刻に触れないだけである。
+- 保存の結果を待つあいだ、画面の状態（`phase`）は直前のまま（声なら `thinking`、文字なら `listening`）で、専用の表示は無い。View は触っていない。
+- 単体テストが無い箇所: `NotificationScheduler` の `schedule`（許可状態の確認、過ぎた時刻、`registerActionTime`、`add` の成否）、`AppRouter` と `SaydoApp` の `isStorePersistent` の受け渡し（コンパイルが通ることだけ）。
+- 実機では何も確かめていない。
+
+### 人間の確認待ち
+
+- 文言 3 つ（上の表）の言い回しの確認。特に保存できなかったときの 2 文（「ごめん」で始める言い方でよいか）。
+- 実機で、通知を許可した状態で朝の会話を最後まで進め、「◯時に…届きます」と読まれた時刻に通知が届くこと。通知を不許可にした状態で、受領文が「受け取りました。今日の約束として残しました。」になること（task_039 の実機確認に含めてよい）。

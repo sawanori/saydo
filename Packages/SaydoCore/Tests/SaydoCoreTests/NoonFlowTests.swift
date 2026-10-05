@@ -56,6 +56,9 @@ final class NoonFlowTests: XCTestCase {
         transition = FlowMachine.handle(.transcript("今日はテンプレートを開きます"), in: transition.state)
         XCTAssertEqual(transition.saves.map(\.kind), [.declaration])
         XCTAssertTrue(transition.scheduled.filter { $0.kind == .actionTime }.isEmpty, "時刻を聞いていないので行動時刻通知は登録しない")
+        XCTAssertEqual(transition.commits.map(\.plannedTime), [nil], "時刻なしで約束の保存を頼む（task_035）")
+
+        transition = FlowMachine.handle(.commitResult(.savedWithoutNotification(.noTime)), in: transition.state)
         XCTAssertEqual(transition.completion, .completed)
     }
 

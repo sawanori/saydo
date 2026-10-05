@@ -367,13 +367,23 @@ public enum MorningFlow {
 
     // MARK: - M4
 
+    /// 宣言を受けても、ここでは「受け取りました」と言わない。約束の保存と通知の登録を `commit` で
+    /// アプリに頼み、結果（`commitResult`）に合う受領文を選んでから会話を終える（実装計画 §16.7）。
     private static func declaration(_ event: FlowEvent, in state: FlowState) -> FlowTransition {
         var state = state
+        let isAwaiting = state.commitStage == .awaitingFirst || state.commitStage == .awaitingSecond
+
         switch event {
         case .choice(.declareNow):
+            guard !isAwaiting else {
+                return FlowTransition(state: state, commands: [])
+            }
             return FlowTransition(state: state, commands: [.record(RecordRequest(step: .morningDeclaration))])
 
         case .choice(.declareLater):
+            guard !isAwaiting else {
+                return FlowTransition(state: state, commands: [])
+            }
             state.isDeclarationDeferred = true
             state.isVoicelessDay = true
             let prompt = state.picker.pickText(.morningDeclarationTextPrompt)
@@ -386,36 +396,90 @@ public enum MorningFlow {
             )
 
         case .transcript(let raw):
+            // 結果を待っているあいだの答えは受け流す。
+            guard !isAwaiting else {
+                return FlowTransition(state: state, commands: [])
+            }
             let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
             guard FlowMachine.isUsable(text) else {
                 return FlowMachine.retryOrFallback(state)
             }
             state.declaration = text
-            state.isFinished = true
+            state.commitStage = state.commitStage == .retrying ? .awaitingSecond : .awaitingFirst
 
             var commands: [FlowCommand] = []
             let hasAudio = !state.isDeclarationDeferred && state.mode == .voice
             if let save = FlowMachine.save(.morningDeclaration, text: text, state: state, hasAudio: hasAudio) {
                 commands.append(save)
             }
-            if let planned = state.plannedAnswer, !planned.isEmpty {
-                commands.append(.scheduleNotification(NotificationRequest(kind: .actionTime, timePhrase: planned)))
+            commands.append(.commit(CommitRequest(
+                avoidance: state.avoidance,
+                microAction: state.microAction,
+                declaration: text,
+                plannedTime: state.plannedTime,
+                isDeclarationDeferred: state.isDeclarationDeferred
+            )))
+            return FlowTransition(state: state, commands: commands)
+
+        case .commitResult(let result):
+            // 頼んでいない結果は受け流す。
+            guard isAwaiting else {
+                return FlowTransition(state: state, commands: [])
             }
+            return receive(result, in: state)
+
+        default:
+            return FlowTransition(state: state, commands: [])
+        }
+    }
+
+    /// 約束の保存と通知の登録の結果に合う言葉を選ぶ。起きていないことは言わない。
+    private static func receive(_ result: CommitResult, in state: FlowState) -> FlowTransition {
+        var state = state
+        let wasFirstAttempt = state.commitStage == .awaitingFirst
+
+        switch result {
+        case .scheduled, .savedWithoutNotification:
+            state.commitStage = nil
+            state.isFinished = true
+            var commands: [FlowCommand] = []
             if state.isDeclarationDeferred {
                 // 一人になれる時刻に 1 回だけ声をかける（retention R1）。再通知はしない。
                 commands.append(.scheduleNotification(NotificationRequest(kind: .declarationReminder, onlyOnce: true)))
                 commands.append(.speak(state.picker.pickText(.morningDeclarationDeferred)))
             }
-            if let planned = state.plannedAnswer, !planned.isEmpty {
-                commands.append(.speak(state.picker.pickText(.morningDeclarationReceipt, time: planned)))
+            // 「◯時に届きます」と言うのは、通知を登録できたときだけ。時刻は整えた句を使い、生の発話は差し込まない。
+            if result == .scheduled, let planned = state.plannedTime {
+                commands.append(.speak(state.picker.pickText(.morningDeclarationReceipt, time: planned.phrase)))
             } else {
                 commands.append(.speak(state.picker.pickText(.morningDeclarationReceiptNoTime)))
             }
             commands.append(.finish(.completed))
             return FlowTransition(state: state, commands: commands)
 
-        default:
-            return FlowTransition(state: state, commands: [])
+        case .saveFailed:
+            guard wasFirstAttempt else {
+                // 2 回目も保存できなかった。受け取ったとは言わず、成立しなかった会話として終える。
+                state.commitStage = nil
+                state.isFinished = true
+                let line = state.picker.pickText(.morningCommitFailed)
+                return FlowTransition(state: state, commands: [.speak(line), .finish(.abandoned)])
+            }
+            // 1 回だけ、宣言の聞き取りへ戻す。文字で宣言した日は文字で受け直す。
+            state.commitStage = .retrying
+            state.declaration = ""
+            state.silenceCount = 0
+            state.retryCount = 0
+            let line = state.picker.pickText(.morningCommitRetry)
+            let again: FlowCommand = state.isDeclarationDeferred
+                ? .listen(ListenRequest(step: .morningDeclaration, silenceSeconds: FlowMachine.firstSilenceSeconds, input: .text))
+                : .record(RecordRequest(step: .morningDeclaration))
+            return FlowTransition(state: state, commands: [.speak(line), again])
+
+        case .incomplete:
+            // 成立に必要な値が欠けている。約束は作られていないので、未成立の締めで終える。
+            state.commitStage = nil
+            return FlowMachine.abandon(state)
         }
     }
 }

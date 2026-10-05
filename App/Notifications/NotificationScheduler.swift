@@ -240,16 +240,44 @@ public final class NotificationScheduler {
         )
     }
 
+    /// 朝の宣言（M4）の時点の再計画をして、行動時刻の通知を登録できたかを返す（実装計画 §16.7）。
+    ///
+    /// 計画に行動時刻の通知が入らなかった場合（もう過ぎた時刻・今日ではない日時）と、
+    /// `UNUserNotificationCenter.add` が失敗した場合は false。
+    public func registerActionTime(
+        plannedAt: Date,
+        now: Date = Date(),
+        settings: NotificationSettings,
+        commitmentID: UUID?
+    ) async -> Bool {
+        let plan = NotificationPlan.make(
+            now: now,
+            settings: settings,
+            today: DayCommitment(plannedAt: plannedAt, outcome: .pending),
+            calendar: calendar
+        )
+        let failed = await apply(plan, commitmentID: commitmentID)
+        guard let action = plan.registrations.first(where: { $0.slot == .action }) else { return false }
+        return !failed.contains(action.identifier)
+    }
+
     /// 計画を保留通知へ反映する。
-    public func apply(_ plan: NotificationPlan, commitmentID: UUID? = nil) async {
+    ///
+    /// - Returns: 登録できなかった通知の識別子。すべて登録できたら空。
+    @discardableResult
+    public func apply(_ plan: NotificationPlan, commitmentID: UUID? = nil) async -> [String] {
         await removeAllManagedPending()
         if !plan.cancelledIdentifiers.isEmpty {
             center.removePendingNotificationRequests(withIdentifiers: plan.cancelledIdentifiers)
         }
+        var failed: [String] = []
         for registration in plan.registrations {
-            await add(registration, commitmentID: commitmentID)
+            if await !add(registration, commitmentID: commitmentID) {
+                failed.append(registration.identifier)
+            }
         }
-        logger.info("rescheduled: registrations=\(plan.registrations.count, privacy: .public) cancelled=\(plan.cancelledIdentifiers.count, privacy: .public)")
+        logger.info("rescheduled: registrations=\(plan.registrations.count, privacy: .public) cancelled=\(plan.cancelledIdentifiers.count, privacy: .public) failed=\(failed.count, privacy: .public)")
+        return failed
     }
 
     // MARK: - 取り消し
@@ -362,7 +390,9 @@ public final class NotificationScheduler {
 
     // MARK: - 内部
 
-    private func add(_ registration: NotificationRegistration, commitmentID: UUID?) async {
+    /// 通知を 1 件登録する。登録できたら true。
+    @discardableResult
+    private func add(_ registration: NotificationRegistration, commitmentID: UUID?) async -> Bool {
         let request = UNNotificationRequest(
             identifier: registration.identifier,
             content: content(for: registration, commitmentID: commitmentID),
@@ -370,12 +400,12 @@ public final class NotificationScheduler {
         )
         let logger = self.logger
         let identifier = registration.identifier
-        await withCheckedContinuation { continuation in
+        return await withCheckedContinuation { continuation in
             center.add(request) { error in
                 if let error {
                     logger.error("add \(identifier, privacy: .public) failed: \(error.localizedDescription, privacy: .public)")
                 }
-                continuation.resume()
+                continuation.resume(returning: error == nil)
             }
         }
     }

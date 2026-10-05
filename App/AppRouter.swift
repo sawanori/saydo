@@ -48,6 +48,8 @@ final class AppRouter: SessionLauncher {
     private let settings: AppSettings
     private let now: @Sendable () -> Date
     private let calendar: Calendar
+    /// 永続ストアで開けたか。メモリ内ストアで起動した日は false で、会話は「届きます」と言わない。
+    private let isStorePersistent: Bool
     private let logger = Logger(subsystem: "com.nonturn.saydo", category: "router")
 
     /// 保存先が開けず、一時ディレクトリに録音するしかない状態か。
@@ -60,7 +62,8 @@ final class AppRouter: SessionLauncher {
         notifications: NotificationScheduler = .shared,
         settings: AppSettings = .shared,
         calendar: Calendar = .current,
-        now: @escaping @Sendable () -> Date = { .now }
+        now: @escaping @Sendable () -> Date = { .now },
+        isStorePersistent: Bool = true
     ) {
         self.repository = Repository(modelContainer: modelContainer)
         let audioSession = AudioSessionController()
@@ -70,6 +73,7 @@ final class AppRouter: SessionLauncher {
         self.settings = settings
         self.calendar = calendar
         self.now = now
+        self.isStorePersistent = isStorePersistent
         self.hasCompletedOnboarding = settings.hasCompletedOnboarding
     }
 
@@ -199,7 +203,8 @@ final class AppRouter: SessionLauncher {
             // 再生前の配慮（R8）の判定に使う。渡さないと確認は一度も出ない。
             audioSession: audioSession,
             calendar: calendar,
-            now: now
+            now: now,
+            isStorePersistent: isStorePersistent
         )
     }
 

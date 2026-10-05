@@ -11,13 +11,32 @@ import SaydoCore
 ///
 /// 実装は task_009（`App/Notifications/NotificationScheduler.swift`）が持つ。ここでは
 /// `SessionViewModel` が依存する境界だけを定義する。朝の行動時刻は、会話の中で 1 回だけ解釈した
-/// `FlowState.plannedTime` の日時を `fireDate` として渡す（時刻なしなら nil）。
+/// `FlowState.plannedTime` の日時を `fireDate` として渡す（時刻なしの日は登録を頼まない）。
 protocol NotificationScheduling: Sendable {
-    /// 通知を 1 件登録する。`commitmentID` は通知タップからフローを開くために `userInfo` に載せる。
-    func schedule(_ request: NotificationRequest, fireDate: Date?, commitmentID: UUID?, on day: Date) async throws
+    /// 通知を 1 件登録し、登録できたかどうかと、できなかった理由を返す。
+    /// `commitmentID` は通知タップからフローを開くために `userInfo` に載せる。`day` は呼び出し時点の現在時刻。
+    @discardableResult
+    func schedule(
+        _ request: NotificationRequest,
+        fireDate: Date?,
+        commitmentID: UUID?,
+        on day: Date
+    ) async -> NotificationScheduleOutcome
 
     /// その日の該当する通知を取り消す。
     func cancel(_ kind: NotificationRequest.Kind, on day: Date) async throws
+}
+
+/// 通知の登録の結果（実装計画 §16.9）。
+enum NotificationScheduleOutcome: Sendable, Equatable {
+    /// 登録した。
+    case scheduled
+    /// 通知が許可されていない。登録していない。
+    case notAuthorized
+    /// 発火時刻がもう過ぎている。登録していない。
+    case pastTime
+    /// 登録できなかった（発火時刻が無い・登録先の無い種類・`UNUserNotificationCenter` の失敗）。
+    case failed
 }
 
 // MARK: - 保存の契約
@@ -288,6 +307,8 @@ final class SessionViewModel {
     private let tier: DialogueTier
     private let calendar: Calendar
     private let now: @Sendable () -> Date
+    /// 保存先が永続ストアか。メモリ内ストアで起動した日は false（記録はその起動の間しか残らない）。
+    private let isStorePersistent: Bool
     /// 実機での切り分け用（Console: subsystem com.nonturn.saydo category session）。本人の言葉は長さだけ出す。
     private let logger = Logger(subsystem: "com.nonturn.saydo", category: "session")
 
@@ -311,8 +332,8 @@ final class SessionViewModel {
     private var stateAtAvoidance: FlowState?
     /// 宣言（M4）の保存内容。`Commitment` を作るときに一緒に書く。
     private var pendingDeclaration: (text: String, audioPath: String?, duration: TimeInterval)?
-    /// 宣言より先に来た通知命令。`Commitment` を作ってから登録する。
-    private var pendingNotifications: [NotificationRequest] = []
+    /// M3 の最後の答えからパーサが読み取った場所。時刻が決まらなかった日も約束に残すために持つ。
+    private var spokenPlace: String?
     /// M1 を声で答えた場合の分類結果。
     private var classifiedReason: ReasonCategory?
     /// 最後に選んだチップ。会話の終わりに `AvoidanceItem.status` へ写すために持つ。
@@ -396,7 +417,8 @@ final class SessionViewModel {
         timer: SessionTimer = .system,
         tier: DialogueTier = .b,
         calendar: Calendar = .current,
-        now: @escaping @Sendable () -> Date = { .now }
+        now: @escaping @Sendable () -> Date = { .now },
+        isStorePersistent: Bool = true
     ) {
         self.store = store
         self.synthesizer = synthesizer
@@ -412,6 +434,7 @@ final class SessionViewModel {
         self.tier = tier
         self.calendar = calendar
         self.now = now
+        self.isStorePersistent = isStorePersistent
 
         let (inputs, inbox) = AsyncStream<Envelope>.makeStream()
         self.inbox = inbox
@@ -772,6 +795,7 @@ final class SessionViewModel {
         case .scheduleNotification(let request): "schedule(\(request.kind))"
         case .cancelNotification(let kind): "cancel(\(kind))"
         case .resolveTime(let raw): "resolveTime(\(raw.count)chars)"
+        case .commit(let request): "commit(time=\(request.plannedTime != nil))"
         case .finish(let completion): "finish(\(completion))"
         }
     }
@@ -814,7 +838,7 @@ final class SessionViewModel {
     private static func needsTheFloor(_ command: FlowCommand) -> Bool {
         switch command {
         case .speak, .listen, .showChoices, .record, .play: true
-        case .save, .scheduleNotification, .cancelNotification, .resolveTime, .finish: false
+        case .save, .scheduleNotification, .cancelNotification, .resolveTime, .commit, .finish: false
         }
     }
 
@@ -886,7 +910,7 @@ final class SessionViewModel {
             await save(instruction)
 
         case .scheduleNotification(let request):
-            await schedule(request)
+            await send(request)
 
         case .cancelNotification(let kind):
             try? await notifications.cancel(kind, on: now())
@@ -894,6 +918,10 @@ final class SessionViewModel {
         case .resolveTime(let raw):
             // 結果は同じ進行の中でそのまま返す（再生の終わりを返すのと同じ形）。
             await handle(.timeResolved(resolveTime(raw)))
+
+        case .commit(let request):
+            // 保存と通知の結果を、同じ進行の中でそのまま返す。受領文は `FlowMachine` がこの結果で選ぶ。
+            await handle(.commitResult(await commit(request)))
 
         case .finish(let completion):
             await finish(completion)
@@ -1287,21 +1315,14 @@ final class SessionViewModel {
 
     // MARK: - 通知
 
-    private func schedule(_ request: NotificationRequest) async {
-        // 行動時刻の通知は `commitmentID` を載せたいので、宣言が保存されるまで待つ。
-        if commitment == nil, state?.sessionType == .morning || state?.step.sessionType == .morning {
-            pendingNotifications.append(request)
-            return
-        }
-        await send(request)
-    }
-
     /// M3 の時刻の答えを、現在時刻で 1 回だけ解釈する（実装計画 §16.7）。
     ///
     /// 解釈できない答えと、もう過ぎた時刻は nil で返す。`FlowMachine` が聞き直すかどうかを決める。
     private func resolveTime(_ raw: String) -> ResolvedTime? {
         let moment = now()
         let parsed = JapaneseTimeParser().parse(raw, now: moment, calendar: calendar)
+        // 場所は、時刻が決まらなくても捨てない（統合判断 D1 / retention R11）。
+        spokenPlace = parsed.place.isEmpty ? nil : parsed.place
         guard let date = parsed.date, let phrase = parsed.matchedPhrase, date > moment else {
             logger.info("time unresolved chars=\(raw.count, privacy: .public) parsed=\(parsed.date != nil, privacy: .public)")
             return nil
@@ -1309,23 +1330,114 @@ final class SessionViewModel {
         return ResolvedTime(date: date, phrase: phrase, place: parsed.place.isEmpty ? nil : parsed.place)
     }
 
+    /// 会話が出した通知命令を登録する。
+    ///
+    /// 朝の行動時刻の通知はここを通らない（`commit` が約束の保存の後に登録する）。朝の会話から来るのは
+    /// 宣言の後回し（`.declarationReminder`）だけで、日時を持たない。
     private func send(_ request: NotificationRequest) async {
         let fireDate: Date?
         if state?.step.sessionType == .morning {
-            // 朝の会話は M3 で解釈した値をそのまま使う。ここで解釈し直さない。
-            fireDate = request.kind == .actionTime ? state?.plannedTime?.date : nil
+            fireDate = nil
         } else {
             // 昼の「時間を変える」「1 時間後にもう一度」は、言い回しをここで解釈する。
             fireDate = request.timePhrase.flatMap {
                 JapaneseTimeParser().parse($0, now: now(), calendar: calendar).date
             }
         }
-        try? await notifications.schedule(
+        await notifications.schedule(
             request,
             fireDate: fireDate,
             commitmentID: commitment?.id,
             on: now()
         )
+    }
+
+    // MARK: - 約束の保存と通知の登録（M4）
+
+    /// 約束を保存し、行動時刻の通知を登録して、実際に起きたことを返す（実装計画 §16.7）。
+    ///
+    /// M4 まで来た朝（短縮版を含む）だけがここに来る。失敗は捨てずに結果として返す。
+    private func commit(_ request: CommitRequest) async -> CommitResult {
+        let declaration = pendingDeclaration
+        pendingDeclaration = nil
+        guard let current = state,
+              let declaration,
+              let action = request.microAction,
+              !request.avoidance.isEmpty,
+              !action.text.isEmpty,
+              !declaration.text.isEmpty
+        else {
+            logger.error("commit incomplete")
+            return .incomplete
+        }
+
+        // 時刻と場所は M3 で解釈した値を使う。ここで解釈し直さない。
+        let place = request.plannedTime?.place ?? spokenPlace
+        let voiceless = current.isVoicelessDay || request.isDeclarationDeferred || declaration.audioPath == nil
+        let draft = CommitmentDraft(
+            avoidanceTitle: request.avoidance,
+            domain: classifiedDomain,
+            reason: current.reason ?? classifiedReason,
+            microAction: action,
+            plannedAt: request.plannedTime?.date,
+            // 本人が言った場所を捨てない（統合判断 D1 / retention R11）。
+            plannedPlace: place,
+            declarationAudioPath: declaration.audioPath,
+            declarationTranscript: declaration.text,
+            declarationDurationSec: declaration.duration,
+            isVoiceless: voiceless,
+            sessionType: current.sessionType,
+            createdAt: now()
+        )
+
+        let saved: CommitmentSnapshot
+        do {
+            saved = try await store.createCommitment(draft)
+        } catch {
+            logger.error("commit save failed: \(error.localizedDescription, privacy: .public)")
+            return .saveFailed
+        }
+        commitment = saved
+        plannedPlace = place ?? ""
+        isVoiceless = voiceless
+
+        // 声で宣言していない日は `createCommitment` が宣言の `VoiceEntry` を作らないので、
+        // ここで文字だけの 1 件を足す。入力方式に依らず当日 3 件そろえる（task_008 done_definition）。
+        // 宣言の言葉は約束そのものに保存済みなので、これが書けなくても約束は成立している。
+        if declaration.audioPath == nil {
+            do {
+                _ = try await store.appendVoiceEntry(
+                    VoiceEntryDraft(
+                        recordedAt: now(),
+                        sessionType: current.sessionType,
+                        kind: .declaration,
+                        audioPath: nil,
+                        transcript: declaration.text,
+                        durationSec: 0,
+                        commitmentID: saved.id
+                    )
+                )
+            } catch {
+                logger.error("declaration entry not saved: \(error.localizedDescription, privacy: .public)")
+            }
+        }
+
+        // 保存先が一時的な起動では、次の起動に約束が残らない。届く通知は登録しない。
+        guard isStorePersistent else { return .savedWithoutNotification(.temporaryStore) }
+        guard let planned = request.plannedTime else { return .savedWithoutNotification(.noTime) }
+
+        let outcome = await notifications.schedule(
+            NotificationRequest(kind: .actionTime, timePhrase: planned.phrase),
+            fireDate: planned.date,
+            commitmentID: saved.id,
+            on: now()
+        )
+        logger.info("commit saved notification=\(String(describing: outcome), privacy: .public)")
+        switch outcome {
+        case .scheduled: return .scheduled
+        case .notAuthorized: return .savedWithoutNotification(.notAuthorized)
+        case .pastTime, .failed: return .savedWithoutNotification(.schedulingFailed)
+        }
     }
 
     // MARK: - 終わり
@@ -1367,18 +1479,10 @@ final class SessionViewModel {
             suspendedState = state
         }
 
-        // 約束を作るのは成立した会話だけ。成立しなかった会話（`abandoned`）や途中で終えた会話では作らない。
-        if completion == .completed {
-            await persistCommitmentIfNeeded()
-        }
+        // 朝の約束はここでは作らない。宣言を受けた時点（`commit`）で保存と通知の登録を済ませている。
         await persistShrinkIfNeeded()
         await persistCarryoverIfNeeded()
         await persistAvoidanceStatusIfNeeded(completion)
-
-        for request in pendingNotifications {
-            await send(request)
-        }
-        pendingNotifications.removeAll()
 
         self.completion = completion
         phase = .done
@@ -1390,54 +1494,6 @@ final class SessionViewModel {
                 completed: completion == .completed,
                 lastStep: state?.step,
                 guardrailReplacedCount: guardrailReplacedCount
-            )
-        }
-    }
-
-    /// M4 まで来た朝（短縮版を含む）だけが `Commitment` を作る。
-    private func persistCommitmentIfNeeded() async {
-        guard let current = state,
-              let declaration = pendingDeclaration,
-              commitment == nil,
-              let action = current.microAction
-        else { return }
-
-        // 時刻と場所は M3 で解釈した値を使う。ここで解釈し直さない。
-        plannedPlace = current.plannedTime?.place ?? ""
-        let voiceless = current.isVoicelessDay || current.isDeclarationDeferred || declaration.audioPath == nil
-        isVoiceless = voiceless
-
-        let draft = CommitmentDraft(
-            avoidanceTitle: current.avoidance,
-            domain: classifiedDomain,
-            reason: current.reason ?? classifiedReason,
-            microAction: action,
-            plannedAt: current.plannedTime?.date,
-            // 本人が言った場所を捨てない（統合判断 D1 / retention R11）。
-            plannedPlace: plannedPlace.isEmpty ? nil : plannedPlace,
-            declarationAudioPath: declaration.audioPath,
-            declarationTranscript: declaration.text,
-            declarationDurationSec: declaration.duration,
-            isVoiceless: voiceless,
-            sessionType: current.sessionType,
-            createdAt: now()
-        )
-        commitment = try? await store.createCommitment(draft)
-        pendingDeclaration = nil
-
-        // 声で宣言していない日は `createCommitment` が宣言の `VoiceEntry` を作らないので、
-        // ここで文字だけの 1 件を足す。入力方式に依らず当日 3 件そろえる（task_008 done_definition）。
-        if declaration.audioPath == nil, let id = commitment?.id {
-            _ = try? await store.appendVoiceEntry(
-                VoiceEntryDraft(
-                    recordedAt: now(),
-                    sessionType: current.sessionType,
-                    kind: .declaration,
-                    audioPath: nil,
-                    transcript: declaration.text,
-                    durationSec: 0,
-                    commitmentID: id
-                )
             )
         }
     }

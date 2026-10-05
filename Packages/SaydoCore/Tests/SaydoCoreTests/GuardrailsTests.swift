@@ -151,6 +151,29 @@ final class GuardrailsTests: XCTestCase {
         }
     }
 
+    /// task_035 で足した・変えた文言（受領文と、保存できなかったときの 2 文）を名指しで通す。
+    func testCommitReceiptAndSaveFailureLinesPassGuardrails() {
+        let keys: [CopyKey] = [
+            .morningDeclarationReceipt,
+            .morningDeclarationReceiptNoTime,
+            .morningCommitRetry,
+            .morningCommitFailed,
+        ]
+        for key in keys {
+            let lines = DialogueCopy.variants(key)
+            XCTAssertFalse(lines.isEmpty, "\(key.rawValue) の文言が空")
+            for line in lines {
+                XCTAssertEqual(line.form, .statement, "\(key.rawValue)")
+                // 受領文の時刻には、整えた句（「16時」「30分後」「夕方」）が入る。
+                for phrase in ["16時", "30分後", "夕方"] {
+                    let filled = DialogueCopy.fill(line, time: phrase)
+                    let violations = Guardrails.check(filled, form: line.form)
+                    XCTAssertTrue(violations.isEmpty, "\(key.rawValue): 「\(filled)」→ \(violations)")
+                }
+            }
+        }
+    }
+
     func testEveryChoiceLabelPassesGuardrails() {
         let ids: [ChoiceID] =
             DialogueCopy.sixOptionIDs
