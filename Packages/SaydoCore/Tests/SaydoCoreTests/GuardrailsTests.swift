@@ -139,11 +139,24 @@ final class GuardrailsTests: XCTestCase {
         }
     }
 
+    /// task_034 で足した文言（時刻の聞き直し）を名指しで通す。
+    func testTimeReaskLinePassesGuardrails() {
+        let lines = DialogueCopy.variants(.morningTimeChipsPrompt)
+        XCTAssertFalse(lines.isEmpty)
+        for line in lines {
+            XCTAssertEqual(line.form, .statement)
+            XCTAssertFalse(line.hasPlaceholder)
+            let violations = Guardrails.check(line.text, form: line.form)
+            XCTAssertTrue(violations.isEmpty, "「\(line.text)」→ \(violations)")
+        }
+    }
+
     func testEveryChoiceLabelPassesGuardrails() {
         let ids: [ChoiceID] =
             DialogueCopy.sixOptionIDs
             + DialogueCopy.exampleActionIDs
             + DialogueCopy.timeExampleIDs
+            + DialogueCopy.timeChipIDs
             + [.carryoverKeep, .carryoverChange, .differentThing, .declareNow, .declareLater,
                .cannotDecide, .retryInOneHour, .promiseAlive, .changeTime]
             + ReasonCategory.allCases.map { ChoiceID.reason($0) }

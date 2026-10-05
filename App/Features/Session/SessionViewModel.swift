@@ -10,8 +10,8 @@ import SaydoCore
 /// `FlowMachine` の `scheduleNotification` / `cancelNotification` 命令を実際の通知に落とす契約。
 ///
 /// 実装は task_009（`App/Notifications/NotificationScheduler.swift`）が持つ。ここでは
-/// `SessionViewModel` が依存する境界だけを定義する。時刻表現（`NotificationRequest.timePhrase`）は
-/// `JapaneseTimeParser` で解決してから `fireDate` として渡す（解決できなければ nil）。
+/// `SessionViewModel` が依存する境界だけを定義する。朝の行動時刻は、会話の中で 1 回だけ解釈した
+/// `FlowState.plannedTime` の日時を `fireDate` として渡す（時刻なしなら nil）。
 protocol NotificationScheduling: Sendable {
     /// 通知を 1 件登録する。`commitmentID` は通知タップからフローを開くために `userInfo` に載せる。
     func schedule(_ request: NotificationRequest, fireDate: Date?, commitmentID: UUID?, on day: Date) async throws
@@ -730,9 +730,13 @@ final class SessionViewModel {
         if timeboxIsDue, !transition.state.isFinished {
             // 待たせていた時間切れ。答えは受け取って保存し、次の発話も聞き取りも始めずに終える。
             timeboxIsDue = false
+            // 時刻の解釈も頼まない（結果を受けると次の質問が始まる）。
             await apply(FlowTransition(
                 state: transition.state,
-                commands: transition.commands.filter { !Self.needsTheFloor($0) }
+                commands: transition.commands.filter { command in
+                    if case .resolveTime = command { return false }
+                    return !Self.needsTheFloor(command)
+                }
             ))
             await handle(.timeout(.timebox))
             return
@@ -767,6 +771,7 @@ final class SessionViewModel {
         case .save(let instruction): "save(\(instruction.kind))"
         case .scheduleNotification(let request): "schedule(\(request.kind))"
         case .cancelNotification(let kind): "cancel(\(kind))"
+        case .resolveTime(let raw): "resolveTime(\(raw.count)chars)"
         case .finish(let completion): "finish(\(completion))"
         }
     }
@@ -809,7 +814,7 @@ final class SessionViewModel {
     private static func needsTheFloor(_ command: FlowCommand) -> Bool {
         switch command {
         case .speak, .listen, .showChoices, .record, .play: true
-        case .save, .scheduleNotification, .cancelNotification, .finish: false
+        case .save, .scheduleNotification, .cancelNotification, .resolveTime, .finish: false
         }
     }
 
@@ -885,6 +890,10 @@ final class SessionViewModel {
 
         case .cancelNotification(let kind):
             try? await notifications.cancel(kind, on: now())
+
+        case .resolveTime(let raw):
+            // 結果は同じ進行の中でそのまま返す（再生の終わりを返すのと同じ形）。
+            await handle(.timeResolved(resolveTime(raw)))
 
         case .finish(let completion):
             await finish(completion)
@@ -1287,9 +1296,29 @@ final class SessionViewModel {
         await send(request)
     }
 
+    /// M3 の時刻の答えを、現在時刻で 1 回だけ解釈する（実装計画 §16.7）。
+    ///
+    /// 解釈できない答えと、もう過ぎた時刻は nil で返す。`FlowMachine` が聞き直すかどうかを決める。
+    private func resolveTime(_ raw: String) -> ResolvedTime? {
+        let moment = now()
+        let parsed = JapaneseTimeParser().parse(raw, now: moment, calendar: calendar)
+        guard let date = parsed.date, let phrase = parsed.matchedPhrase, date > moment else {
+            logger.info("time unresolved chars=\(raw.count, privacy: .public) parsed=\(parsed.date != nil, privacy: .public)")
+            return nil
+        }
+        return ResolvedTime(date: date, phrase: phrase, place: parsed.place.isEmpty ? nil : parsed.place)
+    }
+
     private func send(_ request: NotificationRequest) async {
-        let fireDate = request.timePhrase.flatMap {
-            JapaneseTimeParser().parse($0, now: now(), calendar: calendar).date
+        let fireDate: Date?
+        if state?.step.sessionType == .morning {
+            // 朝の会話は M3 で解釈した値をそのまま使う。ここで解釈し直さない。
+            fireDate = request.kind == .actionTime ? state?.plannedTime?.date : nil
+        } else {
+            // 昼の「時間を変える」「1 時間後にもう一度」は、言い回しをここで解釈する。
+            fireDate = request.timePhrase.flatMap {
+                JapaneseTimeParser().parse($0, now: now(), calendar: calendar).date
+            }
         }
         try? await notifications.schedule(
             request,
@@ -1373,10 +1402,8 @@ final class SessionViewModel {
               let action = current.microAction
         else { return }
 
-        let parsed = current.plannedAnswer.map {
-            JapaneseTimeParser().parse($0, now: now(), calendar: calendar)
-        }
-        plannedPlace = parsed?.place ?? ""
+        // 時刻と場所は M3 で解釈した値を使う。ここで解釈し直さない。
+        plannedPlace = current.plannedTime?.place ?? ""
         let voiceless = current.isVoicelessDay || current.isDeclarationDeferred || declaration.audioPath == nil
         isVoiceless = voiceless
 
@@ -1385,7 +1412,7 @@ final class SessionViewModel {
             domain: classifiedDomain,
             reason: current.reason ?? classifiedReason,
             microAction: action,
-            plannedAt: parsed?.date,
+            plannedAt: current.plannedTime?.date,
             // 本人が言った場所を捨てない（統合判断 D1 / retention R11）。
             plannedPlace: plannedPlace.isEmpty ? nil : plannedPlace,
             declarationAudioPath: declaration.audioPath,

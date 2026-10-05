@@ -64,6 +64,9 @@ extension FlowTransition {
 
 final class MorningFlowTests: XCTestCase {
 
+    /// アプリ側が返す、解釈済みの時刻（中身はこのテストでは問わない）。
+    private let twoPM = ResolvedTime(date: Date(timeIntervalSince1970: 1_790_000_000), phrase: "14時", place: "自宅")
+
     private func morningEntry(
         mode: InputMode = .voice,
         carryover: String? = nil,
@@ -103,10 +106,17 @@ final class MorningFlowTests: XCTestCase {
         XCTAssertEqual(transition.state.microAction?.text, "メールを開く")
         XCTAssertTrue(transition.saves.isEmpty, "M2 は VoiceEntry を保存しない")
 
+        // M3 の答えは、アプリに解釈を頼んで結果を待つ（task_034）。M4 へはその結果で進む。
         transition = FlowMachine.handle(.transcript("14時に自宅で"), in: transition.state)
         saved += transition.saves.map(\.kind)
-        XCTAssertEqual(transition.state.step, .morningDeclaration)
+        XCTAssertEqual(transition.state.step, .morningPlannedTime)
         XCTAssertEqual(transition.state.plannedAnswer, "14時に自宅で")
+        XCTAssertEqual(transition.commands, [.resolveTime("14時に自宅で")])
+
+        transition = FlowMachine.handle(.timeResolved(twoPM), in: transition.state)
+        saved += transition.saves.map(\.kind)
+        XCTAssertEqual(transition.state.step, .morningDeclaration)
+        XCTAssertEqual(transition.state.plannedTime, twoPM)
         XCTAssertEqual(transition.records.first?.maxSeconds, FlowMachine.declarationMaxSeconds)
 
         transition = FlowMachine.handle(.transcript("今日は14時にメールを開きます"), in: transition.state)
@@ -152,6 +162,151 @@ final class MorningFlowTests: XCTestCase {
         XCTAssertTrue(question.contains("どこ"), question)
         XCTAssertTrue(transition.choiceGroups.isEmpty, "M3 は選択肢を出さない")
         XCTAssertEqual(transition.listens.first?.examples.map(\.id), DialogueCopy.timeExampleIDs)
+    }
+
+    // MARK: - M3 の時刻の解釈（task_034）
+
+    /// M3 の答えは生の発話のまま `plannedAnswer` に残し、解釈はアプリに頼む。結果が来るまで M4 へ進まない。
+    func testPlannedTimeAnswerAsksTheAppToResolveIt() {
+        let transition = FlowMachine.handle(.transcript(" 16時から "), in: morning(at: .morningPlannedTime).state)
+
+        XCTAssertEqual(transition.commands, [.resolveTime("16時から")])
+        XCTAssertEqual(transition.state.step, .morningPlannedTime)
+        XCTAssertEqual(transition.state.plannedAnswer, "16時から")
+        XCTAssertNil(transition.state.plannedTime)
+    }
+
+    /// 解釈できた値は `plannedTime` に入り、宣言へ進む。
+    func testResolvedTimeIsKeptAndTheDeclarationFollows() {
+        var transition = FlowMachine.handle(.transcript("16時から"), in: morning(at: .morningPlannedTime).state)
+        let resolved = ResolvedTime(date: Date(timeIntervalSince1970: 1_790_007_200), phrase: "16時", place: nil)
+        transition = FlowMachine.handle(.timeResolved(resolved), in: transition.state)
+
+        XCTAssertEqual(transition.state.plannedTime, resolved)
+        XCTAssertEqual(transition.state.plannedAnswer, "16時から")
+        XCTAssertEqual(transition.state.step, .morningDeclaration)
+        XCTAssertEqual(transition.records.map(\.step), [.morningDeclaration])
+        XCTAssertTrue(transition.choiceGroups.isEmpty)
+    }
+
+    /// 解釈できなかったら、時刻のチップを出して 1 回だけ聞き直す。2 回目も駄目なら時刻なしで宣言へ進む。
+    func testUnresolvedTimeShowsTheTimeChipsOnceThenGoesOnWithoutATime() {
+        var transition = FlowMachine.handle(.transcript("あとでやる"), in: morning(at: .morningPlannedTime).state)
+        XCTAssertEqual(transition.commands, [.resolveTime("あとでやる")])
+
+        transition = FlowMachine.handle(.timeResolved(nil), in: transition.state)
+        XCTAssertEqual(transition.state.step, .morningPlannedTime, "聞き直しのあいだは M3 に留まる")
+        XCTAssertEqual(transition.choiceGroups, [DialogueCopy.timeChipIDs])
+        XCTAssertEqual(
+            DialogueCopy.timeChipIDs.map(DialogueCopy.label),
+            ["30分後", "昼", "夕方", "決めない"]
+        )
+        XCTAssertEqual(transition.spoken, DialogueCopy.variants(.morningTimeChipsPrompt).prefix(1).map(\.text))
+        XCTAssertEqual(transition.listens.map(\.step), [.morningPlannedTime], "声でも答えられる")
+        XCTAssertNil(transition.state.plannedTime)
+        XCTAssertNil(transition.completion)
+
+        // 声で答え直す。同じ経路で解釈を頼む。
+        transition = FlowMachine.handle(.transcript("そのうち"), in: transition.state)
+        XCTAssertEqual(transition.commands, [.resolveTime("そのうち")])
+        XCTAssertEqual(transition.state.plannedAnswer, "そのうち")
+
+        // 2 回目も解釈できない。もう聞き直さず、時刻なしで宣言へ進む。
+        transition = FlowMachine.handle(.timeResolved(nil), in: transition.state)
+        XCTAssertEqual(transition.state.step, .morningDeclaration)
+        XCTAssertNil(transition.state.plannedTime)
+        XCTAssertTrue(transition.choiceGroups.isEmpty, "チップをもう一度は出さない")
+        XCTAssertEqual(transition.records.map(\.step), [.morningDeclaration])
+    }
+
+    /// 「決めない」を選ぶと、時刻なしのまま宣言へ進む。解釈は頼まない。
+    func testChoosingUndecidedGoesOnWithoutATime() {
+        var transition = FlowMachine.handle(.transcript("あとでやる"), in: morning(at: .morningPlannedTime).state)
+        transition = FlowMachine.handle(.timeResolved(nil), in: transition.state)
+
+        transition = FlowMachine.handle(.choice(.timeUndecided), in: transition.state)
+        XCTAssertEqual(transition.state.step, .morningDeclaration)
+        XCTAssertNil(transition.state.plannedTime)
+        XCTAssertFalse(transition.commands.contains { if case .resolveTime = $0 { true } else { false } })
+        XCTAssertEqual(transition.records.map(\.step), [.morningDeclaration])
+    }
+
+    /// 時刻のチップ（「決めない」以外）は、その文言を同じ経路で解釈に回す。
+    func testChoosingATimeChipIsResolvedThroughTheSameRoute() {
+        for id in [ChoiceID.timeInThirtyMinutes, .timeNoon, .timeEvening] {
+            var transition = FlowMachine.handle(.transcript("あとでやる"), in: morning(at: .morningPlannedTime).state)
+            transition = FlowMachine.handle(.timeResolved(nil), in: transition.state)
+
+            transition = FlowMachine.handle(.choice(id), in: transition.state)
+            XCTAssertEqual(transition.commands, [.resolveTime(DialogueCopy.label(id))], "\(id)")
+            XCTAssertEqual(transition.state.step, .morningPlannedTime, "\(id)")
+
+            let resolved = ResolvedTime(date: Date(timeIntervalSince1970: 1_790_010_000), phrase: DialogueCopy.label(id))
+            transition = FlowMachine.handle(.timeResolved(resolved), in: transition.state)
+            XCTAssertEqual(transition.state.plannedTime, resolved, "\(id)")
+            XCTAssertEqual(transition.state.step, .morningDeclaration, "\(id)")
+        }
+    }
+
+    /// 聞き直しのあいだの沈黙とスキップは、M3 が必須でないので時刻なしで宣言へ進む。
+    func testSilenceOrSkipWhileReaskingTheTimeGoesOnWithoutATime() {
+        var asked = FlowMachine.handle(.transcript("あとでやる"), in: morning(at: .morningPlannedTime).state)
+        asked = FlowMachine.handle(.timeResolved(nil), in: asked.state)
+
+        let skipped = FlowMachine.handle(.skip, in: asked.state)
+        XCTAssertEqual(skipped.state.step, .morningDeclaration)
+        XCTAssertNil(skipped.state.plannedTime)
+
+        var silent = FlowMachine.handle(.timeout(.silence), in: asked.state)
+        XCTAssertEqual(silent.state.step, .morningPlannedTime)
+        silent = FlowMachine.handle(.timeout(.silence), in: silent.state)
+        XCTAssertEqual(silent.state.step, .morningDeclaration)
+        XCTAssertNil(silent.state.plannedTime)
+        XCTAssertNil(silent.state.timeResolution)
+    }
+
+    /// 最初の質問の時刻の例（「1時間後」など）も、その文言を同じ経路で解釈に回す。
+    func testTimeExampleIsResolvedThroughTheSameRoute() {
+        let transition = FlowMachine.handle(.choice(.timeInOneHour), in: morning(at: .morningPlannedTime).state)
+        XCTAssertEqual(transition.commands, [.resolveTime("1時間後")])
+        XCTAssertEqual(transition.state.plannedAnswer, "1時間後")
+        XCTAssertEqual(transition.state.step, .morningPlannedTime)
+    }
+
+    /// 解釈の結果は、頼んだときにだけ受ける。頼んでいない結果は受け流す。
+    func testTimeResolvedIsIgnoredUnlessItWasAskedFor() {
+        let atTime = morning(at: .morningPlannedTime)
+        let stray = FlowMachine.handle(.timeResolved(twoPM), in: atTime.state)
+        XCTAssertTrue(stray.commands.isEmpty)
+        XCTAssertEqual(stray.state, atTime.state)
+
+        let atDeclaration = morning(at: .morningDeclaration)
+        let late = FlowMachine.handle(.timeResolved(nil), in: atDeclaration.state)
+        XCTAssertTrue(late.commands.isEmpty)
+        XCTAssertEqual(late.state.plannedTime, twoPM)
+    }
+
+    /// 短縮版の朝フローは時刻を聞かないので、解釈も頼まない。
+    func testShortMorningNeverAsksToResolveATime() {
+        var transition = FlowMachine.start(FlowEntry(sessionType: .noon, hasCommitmentToday: false))
+        transition = FlowMachine.handle(.transcript("クライアントへの返信"), in: transition.state)
+        transition = FlowMachine.handle(.transcript("メールを開く"), in: transition.state)
+        XCTAssertEqual(transition.state.step, .morningDeclaration)
+        XCTAssertNil(transition.state.plannedTime)
+        XCTAssertFalse(transition.commands.contains { if case .resolveTime = $0 { true } else { false } })
+    }
+
+    /// 追加したプロパティを持たない保存済みの状態（task_034 より前の形）も読める。
+    func testFlowStateWithoutThePlannedTimeStillDecodes() throws {
+        let before = morning(at: .morningMicroAction).state
+        let data = try JSONEncoder().encode(before)
+        let keys = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any]).keys
+        XCTAssertFalse(keys.contains("plannedTime"))
+        XCTAssertFalse(keys.contains("timeResolution"))
+        XCTAssertEqual(try JSONDecoder().decode(FlowState.self, from: data), before)
+
+        let after = morning(at: .morningDeclaration).state
+        XCTAssertEqual(try JSONDecoder().decode(FlowState.self, from: JSONEncoder().encode(after)).plannedTime, twoPM)
     }
 
     // MARK: - M0 の分岐
@@ -236,6 +391,7 @@ final class MorningFlowTests: XCTestCase {
             (.morningReason, .choice(.reason(.awkward))),
             (.morningMicroAction, .transcript("メールを開く")),
             (.morningPlannedTime, .transcript("14時に自宅で")),
+            (.morningPlannedTime, .timeResolved(twoPM)),
         ]
         for (answered, event) in answers where transition.state.step != step {
             guard transition.state.step == answered else { continue }
@@ -470,6 +626,7 @@ final class MorningFlowTests: XCTestCase {
         XCTAssertEqual(transition.listens.first?.input, .text)
 
         transition = FlowMachine.handle(.transcript("15時に会社で"), in: transition.state)
+        transition = FlowMachine.handle(.timeResolved(twoPM), in: transition.state)
         XCTAssertEqual(transition.state.step, .morningDeclaration)
         XCTAssertEqual(transition.choices, [.declareNow, .declareLater], "M4 だけ声に回せる")
         XCTAssertTrue(transition.records.isEmpty)
@@ -481,6 +638,7 @@ final class MorningFlowTests: XCTestCase {
         transition = FlowMachine.handle(.choice(.reason(.anxious)), in: transition.state)
         transition = FlowMachine.handle(.transcript("資料を開く"), in: transition.state)
         transition = FlowMachine.handle(.transcript("15時に会社で"), in: transition.state)
+        transition = FlowMachine.handle(.timeResolved(twoPM), in: transition.state)
 
         transition = FlowMachine.handle(.choice(.declareLater), in: transition.state)
         XCTAssertTrue(transition.state.isDeclarationDeferred)
@@ -501,6 +659,7 @@ final class MorningFlowTests: XCTestCase {
         transition = FlowMachine.handle(.choice(.reason(.anxious)), in: transition.state)
         transition = FlowMachine.handle(.transcript("資料を開く"), in: transition.state)
         transition = FlowMachine.handle(.transcript("15時に会社で"), in: transition.state)
+        transition = FlowMachine.handle(.timeResolved(twoPM), in: transition.state)
         transition = FlowMachine.handle(.choice(.declareNow), in: transition.state)
 
         XCTAssertEqual(transition.records.map(\.step), [.morningDeclaration])
@@ -535,6 +694,7 @@ final class MorningFlowTests: XCTestCase {
         transition = FlowMachine.handle(.choice(.reason(.tooMuch)), in: transition.state)
         transition = FlowMachine.handle(.transcript("書類を出す"), in: transition.state)
         transition = FlowMachine.handle(.transcript("20時に自宅で"), in: transition.state)
+        transition = FlowMachine.handle(.timeResolved(twoPM), in: transition.state)
         let interrupted = FlowMachine.handle(.interrupted, in: transition.state)
         XCTAssertEqual(interrupted.state.step, .morningDeclaration)
 
@@ -542,6 +702,7 @@ final class MorningFlowTests: XCTestCase {
         XCTAssertEqual(resumed.state.step, .morningDeclaration)
         XCTAssertEqual(resumed.records.map(\.step), [.morningDeclaration])
         XCTAssertEqual(resumed.state.plannedAnswer, "20時に自宅で")
+        XCTAssertEqual(resumed.state.plannedTime, twoPM)
     }
 
     // MARK: - タイムボックス

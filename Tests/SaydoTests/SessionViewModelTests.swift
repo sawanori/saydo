@@ -1,5 +1,6 @@
 import AVFoundation
 import Foundation
+import os
 import SaydoCore
 import Speech
 import XCTest
@@ -587,7 +588,8 @@ final class SessionViewModelTests: XCTestCase {
         timer: SessionTimer = SessionViewModelTests.frozenTimer,
         audioSession: (any AudioSessionControlling)? = nil,
         copyHistory: (any CopyHistoryStoring)? = nil,
-        at moment: Date? = nil
+        at moment: Date? = nil,
+        clock: (@Sendable () -> Date)? = nil
     ) -> (SessionViewModel, MockTranscriber) {
         let mock = transcriber ?? MockTranscriber(script: script)
         let now = moment ?? reference
@@ -606,9 +608,31 @@ final class SessionViewModelTests: XCTestCase {
             timer: timer,
             tier: .b,
             calendar: .current,
-            now: { now }
+            now: clock ?? { now }
         )
         return (viewModel, mock)
+    }
+
+    /// `reference` と同じ日の、指定した時刻。
+    private func moment(hour: Int, minute: Int = 0) -> Date {
+        Calendar.current.date(bySettingHour: hour, minute: minute, second: 0, of: reference)!
+    }
+
+    /// 文字の経路で、朝の会話を M3（時刻の質問）まで進める。
+    private func walkToPlannedTime(_ viewModel: SessionViewModel) async {
+        await viewModel.start(sessionType: .morning, microphoneGranted: false)
+        await viewModel.submit(text: "見積書を送るのが嫌だ")
+        await viewModel.select(Choice(.reason(.awkward)))
+        await viewModel.submit(text: "見積書のファイルを開く")
+        XCTAssertEqual(viewModel.currentStep, .morningPlannedTime)
+    }
+
+    /// 文字の経路で、M4（宣言）を答えて会話を終える。
+    private func declare(_ viewModel: SessionViewModel) async {
+        XCTAssertEqual(viewModel.currentStep, .morningDeclaration)
+        await viewModel.select(Choice(.declareLater))
+        await viewModel.submit(text: "今日、見積書のファイルを開く")
+        XCTAssertEqual(viewModel.completion, .completed)
     }
 
     /// 録音の非同期な取り込みが落ち着くまで待つ。実時間は使わない。
@@ -1291,6 +1315,136 @@ final class SessionViewModelTests: XCTestCase {
         // 録音済みの記録は失われない。
         let entries = try await store.entries(for: reference)
         XCTAssertEqual(entries.filter { $0.kind == .avoidance }.count, 1)
+    }
+
+    // MARK: - 時刻の解釈は 1 回だけ（task_034）
+
+    /// 「16時から」と答えた会話では、保存される時刻と通知が鳴る時刻が同じ日時になる。
+    /// 会話の途中で時計が進んでも変わらない。
+    func testSpokenTimeIsSavedAndNotifiedAsTheSameDate() async throws {
+        let clock = OSAllocatedUnfairLock(initialState: moment(hour: 9))
+        let (viewModel, _) = makeViewModel(clock: { clock.withLock { $0 } })
+        await walkToPlannedTime(viewModel)
+
+        await viewModel.submit(text: "16時から")
+        // 宣言を言うまでに時間が経つ。
+        let later = moment(hour: 9, minute: 2)
+        clock.withLock { $0 = later }
+        await declare(viewModel)
+
+        let commitment = try XCTUnwrap(viewModel.commitment)
+        let scheduled = await notifications.scheduled
+        let actionTime = try XCTUnwrap(scheduled.first { $0.kind == .actionTime })
+        XCTAssertEqual(commitment.plannedAt, moment(hour: 16))
+        XCTAssertEqual(actionTime.fireDate, commitment.plannedAt)
+    }
+
+    /// 「30分後」は言った時点から数える。宣言を言い終えた時点から数え直さない。
+    func testRelativeTimeIsCountedFromWhenItWasSaid() async throws {
+        let clock = OSAllocatedUnfairLock(initialState: moment(hour: 9))
+        let (viewModel, _) = makeViewModel(clock: { clock.withLock { $0 } })
+        await walkToPlannedTime(viewModel)
+
+        await viewModel.submit(text: "30分後に机で")
+        let later = moment(hour: 9, minute: 10)
+        clock.withLock { $0 = later }
+        await declare(viewModel)
+
+        let commitment = try XCTUnwrap(viewModel.commitment)
+        let scheduled = await notifications.scheduled
+        let actionTime = try XCTUnwrap(scheduled.first { $0.kind == .actionTime })
+        XCTAssertEqual(commitment.plannedAt, moment(hour: 9, minute: 30))
+        XCTAssertEqual(actionTime.fireDate, moment(hour: 9, minute: 30))
+        XCTAssertEqual(commitment.plannedPlace, "机")
+        XCTAssertEqual(viewModel.plannedPlace, "机")
+    }
+
+    /// 現在時刻より前の時刻を答えると、黙って進まず、時刻のチップで聞き直す。チップも同じ経路で解釈する。
+    func testAPastTimeIsAskedAgainWithTheTimeChips() async throws {
+        let (viewModel, _) = makeViewModel(at: moment(hour: 15))
+        await walkToPlannedTime(viewModel)
+
+        await viewModel.submit(text: "午後2時に会社で")
+
+        XCTAssertEqual(viewModel.currentStep, .morningPlannedTime)
+        XCTAssertNil(viewModel.completion)
+        XCTAssertEqual(viewModel.choices.map(\.id), DialogueCopy.timeChipIDs)
+        let prompts = Set(DialogueCopy.variants(.morningTimeChipsPrompt).map(\.text))
+        XCTAssertTrue(prompts.contains(synthesizer.spokenLines.last ?? ""), "\(synthesizer.spokenLines)")
+        XCTAssertTrue(viewModel.acceptsTextInput, "聞き直しのあいだも文字で答えられる")
+
+        await viewModel.select(Choice(.timeEvening))
+        await declare(viewModel)
+
+        let commitment = try XCTUnwrap(viewModel.commitment)
+        let scheduled = await notifications.scheduled
+        let actionTime = try XCTUnwrap(scheduled.first { $0.kind == .actionTime })
+        XCTAssertEqual(commitment.plannedAt, moment(hour: 17))
+        XCTAssertEqual(actionTime.fireDate, moment(hour: 17))
+    }
+
+    /// 解釈できない答えも聞き直す。「決めない」を選ぶと、時刻なしの約束になり、通知に日時は渡らない。
+    func testAnUnreadableTimeThenUndecidedSavesNoTime() async throws {
+        let (viewModel, _) = makeViewModel(at: moment(hour: 9))
+        await walkToPlannedTime(viewModel)
+
+        await viewModel.submit(text: "あとでやる")
+        XCTAssertEqual(viewModel.currentStep, .morningPlannedTime)
+        XCTAssertEqual(viewModel.choices.map(\.id), DialogueCopy.timeChipIDs)
+
+        await viewModel.select(Choice(.timeUndecided))
+        await declare(viewModel)
+
+        let commitment = try XCTUnwrap(viewModel.commitment)
+        XCTAssertNil(commitment.plannedAt)
+        let scheduled = await notifications.scheduled
+        XCTAssertTrue(scheduled.allSatisfy { $0.fireDate == nil }, "\(scheduled)")
+    }
+
+    /// 聞き直しは 1 回だけ。2 回目も過ぎた時刻なら、時刻なしで宣言へ進む。
+    func testThePastTimeIsAskedAgainOnlyOnce() async throws {
+        let (viewModel, _) = makeViewModel(at: moment(hour: 15))
+        await walkToPlannedTime(viewModel)
+
+        await viewModel.submit(text: "午後2時")
+        XCTAssertEqual(viewModel.currentStep, .morningPlannedTime)
+        // 15 時に「昼」。今日の 12 時はもう過ぎている。
+        await viewModel.select(Choice(.timeNoon))
+        XCTAssertEqual(viewModel.currentStep, .morningDeclaration)
+        await declare(viewModel)
+
+        let commitment = try XCTUnwrap(viewModel.commitment)
+        XCTAssertNil(commitment.plannedAt)
+        let scheduled = await notifications.scheduled
+        XCTAssertTrue(scheduled.allSatisfy { $0.fireDate == nil }, "\(scheduled)")
+    }
+
+    /// 待たせていた時間切れが M3 の答えで来たら、時刻は解釈せず、宣言の質問も始めずに終える。
+    func testADeferredTimeboxAtThePlannedTimeEndsWithoutAskingForTheDeclaration() async throws {
+        capture.autoSilenceStarts = 3
+        let (viewModel, _) = makeViewModel(transcript: [
+            "見積書を送るのが嫌だ",
+            "気まずいから",
+            "見積書のファイルを開く",
+            "14時に自宅で",
+        ])
+        await viewModel.start(sessionType: .morning)
+        await settle(until: { viewModel.currentStep == .morningPlannedTime && self.capture.isCapturing })
+        XCTAssertEqual(capture.startCount, 4)
+
+        await viewModel.timeboxElapsed()
+        await drain()
+        XCTAssertNil(viewModel.completion)
+
+        capture.speakThenFallSilent()
+        await settle(until: { viewModel.completion != nil })
+        await drain()
+
+        XCTAssertEqual(viewModel.completion, .timeboxExceeded)
+        let declarationRequests = Set(DialogueCopy.variants(.morningDeclarationRequest).map(\.text))
+        XCTAssertTrue(synthesizer.spokenLines.allSatisfy { !declarationRequests.contains($0) })
+        XCTAssertEqual(capture.startCount, 4, "宣言の録音を始めない")
+        XCTAssertNil(viewModel.commitment)
     }
 
     // MARK: - 場所の保存（統合判断 D1 / retention R11）
