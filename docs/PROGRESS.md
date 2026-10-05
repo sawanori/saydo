@@ -2623,3 +2623,50 @@ EXIT=0
 ### 人間の確認待ち
 
 - 実機で朝フローを声で 1 周し、2 回目以降の読み上げと聞き取りが重ならないことを確かめる（task_039）。Console で `subsystem:com.nonturn.saydo` を絞り、各段階で `category=tts` の `utterance … end=finished` と `category=session` の `speak done` が、次の `listen begin` より前に出ていることを見る。重なりが残った場合の切り分けは実装計画 §16.6 の 6 に従う（順序の不具合なら task_031 に戻す。音の回り込みなら task_052）。
+
+## task_032 — 録音開始の一時的な失敗を、マイクの拒否と区別する
+
+- 日時: 2026-10-06
+- 状態: done（シミュレータでの単体テストまで。実機で録音開始が実際に失敗する場面は再現していない）
+- ブランチ / コミット: task/032-capture-failure / このエントリを含むコミット（ハッシュは `git log` の `task_032:` 行）
+
+### 証拠
+
+| コマンド | exit code | ログ |
+|---|---|---|
+| `scripts/test-ios.sh`（修正前の挙動。`SessionFailure` に `captureFailed` を足しただけで、モックの失敗注入と新しいテスト 4 件を入れた状態） | **65**（Executed 152 tests, 19 failures。新しい 3 件が失敗、1 件は passed） | `docs/logs/task_032-1.txt` |
+| `scripts/test-ios.sh`（修正後。コミットした内容） | 0（`** TEST SUCCEEDED **`、Executed 152 tests, 0 failures、lint-principles: OK） | `docs/logs/task_032-2.txt` |
+| `scripts/test-ios.sh`（変異確認: 再試行の経路から世代確認 1 行を外して実行。実行後に元へ戻した。コミットには含まれない） | **65**（世代確認のテスト 1 件が失敗） | `docs/logs/task_032-3.txt` |
+
+変更の中身:
+
+- `SessionFailure.captureFailed` を足した。`beginListening` の `catch` はマイク拒否の扱い（`micDenied` の掲示、`isVoicelessDay` の固定、`isVoiceless` の固定）をやめ、`captureFailed` の掲示を出して、その質問だけ文字の入力待ちに落とす。`state.mode` も `isVoiceless` も触らないので、次の質問は `FlowMachine` が声の聞き取りで依頼する。次の質問の声の聞き取りを始めるとき、`captureFailed` の掲示は消す。
+- 録音の開始（`allocate` + `capture.start` + `transcriber.start`）は `startCapture` に切り出した。失敗したら `discardCapture`（録音が回っていれば止め、認識器を `cancel`）をしてから、1 回だけやり直す。やり直す前と、待ったあとの両方で `isCurrent(generation)` を確かめる。
+- マイクが本当に拒否されているときの経路（`open` の `notice = .micDenied`、`isVoiceless = true`、文字の経路）は変えていない。
+- 掲示: `SessionCopy.captureFailedNotice`（「声をうまく拾えませんでした。この質問は文字で答えられます。」）を足した。`SessionView` は `captureFailed` では「設定を開く」を出さず、`micDenied` では従来どおり出す。
+
+done_definition との対応（VMT = `Tests/SaydoTests/SessionViewModelTests.swift`）:
+
+| done_definition | 証拠（テスト名） | 修正前 | 修正後 |
+|---|---|---|---|
+| 権限ありの一時的な失敗で micDenied の掲示が出ない（VMT） | `testATemporaryCaptureFailureIsRetriedAndListeningStarts`（`capture.start` が 1 回失敗。掲示 nil、`isVoiceless` false） | failed（掲示が `micDenied`） | passed |
+| 再試行で成功すれば声のまま進む（VMT） | 同上（開始の呼び出し 2 回、録音中、`acceptsTextInput` false）、`testATranscriberStartFailureStopsTheCaptureBeforeTheRetry`（`transcriber.start` が 1 回失敗。録音を止めてからやり直すので二重開始にならない） | failed / failed | passed / passed |
+| 2 回失敗しても、次の質問で声に戻る（VMT） | `testTwoFailuresFallBackToTextForThatQuestionOnly`（その質問は文字の入力待ち、掲示は `captureFailed`、録音は止まっている。文字で答えた次の質問で録音が回り、掲示は消え、`isVoiceless` は false のまま） | failed | passed |
+| 再試行の経路でも世代の確認が効く（scope 7） | `testClosingWhileTheFirstStartIsPendingNeverStartsTheRetry`（認識器の開始を待つあいだに閉じ、その開始が失敗で戻っても、やり直しの録音を始めない） | passed（再試行そのものが無かったため） | passed（世代確認を外すと failed。`docs/logs/task_032-3.txt`） |
+| `scripts/test-ios.sh` が exit 0 | `docs/logs/task_032-2.txt` | 65 | 0 |
+
+task_031 の未解決「`transcriber.start()` が失敗したとき、録音を止めないまま文字入力に落ちる」は、`startCaptureOnce` の失敗時に `discardCapture` を呼ぶことで解消した（`testTwoFailuresFallBackToTextForThatQuestionOnly` が `capture.isCapturing == false` を確かめる）。
+
+テストの足場（モック）: `MockVoiceCapture.failingAttempts` / `attemptCount`、`MockTranscriber.failingStarts` / `startAttemptCount` / `startGate` を足した。既存テストの `startCount`（録音が始まった回数）の意味は変えていない。
+
+### 未解決
+
+- 宣言の録音（M4 の `beginDeclarationRecording`）の `catch` は、録音開始のどんな失敗も `micDenied` の掲示・`isVoicelessDay` の固定・宣言の後回しにしている（task_032 の scope は「聞き取りの開始」で、この経路は範囲外のため触っていない）。同じ誤りが残っている。
+- `prepareTranscriber()` が失敗した場合（認識モデルが使えない等）は、再試行せずに `captureFailed` の掲示でその質問を文字にする。以前は `micDenied` の掲示だった。モデル取得中の掲示は task_046 の範囲。
+- `captureFailed` の掲示は、次の質問の声の聞き取りが始まるまで残る（その質問を読み上げている間も表示される）。
+- 実機で録音の開始が実際に失敗する場面（他のアプリがマイクを掴んでいる等）は再現していない。確かめたのはモックによる失敗だけである。
+- 文字の入力待ちの沈黙の見張りは触っていない（task_033）。
+
+### 人間の確認待ち
+
+- 実機で、通話中などマイクを他が使っている状態から朝フローを開き、「設定を開く」の出ない掲示で文字に落ち、次の質問で声に戻ることを確かめる（task_039 の実機確認に含めてよい）。

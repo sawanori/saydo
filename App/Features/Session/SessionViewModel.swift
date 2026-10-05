@@ -176,6 +176,8 @@ enum SessionFailure: String, Sendable, Equatable {
     case micDenied
     /// ja-JP の認識モデルを取得中。
     case assetDownloading
+    /// マイクの権限はあるのに録音を始められなかった（やり直しても駄目だった）。その質問だけ文字で受ける。
+    case captureFailed
 }
 
 /// 会話画面の状態（実装計画 §8）。
@@ -888,6 +890,11 @@ final class SessionViewModel {
             return
         }
 
+        if notice == .captureFailed {
+            // 前の質問で声を始められなかった掲示。この質問では声をもう一度試みる。
+            notice = nil
+        }
+
         do {
             let format = try await prepareTranscriber()
             guard isCurrent(generation) else {
@@ -895,6 +902,44 @@ final class SessionViewModel {
                 logger.info("listen dropped stage=prepare")
                 return
             }
+            guard let started = try await startCapture(format: format, generation: generation) else { return }
+            phase = .listening
+            observe(started.session, relativePath: started.relativePath, generation: generation)
+            startSilenceWatch(seconds: request.silenceSeconds, generation: generation)
+        } catch {
+            guard isCurrent(generation) else { return }
+            // マイクの権限はある（拒否なら `open` の時点で文字の経路に入っている）。
+            // 録音が始められなくても会話は止めない。この質問だけ文字で受け、その日を声なしにはしない。
+            logger.error("listen start failed: \(error.localizedDescription, privacy: .public) -> text for this question")
+            notice = .captureFailed
+            var fallback = request
+            fallback.input = .text
+            pendingListen = fallback
+            waiting = .listen(fallback)
+            phase = .listening
+            startSilenceWatch(seconds: fallback.silenceSeconds, generation: generation)
+        }
+    }
+
+    private struct StartedCapture {
+        var session: VoiceCaptureSession
+        var relativePath: String
+    }
+
+    /// 録音と認識を始める。失敗したら後始末をして 1 回だけやり直す。
+    /// 待っているあいだに世代が進んだ（止められた）ときは、始めずに nil を返す。
+    private func startCapture(format: AVAudioFormat, generation: Int) async throws -> StartedCapture? {
+        do {
+            return try await startCaptureOnce(format: format, generation: generation)
+        } catch {
+            guard isCurrent(generation) else { return nil }
+            logger.error("listen start failed: \(error.localizedDescription, privacy: .public) -> retry")
+        }
+        return try await startCaptureOnce(format: format, generation: generation)
+    }
+
+    private func startCaptureOnce(format: AVAudioFormat, generation: Int) async throws -> StartedCapture? {
+        do {
             let allocation = try audioFiles.allocate(recordedAt: now())
             capture.limit = .utterance
             let session = try capture.start(writingTo: allocation.url, analyzerFormat: format)
@@ -902,32 +947,22 @@ final class SessionViewModel {
             guard isCurrent(generation) else {
                 // 認識の開始を待つあいだに止められた。止めた側は開始前の認識器しか片づけていない。
                 logger.info("listen dropped stage=start")
-                capture.stop()
-                transcriber.cancel()
-                return
+                discardCapture()
+                return nil
             }
-            phase = .listening
-            observe(session, relativePath: allocation.relativePath, generation: generation)
-            startSilenceWatch(seconds: request.silenceSeconds, generation: generation)
+            return StartedCapture(session: session, relativePath: allocation.relativePath)
         } catch {
-            guard isCurrent(generation) else { return }
-            // 録音が始められない日でも会話は止めない。テキスト経路に落とす。
-            logger.error("listen start failed: \(error.localizedDescription, privacy: .public) -> text fallback")
-            notice = .micDenied
-            phase = .error(.micDenied)
-            var fallback = request
-            fallback.input = .text
-            if var current = state {
-                current.mode = .text
-                current.isVoicelessDay = true
-                state = current
-            }
-            isVoiceless = true
-            pendingListen = fallback
-            waiting = .listen(fallback)
-            phase = .listening
-            startSilenceWatch(seconds: fallback.silenceSeconds, generation: generation)
+            // 始まっていた録音を残さない（残すと、やり直しが二重開始で失敗する）。
+            discardCapture()
+            throw error
         }
+    }
+
+    private func discardCapture() {
+        if capture.isCapturing {
+            capture.stop()
+        }
+        transcriber.cancel()
     }
 
     /// ja-JP モデルの用意。取得中は掲示を出してから待つ。
