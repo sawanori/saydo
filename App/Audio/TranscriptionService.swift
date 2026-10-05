@@ -201,7 +201,11 @@ final class TranscriptionService: Transcribing {
         progressTask?.cancel()
         progressTask = nil
         analyzer = nil
+        // 止めた聞き取りの結果は使わない。確定済みの文字列も残さない（次の聞き取りに混ざるため）。
         volatileText = ""
+        finalText = ""
+        partialCount = 0
+        finalCount = 0
     }
 
     func reset() {
