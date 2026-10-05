@@ -3154,3 +3154,51 @@ SaydoTests.SessionViewModelTests testATextOnlyMorningFromM0SavesExactlyOneCommit
 
 - 実機で、「話せない時」モードとマイク拒否の朝の会話を最後まで通し、M4 で選択肢が出ず、文字の入力欄が開くこと。
 - 設定画面に「一人で話せる時間」の節が出ず、オンボーディングが 6 段階であること。
+
+## task_037 — 会話をいつでも閉じられるようにし、「録り直す」を理由の質問までに限る
+
+- 日時: 2026-10-06
+- 状態: done（シミュレータの単体テストまで。画面の見た目は目視していない。実機では確かめていない）
+- ブランチ / コミット: task/037-always-close / このエントリを含むコミット（ハッシュは `git log` の `task_037:` 行）
+
+### 証拠
+
+| コマンド | exit code | ログ |
+|---|---|---|
+| `scripts/test-ios.sh`（修正前の挙動。先に書いたテストだけを足した状態） | **65**（Executed 184 tests, 2 failures。失敗は下記の 2 件） | `docs/logs/task_037-1.txt` |
+| `scripts/test-ios.sh`（修正後。コミットした内容） | 0（`** TEST SUCCEEDED **`、Executed 184 tests, 0 failures、lint-principles: OK） | `docs/logs/task_037-2.txt` |
+
+修正前に先に書いて失敗したテスト（2 件）:
+
+```
+SaydoTests.SessionViewModelTests testRetakeIsOfferedOnlyUntilTheReasonIsAnswered
+SaydoTests.SessionViewModelTests testRetakeIsNotOfferedAfterSkippingTheReason
+```
+
+読み上げ・録音・再生を止めるテスト 2 件（`testClosingDuringSpeechStopsTheSoundAndLeavesAnUnfinishedLog`、`testClosingWhileListeningStopsTheRecordingAndLeavesAnUnfinishedLog`）は修正前から通った。`interrupt()` が既に `cutIn(stoppingSound: true)` で読み上げと再生を止め、録音を止め、SessionLog を未完で閉じていたため、`SessionViewModel` のこの経路は変えていない。
+
+### 実装の要点
+
+- **左上の「閉じる」**: `SessionView.header` の先頭（ロゴの上の行）に `closeButton` を置いた。会話のすべての段階で出る。文字は `SaydoTheme.TextRole.status`（ink3）、タップ領域は 44pt 以上（`SaydoTheme.Metric.minimumTapTarget` を足した）、VoiceOver ラベルは `SessionCopy.closeAccessibilityLabel`（「会話を閉じる」）。押すと既存の `onClose`（`AppRouter.dismissSession()`）を呼ぶ。完了画面の既存の「閉じる」ボタンは残した（左上と重複する）。
+- **「録り直す」**: `SessionViewModel.canRetakeAvoidance` を、段階が M0 / M1 の間だけ true にする。`apply(_:)` で段階が M1 を抜けたら false にし、M0 の保存時に立てるときも段階が M0 / M1 のときだけにした（昼の短縮版 M0 → M2 のように M1 を通らない場合に、M2 で立たないため）。チップ・声・文字・スキップのどれで M1 を抜けても false になる。
+- **AppRouterTests**: `AppRouter` は実物の音声スタックを `makeSessionViewModel()` で自分で作るため、モックを差し込めない。そのため音声スタックと SessionLog の確認は `SessionViewModelTests` で `interrupt()`（`dismissSession()` が呼ぶもの）に対して書き、`AppRouterTests` は既存の `testDismissClearsActiveSession`（`activeSession` と `sessionViewModel` が nil になる）にこの経緯のコメントを足しただけにした。
+
+### done_definition との対応
+
+| done_definition | 証拠 |
+|---|---|
+| 会話のすべての段階で「閉じる」が画面にある | `SessionView.header` の `closeButton` は phase に依らず常に描画される（コードで確認。実機での確認は task_039 / 人間の確認待ち） |
+| 途中で閉じると SessionLog が中断として残り、録音と読み上げが止まる | `SessionViewModelTests` の 2 件（`completed == false`、`completion == .suspended`、`capture.isCapturing == false`、`synthesizer.stopCount >= 1`、`player.stopCount >= 1`）。修正前から pass。AppRouterTests では `activeSession` が nil になることのみ |
+| 「録り直す」が M2 以降に出ない | `testRetakeIsOfferedOnlyUntilTheReasonIsAnswered`（M0 直後は true、チップで M1 を抜けたら false）、`testRetakeIsNotOfferedAfterSkippingTheReason`。修正前 failed、修正後 passed。既存の `testAvoidanceTranscriptCanBeRetakenOnce` も通る |
+| `scripts/test-ios.sh` が exit 0 | `docs/logs/task_037-2.txt` |
+
+### 未解決
+
+- **画面の見た目は目視していない。** 左上の「閉じる」がロゴの上に 44pt の行を足すため、会話画面全体が約 44pt 下がる。小さい端末で質問の行数や波形が窮屈にならないかは未確認。
+- **途中で閉じた会話の再開は無い**（task_044）。閉じると `suspendedState` は捨てられる。
+- 音声が実機で本当に止まることは、モックの `stop()` 呼び出しまでの確認で、実機の `AVSpeechSynthesizer` / `AVAudioEngine` では確かめていない。
+
+### 人間の確認待ち
+
+- 実機で、読み上げ中・聞き取り中・チップ待ち・宣言の録音中・昼の再生中のそれぞれから「閉じる」を押し、音が止まって Today に戻ること。
+- 「録り直す」が M1 に答えた後（M2 以降）に出ないこと。

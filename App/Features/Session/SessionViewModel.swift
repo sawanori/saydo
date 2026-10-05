@@ -706,6 +706,11 @@ final class SessionViewModel {
         await deliver(.retakeAvoidance)
     }
 
+    /// M0 の録り直しを出していてよい段階。M1（理由）に答えて抜けたら出さない。
+    private static func retakeIsOpen(at step: FlowStep) -> Bool {
+        step == .morningAvoidance || step == .morningReason
+    }
+
     private func restartAvoidance() async {
         guard let base = stateAtAvoidance else { return }
         if await endIfTimeboxIsDue() { return }
@@ -806,6 +811,10 @@ final class SessionViewModel {
         copyHistoryStore.save(transition.state.picker.history)
         if transition.state.step == .morningAvoidance, stateAtAvoidance == nil {
             stateAtAvoidance = transition.state
+        }
+        // 録り直しは M1（理由）に答えるまで。M2 以降へ進んだら使えなくする（task_037）。
+        if !Self.retakeIsOpen(at: transition.state.step) {
+            canRetakeAvoidance = false
         }
         if shouldAskListenMode(for: transition) {
             // 発話も再生もまだ始めない。本人が返し方を選んでから続きを流す（retention R8）。
@@ -1274,6 +1283,7 @@ final class SessionViewModel {
             avoidanceTranscript = instruction.text
             avoidanceEntryID = saved?.id
             canRetakeAvoidance = audioPath != nil && !hasRetakenAvoidance
+                && state.map { Self.retakeIsOpen(at: $0.step) } == true
             phase = .thinking
             classifiedDomain = (try? await engine.classifyDomain(avoidance: instruction.text)) ?? .other
 

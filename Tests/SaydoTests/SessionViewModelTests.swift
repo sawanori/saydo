@@ -815,6 +815,41 @@ final class SessionViewModelTests: XCTestCase {
         XCTAssertEqual(afterRetake.first { $0.kind == .avoidance }?.transcript, "見積書を送るのが怖い")
     }
 
+    /// 「録り直す」は M1（理由）に答えるまでだけ出る。M0 の直後と M1 の間は使え、M1 を抜けたら使えない（task_037）。
+    func testRetakeIsOfferedOnlyUntilTheReasonIsAnswered() async throws {
+        let (viewModel, _) = makeViewModel(transcript: ["見積書を送るのが嫌だ"])
+        await viewModel.start(sessionType: .morning)
+        await settle(until: { !viewModel.avoidanceTranscript.isEmpty })
+
+        // M0 の直後（M1 を聞いているあいだ）は使える。
+        XCTAssertEqual(viewModel.currentStep, .morningReason)
+        XCTAssertTrue(viewModel.canRetakeAvoidance)
+
+        // M1 のチップで答えると M2 へ進み、録り直しは出ない。
+        await viewModel.select(Choice(.reason(.awkward)))
+        await settle(until: { viewModel.currentStep == .morningMicroAction })
+        XCTAssertEqual(viewModel.currentStep, .morningMicroAction)
+        XCTAssertFalse(viewModel.canRetakeAvoidance)
+
+        await viewModel.interrupt()
+    }
+
+    /// M1 をスキップして抜けた場合も、録り直しは出ない。
+    func testRetakeIsNotOfferedAfterSkippingTheReason() async throws {
+        let (viewModel, _) = makeViewModel(transcript: ["見積書を送るのが嫌だ"])
+        await viewModel.start(sessionType: .morning)
+        await settle(until: { !viewModel.avoidanceTranscript.isEmpty })
+        XCTAssertTrue(viewModel.canRetakeAvoidance)
+
+        await viewModel.skip()
+        await settle(until: { viewModel.currentStep == .morningMicroAction })
+
+        XCTAssertEqual(viewModel.currentStep, .morningMicroAction)
+        XCTAssertFalse(viewModel.canRetakeAvoidance)
+
+        await viewModel.interrupt()
+    }
+
     // MARK: - 昼フローの入口 3 状態（fix-decisions P2.6）
 
     /// 当日の `Commitment` が無ければ短縮版の朝フロー（M0 → M2 → M4）を開き、M1 は出さない。
@@ -2134,6 +2169,50 @@ final class SessionViewModelTests: XCTestCase {
         // 再生も止めている。
         XCTAssertGreaterThanOrEqual(player.stopCount, 1)
         XCTAssertFalse(player.isPlaying)
+    }
+
+    /// 読み上げの途中で閉じると、読み上げが止まり、SessionLog は未完で残る（task_037）。
+    /// `AppRouter.dismissSession()` が呼ぶのはこの `interrupt()`。
+    func testClosingDuringSpeechStopsTheSoundAndLeavesAnUnfinishedLog() async throws {
+        synthesizer.holdsCompletion = true
+        let (viewModel, _) = makeViewModel()
+
+        let opening = Task { await viewModel.start(sessionType: .morning) }
+        await settle(until: { self.synthesizer.unfinishedCount == 1 })
+
+        await viewModel.interrupt()
+        await drain()
+        opening.cancel()
+
+        XCTAssertGreaterThanOrEqual(synthesizer.stopCount, 1)
+        XCTAssertGreaterThanOrEqual(player.stopCount, 1)
+        XCTAssertFalse(synthesizer.isSpeaking)
+        XCTAssertEqual(capture.startCount, 0)
+        XCTAssertFalse(capture.isCapturing)
+        XCTAssertEqual(viewModel.completion, .suspended)
+        let logs = await store.logs
+        XCTAssertEqual(logs.count, 1)
+        XCTAssertEqual(logs.first?.completed, false)
+        XCTAssertNotNil(logs.first?.endedAt)
+    }
+
+    /// 声を聞いている途中で閉じると、録音が止まり、SessionLog は未完で残る（task_037）。
+    func testClosingWhileListeningStopsTheRecordingAndLeavesAnUnfinishedLog() async throws {
+        let (viewModel, _) = makeViewModel()
+        await viewModel.start(sessionType: .morning)
+        await settle(until: { self.capture.isCapturing })
+        XCTAssertTrue(capture.isCapturing)
+
+        await viewModel.interrupt()
+        await drain()
+
+        XCTAssertFalse(capture.isCapturing)
+        XCTAssertGreaterThanOrEqual(synthesizer.stopCount, 1)
+        XCTAssertGreaterThanOrEqual(player.stopCount, 1)
+        XCTAssertEqual(viewModel.completion, .suspended)
+        let logs = await store.logs
+        XCTAssertEqual(logs.first?.completed, false)
+        XCTAssertEqual(logs.first?.lastStep, .morningAvoidance)
     }
 
     // MARK: - 録音開始の一時的な失敗（task_032）
