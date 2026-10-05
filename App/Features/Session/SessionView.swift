@@ -94,22 +94,25 @@ struct SessionView: View {
         }
     }
 
-    /// マイクが使えない日の掲示。会話はテキストで続く（fix-decisions P2.3）。
+    /// マイクが使えない日、または声を始められなかった質問の掲示。会話は文字で続く（fix-decisions P2.3）。
+    /// 設定を開く導線は、マイクが拒否されているときだけ出す。
     @ViewBuilder
     private var micDeniedNotice: some View {
-        if viewModel.notice == .micDenied {
+        if viewModel.notice == .micDenied || viewModel.notice == .captureFailed {
             VStack(alignment: .leading, spacing: Layout.tightSpacing) {
-                Text(SessionCopy.micDeniedNotice)
+                Text(viewModel.notice == .micDenied ? SessionCopy.micDeniedNotice : SessionCopy.captureFailedNotice)
                     .saydoText(.list)
                     .fixedSize(horizontal: false, vertical: true)
-                Button(SessionCopy.openSettings) {
-                    if let url = URL(string: UIApplication.openSettingsURLString) {
-                        openURL(url)
+                if viewModel.notice == .micDenied {
+                    Button(SessionCopy.openSettings) {
+                        if let url = URL(string: UIApplication.openSettingsURLString) {
+                            openURL(url)
+                        }
                     }
+                    .buttonStyle(.plain)
+                    .saydoText(.list)
+                    .foregroundStyle(SaydoTheme.Palette.accent)
                 }
-                .buttonStyle(.plain)
-                .saydoText(.list)
-                .foregroundStyle(SaydoTheme.Palette.accent)
             }
             .padding(Layout.noticePadding)
             .frame(maxWidth: .infinity, alignment: .leading)

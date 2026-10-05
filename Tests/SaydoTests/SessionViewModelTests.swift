@@ -430,9 +430,15 @@ final class MockVoiceCapture: VoiceCapturing {
     var onStart: (() -> Void)?
 
     private(set) var startCount = 0
+    /// 開始を呼ばれた回数（失敗した分も数える）。`startCount` は成功した回数。
+    private(set) var attemptCount = 0
+    /// 何回目の開始呼び出しを失敗させるか（1 始まり）。マイクの権限はあるのに一時的に失敗する場面を作る。
+    var failingAttempts: Set<Int> = []
     private var eventContinuation: AsyncStream<VoiceCaptureEvent>.Continuation?
 
     func start(writingTo url: URL, analyzerFormat: AVAudioFormat?) throws -> VoiceCaptureSession {
+        attemptCount += 1
+        if failingAttempts.contains(attemptCount) { throw VoiceCaptureFault.inputUnavailable }
         // 実物と同じく、録音中の二重開始は失敗にする。
         guard !isCapturing else { throw VoiceCaptureFault.alreadyCapturing }
         startCount += 1
@@ -501,7 +507,18 @@ final class MockTranscriber: Transcribing {
         return AVAudioFormat(standardFormatWithSampleRate: 16_000, channels: 1)!
     }
 
+    /// 開始を呼ばれた回数（失敗した分も数える）。
+    private(set) var startAttemptCount = 0
+    /// 何回目の開始呼び出しを失敗させるか（1 始まり）。
+    var failingStarts: Set<Int> = []
+    /// 置くと、開始（`start`）がこの門が開くまで戻らない。
+    var startGate: Gate?
+
     func start(inputSequence: AsyncStream<AnalyzerInput>) async throws {
+        startAttemptCount += 1
+        let attempt = startAttemptCount
+        await startGate?.wait()
+        if failingStarts.contains(attempt) { throw VoiceCaptureFault.converterUnavailable }
         isRunning = true
     }
 
@@ -1434,6 +1451,117 @@ final class SessionViewModelTests: XCTestCase {
         // 再生も止めている。
         XCTAssertGreaterThanOrEqual(player.stopCount, 1)
         XCTAssertFalse(player.isPlaying)
+    }
+
+    // MARK: - 録音開始の一時的な失敗（task_032）
+
+    /// 権限があるのに録音の開始が 1 回失敗しても、やり直して声のまま進む。マイク拒否の掲示は出ない。
+    func testATemporaryCaptureFailureIsRetriedAndListeningStarts() async throws {
+        capture.failingAttempts = [1]
+        capture.autoSilenceStarts = 0
+        let (viewModel, _) = makeViewModel()
+
+        await viewModel.start(sessionType: .morning)
+        await settle(until: { self.capture.startCount == 1 })
+
+        XCTAssertEqual(capture.attemptCount, 2)
+        XCTAssertTrue(capture.isCapturing)
+        XCTAssertEqual(viewModel.phase, .listening)
+        XCTAssertFalse(viewModel.acceptsTextInput)
+        XCTAssertNil(viewModel.notice)
+        XCTAssertFalse(viewModel.isVoiceless)
+
+        await viewModel.interrupt()
+    }
+
+    /// 認識器の開始が失敗したときは、始まっていた録音を止めてからやり直す（止めないと二重開始になる）。
+    func testATranscriberStartFailureStopsTheCaptureBeforeTheRetry() async throws {
+        capture.autoSilenceStarts = 0
+        let transcriber = MockTranscriber(script: [])
+        transcriber.failingStarts = [1]
+        let (viewModel, _) = makeViewModel(transcriber: transcriber)
+
+        await viewModel.start(sessionType: .morning)
+        await settle(until: { transcriber.startAttemptCount == 2 })
+        await drain()
+
+        XCTAssertEqual(capture.attemptCount, 2)
+        XCTAssertEqual(capture.startCount, 2)
+        XCTAssertTrue(capture.isCapturing)
+        XCTAssertTrue(transcriber.isRunning)
+        XCTAssertEqual(viewModel.phase, .listening)
+        XCTAssertNil(viewModel.notice)
+        XCTAssertFalse(viewModel.isVoiceless)
+
+        await viewModel.interrupt()
+    }
+
+    /// 2 回とも失敗したら、その質問だけ文字で受ける。その日を声なしにはせず、次の質問では声を試みる。
+    func testTwoFailuresFallBackToTextForThatQuestionOnly() async throws {
+        // 1 回目は録音の開始、2 回目は認識器の開始で失敗する。
+        capture.failingAttempts = [1]
+        capture.autoSilenceStarts = 0
+        let transcriber = MockTranscriber(script: [])
+        transcriber.failingStarts = [1]
+        let (viewModel, _) = makeViewModel(transcriber: transcriber)
+
+        await viewModel.start(sessionType: .morning)
+        await settle(until: { viewModel.acceptsTextInput })
+
+        XCTAssertEqual(viewModel.currentStep, .morningAvoidance)
+        XCTAssertTrue(viewModel.acceptsTextInput)
+        XCTAssertEqual(viewModel.phase, .listening)
+        XCTAssertEqual(viewModel.notice, .captureFailed)
+        XCTAssertNotEqual(viewModel.notice, .micDenied)
+        XCTAssertFalse(viewModel.isVoiceless)
+        // 失敗の後始末。録音は止まっている。
+        XCTAssertFalse(capture.isCapturing)
+        XCTAssertFalse(transcriber.isRunning)
+        XCTAssertEqual(capture.attemptCount, 2)
+
+        // 文字で答えると、次の質問は声の聞き取りに戻る。
+        await viewModel.submit(text: "見積書を送るのが嫌だ")
+        await settle(until: { self.capture.startCount == 1 })
+
+        XCTAssertEqual(viewModel.currentStep, .morningReason)
+        XCTAssertEqual(capture.attemptCount, 3)
+        XCTAssertTrue(capture.isCapturing)
+        XCTAssertFalse(viewModel.acceptsTextInput)
+        XCTAssertEqual(viewModel.phase, .listening)
+        XCTAssertNil(viewModel.notice)
+        XCTAssertFalse(viewModel.isVoiceless)
+
+        await viewModel.interrupt()
+        // 声なしの日として保存されない。
+        XCTAssertFalse(viewModel.commitment?.isVoiceless ?? false)
+    }
+
+    /// 認識器の開始を待っているあいだに会話を閉じ、その開始が失敗で戻っても、やり直しの録音は始めない。
+    func testClosingWhileTheFirstStartIsPendingNeverStartsTheRetry() async throws {
+        capture.autoSilenceStarts = 0
+        let starting = Gate()
+        let transcriber = MockTranscriber(script: [])
+        transcriber.startGate = starting
+        transcriber.failingStarts = [1]
+        let (viewModel, _) = makeViewModel(transcriber: transcriber)
+
+        let opening = Task { await viewModel.start(sessionType: .morning) }
+        await settle(until: { starting.waitingCount == 1 })
+        XCTAssertEqual(capture.startCount, 1)
+
+        let closing = Task { await viewModel.interrupt() }
+        await drain()
+        starting.open()
+        await settle(until: { viewModel.completion != nil })
+        await drain()
+        opening.cancel()
+        closing.cancel()
+
+        XCTAssertEqual(capture.attemptCount, 1)
+        XCTAssertEqual(transcriber.startAttemptCount, 1)
+        XCTAssertFalse(capture.isCapturing)
+        XCTAssertFalse(transcriber.isRunning)
+        XCTAssertNil(viewModel.notice)
     }
 
     // MARK: - 補助

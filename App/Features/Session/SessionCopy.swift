@@ -52,6 +52,8 @@ enum SessionCopy {
 
     static let micDeniedNotice = "マイクを使えない設定になっています。文字で続けられます。"
     static let openSettings = "設定を開く"
+    /// マイクの権限はあるのに、声を始められなかったとき。設定の話はしない。
+    static let captureFailedNotice = "声をうまく拾えませんでした。この質問は文字で答えられます。"
 
     // MARK: 例示と短文入力
 
