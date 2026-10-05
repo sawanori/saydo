@@ -259,9 +259,10 @@ final class SessionViewModel {
     private(set) var phase: SessionPhase = .idle
     /// いま読み上げている（読み上げ終えた）1 行。
     private(set) var spokenLine: String = ""
-    /// 答えを選ばせるチップ（M1 / N1 / E0 の前進なし分岐だけ）。
+    /// 答えを選ばせるチップ（M1 / N1 / E0 の前進なし分岐、時刻の聞き直しなど）。次の質問へ進んだら消す。
     private(set) var choices: [Choice] = []
-    /// 答えに詰まったときの例示。チップではない（実装計画 §7.2）。
+    /// 答えの例。押せるチップとして出し、押すとその文言が答えになる（`select(_:)`。実装計画 §16.8）。
+    /// `choices` に同じものが出ているあいだは、こちらには入れない。次の質問へ進んだら消す。
     private(set) var examples: [Choice] = []
     /// 波形の描画に使うレベル履歴。
     let waveform = WaveformSampler()
@@ -273,8 +274,12 @@ final class SessionViewModel {
     private(set) var canRetakeAvoidance = false
     /// マイク拒否・モデル取得中の掲示。会話は `phase` の側で進む。
     private(set) var notice: SessionFailure?
-    /// 「声なし」の日か（マイク拒否・宣言の後回し。fix-decisions P2.3 / R1）。
+    /// 今日の宣言が声で残っていないか。保存済みの約束と、この会話での宣言の保存で決まる。
+    /// 会話を文字で始めたこと・途中で文字を使ったことでは立てない（task_040）。
     private(set) var isVoiceless = false
+    /// 「声を出さない」設定か（左下の切り替え）。読み上げを鳴らさず、質問は画面に出すだけにし、
+    /// 答えは文字とチップで受ける。`switchToVoiceMode()` で戻せる。
+    private(set) var isVoiceOff = false
     /// 昼 N0 で画面に大きく出す宣言テキスト（「声なし」の日、または「文字で読む」を選んだとき）。
     private(set) var declarationTextToShow: String?
     /// M3 で本人が言った場所（`Commitment.plannedPlace` に保存する。統合判断 D1）。
@@ -312,8 +317,31 @@ final class SessionViewModel {
     /// 完了画面に「言い直す」を出すか。1 回の会話で 1 回だけ（実装計画 §16.6 の 5）。
     var canRetakeDeclaration: Bool { canPreviewDeclaration && !hasRetakenDeclaration }
 
-    /// いまテキスト入力を受ける状態か。
+    /// いまの質問が文字の答えを待っているか。
     var acceptsTextInput: Bool { pendingListen?.input == .text }
+
+    /// 入力欄を画面に出すか。
+    ///
+    /// 文字の答えを待っている質問（「声を出さない」の間・この質問だけ文字で答える・アプリが文字に
+    /// 落とした質問）で出す。「声を出さない」の間は、質問と質問の間も出したままにする（送信のたびに
+    /// 消すとキーボードが閉じる）。チップだけが答えになる段階と、朝の声を返している間は出さない。
+    var showsTextField: Bool {
+        guard completion == nil, state != nil, !isRetakingDeclaration else { return false }
+        if acceptsTextInput { return true }
+        return isVoiceOff && choices.isEmpty && phase != .playback && !listenModePrompt
+    }
+
+    /// スキップの操作を出すか。答えを待っている、必須でない質問（朝は理由と時刻）だけ。
+    var canSkip: Bool {
+        guard completion == nil, let step = state?.step, pendingListen != nil else { return false }
+        return !step.isRequired
+    }
+
+    /// 「声を出さない」を声に戻せるか。マイクが拒否されている端末では戻せない。
+    var canSwitchToVoice: Bool { completion == nil && isVoiceOff && microphoneGranted }
+
+    /// 「この質問だけ文字で答える」を出すか。声で受けている会話の間だけ。
+    var canAnswerByTextOnce: Bool { completion == nil && state != nil && !isVoiceOff && !acceptsTextInput }
     /// いまどの質問にいるか。会話が始まっていなければ nil。
     var currentStep: FlowStep? { state?.step }
 
@@ -342,6 +370,8 @@ final class SessionViewModel {
     // MARK: 内部の状態
 
     private var state: FlowState?
+    /// マイクが使えるか。使えない端末は「声を出さない」で始まり、声に戻せない。
+    private var microphoneGranted = true
     private var sessionLogID: UUID?
     private var startedAt: Date?
     private var pendingListen: ListenRequest?
@@ -387,7 +417,10 @@ final class SessionViewModel {
         /// 沈黙の見張りが、待ち時間の終わりを見つけた。
         case silence(generation: Int)
         case retakeAvoidance
-        case switchToText
+        /// 「声を出さない」に切り替えた・声に戻した。
+        case voiceOff(Bool)
+        /// この質問だけ文字で答える。
+        case textOnce
         case listenMode(ListenMode)
         /// 完了画面の「聞いてみる」。
         case previewDeclaration
@@ -534,6 +567,11 @@ final class SessionViewModel {
                 resume: resume
             )
         case .event(let event):
+            if case .transcript = event {
+                // ここに来る答えは、入力欄から送られた文字（声の答えは録音の終わりから直に流す）。
+                // 前の質問の録音を、文字の答えの音声として付けない。
+                lastRecording = nil
+            }
             await handle(event)
         case .captureEnded(let generation, let relativePath, let duration):
             await finishListening(generation: generation, relativePath: relativePath, duration: duration)
@@ -544,8 +582,12 @@ final class SessionViewModel {
             await handle(.timeout(.silence))
         case .retakeAvoidance:
             await restartAvoidance()
-        case .switchToText:
-            await enterTextMode()
+        case .voiceOff(true):
+            await enterVoiceOff()
+        case .voiceOff(false):
+            leaveVoiceOff()
+        case .textOnce:
+            await takeThisAnswerByText()
         case .listenMode(let mode):
             await continuePlayback(in: mode)
         case .previewDeclaration:
@@ -561,8 +603,8 @@ final class SessionViewModel {
     ///
     /// - Parameters:
     ///   - sessionType: 通知またはボタンが指定したセッション。
-    ///   - microphoneGranted: マイクが使えるか。使えなければテキスト経路で完走させる。
-    ///   - voicelessMode: 「話せない時」モード（retention R1）。
+    ///   - microphoneGranted: マイクが使えるか。使えなければ「声を出さない」で始まり、声に戻せない。
+    ///   - voicelessMode: 「声を出さない」で始めるか（設定した時間帯。retention R1）。こちらは声に戻せる。
     ///   - resume: 中断から再開する場合の途中状態。
     func start(
         sessionType: SessionType,
@@ -591,8 +633,12 @@ final class SessionViewModel {
         if !microphoneGranted {
             notice = .micDenied
         }
-        isVoiceless = mode == .text
+        self.microphoneGranted = microphoneGranted
+        isVoiceOff = mode == .text
 
+        // 再開する途中状態も、いまの設定（マイクの可否・時間帯）で受け直す。
+        var resume = resume
+        resume?.mode = mode
         let entry = await makeEntry(sessionType: sessionType, mode: mode, on: today, resume: resume)
         startedAt = today
         sessionLogID = try? await store.startSessionLog(sessionType: sessionType, startedAt: today, tier: tier)
@@ -662,7 +708,8 @@ final class SessionViewModel {
             outcome: today?.outcome ?? .pending,
             isBeforePlannedTime: isBefore,
             plannedTimeLabel: today?.plannedAt.map(Self.timeLabel(for:)),
-            isVoicelessDay: today?.isVoiceless ?? (mode == .text),
+            // 約束がまだ無い日は、宣言を受けた時点で決まる。文字で始めたことでは決めない。
+            isVoicelessDay: today?.isVoiceless ?? false,
             day: dayNumber,
             // 3 日以内に同じ文言を繰り返さない（retention R5）。履歴は端末に残す（統合判断 D2）。
             copyHistory: copyHistoryStore.load(currentDay: dayNumber),
@@ -689,13 +736,13 @@ final class SessionViewModel {
 
     // MARK: - 画面から来る入力
 
-    /// 短文入力または確定した文字起こしを流す。
+    /// 入力欄から送られた文字の答えを流す。
     func submit(text: String) async {
         cutIn()
         await deliver(.event(.transcript(text)))
     }
 
-    /// チップを選んだ。進行中の聞き取りは止め、その結果はもう使わない。
+    /// チップ（答えの例を含む）を選んだ。進行中の聞き取りは止め、その結果はもう使わない。
     func select(_ choice: Choice) async {
         choices = []
         lastChoiceID = choice.id
@@ -773,30 +820,84 @@ final class SessionViewModel {
         var restart = base
         restart.step = .morningAvoidance
         restart.avoidance = ""
+        // 「声を出さない」は M0 の後で切り替えられている場合がある。いまの設定で入り直す。
+        restart.mode = isVoiceOff ? .text : .voice
         // 再開の入口（`FlowEntry.resume`）でそのステップから入り直す。
         await apply(FlowMachine.start(
             FlowEntry(sessionType: restart.sessionType, mode: restart.mode, resume: restart)
         ))
     }
 
-    /// 「話せない時」モードへ切り替える。進行中の読み上げは即座に止める（実装計画 §8）。
+    // MARK: - 入力方式（task_040。実装計画 §16.8）
+
+    /// 「声を出さない」に切り替える。進行中の読み上げをその場で止め、以降は読み上げを鳴らさず、
+    /// 答えを文字とチップで受ける。`switchToVoiceMode()` で戻せる。
     func switchToTextMode() async {
+        guard completion == nil, !isVoiceOff else { return }
+        // 処理中の入力がこの後に出す読み上げも鳴らさないよう、先に立てる。
+        isVoiceOff = true
         synthesizer.stop()
-        await deliver(.switchToText)
+        await deliver(.voiceOff(true))
     }
 
-    private func enterTextMode() async {
+    /// 「声を出さない」を戻す。次の質問から、読み上げと声の聞き取りに戻る（いまの質問は文字で待ったまま）。
+    /// マイクが拒否されている端末では何もしない。
+    func switchToVoiceMode() async {
+        guard canSwitchToVoice else { return }
+        isVoiceOff = false
+        await deliver(.voiceOff(false))
+    }
+
+    /// この質問だけ文字で答える（右下のキーボードのボタン）。進行中の聞き取りを止めて、文字で待つ。
+    /// 次の質問は声に戻る。その日を声なしにはしない。
+    func answerByTextOnce() async {
+        guard canAnswerByTextOnce else { return }
+        await deliver(.textOnce)
+    }
+
+    private func enterVoiceOff() async {
         stopListening()
         if await endIfTimeboxIsDue() { return }
-        isVoiceless = true
         guard var current = state else { return }
         current.mode = .text
-        current.isVoicelessDay = true
         state = current
-        if let pendingListen {
-            var request = pendingListen
+        if case .record = waiting {
+            // 宣言を声で頼んだ文言のままにしない。文字の宣言の聞き方で、この質問に入り直す。
+            await apply(FlowMachine.start(
+                FlowEntry(sessionType: current.sessionType, mode: .text, resume: current)
+            ))
+            return
+        }
+        await waitForText()
+    }
+
+    private func leaveVoiceOff() {
+        state?.mode = .voice
+    }
+
+    private func takeThisAnswerByText() async {
+        // 「声を出さない」は入口を通る前に立つ。先に切り替わっていたら、そちらが文字で待たせている。
+        guard !isVoiceOff, !acceptsTextInput else { return }
+        stopListening()
+        if await endIfTimeboxIsDue() { return }
+        await waitForText()
+    }
+
+    /// いま答えを待っている質問を、文字で受け直す。`FlowState.mode` は変えない。
+    private func waitForText() async {
+        switch waiting {
+        case .listen(var request):
             request.input = .text
             await beginListening(request)
+        case .record(let request):
+            await beginListening(ListenRequest(
+                step: request.step,
+                silenceSeconds: FlowMachine.firstSilenceSeconds,
+                input: .text
+            ))
+        default:
+            // チップだけが答えになる段階。文字では受けない。
+            break
         }
     }
 
@@ -857,6 +958,13 @@ final class SessionViewModel {
     }
 
     private func apply(_ transition: FlowTransition) async {
+        if transition.state.step != state?.step {
+            // 次の質問へ進んだ。前の質問のチップ・例・答えの待ちを持ち越さない。
+            choices = []
+            examples = []
+            pendingListen = nil
+            waiting = nil
+        }
         state = transition.state
         // 文言を 1 つ使うたびに履歴を残す。セッションをまたいで重複を避けるため（統合判断 D2）。
         copyHistoryStore.save(transition.state.picker.history)
@@ -957,7 +1065,8 @@ final class SessionViewModel {
             await beginListening(request)
 
         case .showChoices(let list):
-            choices = list
+            choices = offerable(list)
+            examples.removeAll { choices.contains($0) }
             phase = .choosing
 
         case .record(let request):
@@ -991,8 +1100,10 @@ final class SessionViewModel {
     // MARK: - 発話（半二重）
 
     private func speak(_ line: String) async {
-        phase = .speaking
         spokenLine = line
+        // 「声を出さない」の間は鳴らさない。質問文は画面に出すだけにする。
+        guard !isVoiceOff else { return }
+        phase = .speaking
         // TTS 発話中は STT へ流さない（実装計画 §7.3 の半二重）。
         // 「耳に当てて聞く」を選んだ日は読み上げも受話口から出す（retention R8）。
         let startedAt = ContinuousClock.now
@@ -1015,13 +1126,13 @@ final class SessionViewModel {
         pendingListen = request
         waiting = .listen(request)
         logger.info("listen begin step=\(String(describing: request.step), privacy: .public) input=\(String(describing: request.input), privacy: .public) silence=\(request.silenceSeconds, privacy: .public)s")
-        examples = request.examples
+        examples = offerable(request.examples).filter { !choices.contains($0) }
         partialTranscript = ""
         lastRecording = nil
         detector = SilenceDetector(duration: .standard)
 
         guard request.input == .voice else {
-            // 短文入力を待つ。沈黙の見張りは張らない（書いている途中で催促も質問の送りもしない）。
+            // 文字の答えを待つ。沈黙の見張りは張らない（書いている途中で催促も質問の送りもしない）。
             phase = .listening
             return
         }
@@ -1055,6 +1166,24 @@ final class SessionViewModel {
             phase = .listening
         }
     }
+
+    /// 画面に出せるチップだけを残す。時刻のチップは、いまの時刻でもう過ぎているもの（正午を過ぎた後の
+    /// 「昼」など）を出さない。判定は時刻の答えの解釈（`resolveTime`）と同じ。画面で時刻を選ぶ操作は
+    /// 無いので、「時刻を選ぶ」も出さない。
+    private func offerable(_ list: [Choice]) -> [Choice] {
+        let moment = now()
+        return list.filter { choice in
+            guard Self.timeChoiceIDs.contains(choice.id) else { return true }
+            guard let date = JapaneseTimeParser().parse(choice.label, now: moment, calendar: calendar).date else {
+                return false
+            }
+            return date > moment
+        }
+    }
+
+    /// 文言を時刻として解釈するチップ（「決めない」は時刻ではないので含めない）。
+    private static let timeChoiceIDs = Set(DialogueCopy.timeExampleIDs + DialogueCopy.timeChipIDs)
+        .subtracting([.timeUndecided])
 
     private struct StartedCapture {
         var session: VoiceCaptureSession
@@ -1551,7 +1680,9 @@ final class SessionViewModel {
 
         // 時刻と場所は M3 で解釈した値を使う。ここで解釈し直さない。
         let place = request.plannedTime?.place ?? spokenPlace
-        let voiceless = current.isVoicelessDay || request.isDeclarationDeferred || declaration.audioPath == nil
+        // 声なしかどうかは、宣言の録音ファイルがあるかで決める。会話を文字で始めたことや、途中で
+        // 文字を使ったことでは決めない（task_040）。
+        let voiceless = request.isDeclarationDeferred || declaration.audioPath == nil
         let draft = CommitmentDraft(
             avoidanceTitle: request.avoidance,
             domain: classifiedDomain,
@@ -1578,6 +1709,7 @@ final class SessionViewModel {
         commitment = saved
         plannedPlace = place ?? ""
         isVoiceless = voiceless
+        state?.isVoicelessDay = voiceless
         hasVoicedDeclaration = declaration.audioPath != nil
 
         // 声で宣言していない日は `createCommitment` が宣言の `VoiceEntry` を作らないので、

@@ -172,7 +172,8 @@ final class MorningFlowTests: XCTestCase {
         XCTAssertTrue(question.contains("何時") || question.contains("いつ"), question)
         XCTAssertTrue(question.contains("どこ"), question)
         XCTAssertTrue(transition.choiceGroups.isEmpty, "M3 は選択肢を出さない")
-        XCTAssertEqual(transition.listens.first?.examples.map(\.id), DialogueCopy.timeExampleIDs)
+        // 例は、押せる時刻のチップと同じ 4 つ（task_040）。
+        XCTAssertEqual(transition.listens.first?.examples.map(\.id), DialogueCopy.timeChipIDs)
     }
 
     // MARK: - M3 の時刻の解釈（task_034）
@@ -1004,6 +1005,57 @@ final class MorningFlowTests: XCTestCase {
                 XCTAssertFalse(line.contains("聞くね"), "後で聞くと約束しない: \(line)")
             }
         }
+    }
+
+    // MARK: - 声を出さない設定と、宣言の音声（task_040）
+
+    /// 途中まで文字で答え（声を出さない）、声に戻してから宣言を声で録った日。
+    /// 宣言の保存は音声ありで、その日は「声なし」にならない。会話を文字で始めたことでは決めない。
+    func testADeclarationVoicedAfterTypingEarlierAnswersKeepsItsAudio() {
+        var transition = FlowMachine.start(
+            FlowEntry(sessionType: .morning, mode: .text, isVoicelessDay: true)
+        )
+        transition = FlowMachine.handle(.transcript("上司への報告"), in: transition.state)
+        XCTAssertEqual(transition.saves.first?.hasAudio, false, "文字で答えた質問に音声は付かない")
+        transition = FlowMachine.handle(.choice(.reason(.anxious)), in: transition.state)
+        transition = FlowMachine.handle(.transcript("資料を開く"), in: transition.state)
+        XCTAssertEqual(transition.listens.map(\.input), [.text])
+
+        // ここで「声を出さない」を戻す。次の質問から声に戻る。
+        var state = transition.state
+        state.mode = .voice
+        transition = FlowMachine.handle(.transcript("15時に会社で"), in: state)
+        transition = FlowMachine.handle(.timeResolved(twoPM), in: transition.state)
+        XCTAssertEqual(transition.state.step, .morningDeclaration)
+        XCTAssertEqual(transition.records.count, 1, "宣言は声で録る")
+        XCTAssertTrue(transition.listens.isEmpty)
+
+        transition = FlowMachine.handle(.transcript("15時に資料を開きます"), in: transition.state)
+        XCTAssertEqual(transition.saves.map(\.kind), [.declaration])
+        XCTAssertEqual(transition.saves.first?.hasAudio, true)
+        XCTAssertEqual(transition.commits.count, 1)
+        XCTAssertFalse(transition.state.isVoicelessDay, "宣言を声で録った日を声なしにしない")
+    }
+
+    /// 声で始めた日でも、「声を出さない」に切り替えてから文字で宣言したら、その日は「声なし」になる。
+    func testATypedDeclarationAfterTurningTheVoiceOffMakesTheDayVoiceless() {
+        var state = morning(at: .morningPlannedTime).state
+        XCTAssertFalse(state.isVoicelessDay)
+        state.mode = .text
+        var transition = FlowMachine.handle(.transcript("15時に会社で"), in: state)
+        transition = FlowMachine.handle(.timeResolved(twoPM), in: transition.state)
+        XCTAssertEqual(transition.listens.map(\.input), [.text])
+        XCTAssertTrue(transition.records.isEmpty)
+
+        transition = FlowMachine.handle(.transcript("15時に資料を開きます"), in: transition.state)
+        XCTAssertEqual(transition.saves.first?.hasAudio, false)
+        XCTAssertTrue(transition.state.isVoicelessDay)
+    }
+
+    /// 時刻の例は、そのまま押せる時刻のチップと同じ 4 つ（実装計画 §16.8）。
+    func testPlannedTimeExamplesAreTheTimeChips() {
+        let transition = morning(at: .morningPlannedTime)
+        XCTAssertEqual(transition.listens.first?.examples.map(\.id), DialogueCopy.timeChipIDs)
     }
 
     // MARK: - ユーザーの言葉には Guardrails をかけない

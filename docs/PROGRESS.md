@@ -3308,3 +3308,148 @@ SessionViewModelTests testClosingWhileTheRetakeIsFinalizingDiscardsIt
 - 実機で「言い直す」を押し、録り終えた後に「聞いてみる」で新しい宣言が鳴ること。行動時刻の通知が従来どおり届き、昼の再生が新しい宣言になること。
 - 文言 7 つ（特に失敗時の 1 文）の言い回し。
 - 短縮版の朝フロー（昼・夜から始まるもの）でも 2 つのボタンを出すかどうか。
+
+## task_040 — 文字の経路を第一級にする
+
+- 日時: 2026-10-06
+- 状態: done（シミュレータの単体テストまで。画面の見た目は目視していない。実機では確かめていない）
+- ブランチ / コミット: task/040-text-path / このエントリを含むコミット（ハッシュは `git log` の `task_040:` 行）
+
+### 証拠
+
+| コマンド | exit code | ログ |
+|---|---|---|
+| `scripts/test-core.sh`（修正前。先に書いたテストだけを足した状態） | **1**（SaydoCore: Executed 253 tests, with 3 failures。失敗は下記の 3 件） | `docs/logs/task_040-1.txt` |
+| `scripts/test-ios.sh`（修正前。先に書いたテストだけを足した状態） | **65**（テストターゲットがコンパイルできない。`value of type 'SessionViewModel' has no member 'isVoiceOff'` ほか。テストは 1 件も実行されていない） | `docs/logs/task_040-2.txt` |
+| `scripts/test-core.sh`（修正後。コミットした内容） | 0（SaydoCore: Executed 253 tests, with 0 failures。SaydoAI: Executed 33 tests, with 0 failures。lint-principles: OK） | `docs/logs/task_040-3.txt` |
+| `scripts/test-ios.sh`（修正後。コミットした内容） | 0（`** TEST SUCCEEDED **`、Executed 213 tests, with 0 failures、lint-principles: OK） | `docs/logs/task_040-4.txt` |
+
+修正前に先に書いて失敗した SaydoCore のテスト（3 件。修正後は passed）:
+
+```
+MorningFlowTests testADeclarationVoicedAfterTypingEarlierAnswersKeepsItsAudio   （isVoicelessDay が true のまま）
+MorningFlowTests testATypedDeclarationAfterTurningTheVoiceOffMakesTheDayVoiceless （isVoicelessDay が false のまま）
+MorningFlowTests testPlannedTimeExamplesAreTheTimeChips                          （例が「1時間後 / 午後 / 夕方 / 時刻を選ぶ」）
+```
+
+先に書いた SessionViewModelTests（14 件）は、新しい API（`isVoiceOff`・`answerByTextOnce()`・`switchToVoiceMode()`・`canSwitchToVoice`・`showsTextField`・`canSkip`・`SessionCopy.status(for:awaitsText:)`）を使うので、修正前は「失敗」ではなく「コンパイルできない」である。個々のテストが赤になるところは観測していない。修正後はすべて passed:
+
+```
+testVoiceOffNeverSpeaksAndShowsTheQuestionOnScreen
+testAnsweringOneQuestionByTextReturnsToVoiceAndTheVoicedDeclarationKeepsItsAudio
+testVoiceOffCanBeSwitchedBackToVoiceFromTheNextQuestion
+testVoiceCannotBeRestoredWhenTheMicrophoneIsDenied
+testAVoiceOffMorningTypedFromM0ToM4SavesOneVoicelessCommitment
+testTurningTheVoiceOffDuringTheDeclarationRecordingAsksForATypedDeclaration
+testSkipIsOfferedOnlyOnQuestionsThatAreNotRequired
+testSkipIsOfferedOnTheVoicePathUnderTheSameCondition
+testPressingAnActionExampleAnswersTheMicroActionAndClearsTheOldChips
+testChipsOfTheReasonQuestionAreGoneAfterAVoicedAnswer
+testTimeChipsThatHaveAlreadyPassedAreNotOffered
+testTheTextFieldIsHiddenWhileOnlyChipsCanAnswer
+testAQuestionThatFellBackToTextShowsTheFieldForThatQuestionOnly
+testTheStatusLineSaysItIsWaitingForInputWhileATypedAnswerIsAwaited
+```
+
+### 入力方式の状態の持ち方（設計判断）
+
+3 つの事柄を別々の値で持つ。
+
+| 事柄 | 持ち方 | 戻せるか |
+|---|---|---|
+| (A) 声を出さない | `SessionViewModel.isVoiceOff`（画面が読む値）と `FlowState.mode == .text`（会話が読む値）。同じ意味で、進行の入口で揃える | `switchToVoiceMode()` で戻せる。マイク拒否（`microphoneGranted == false`）では戻せない |
+| (B) この質問だけ文字で答える | その質問の `ListenRequest.input` を `.text` にするだけ。`mode` も `isVoiceOff` も変えない | 次の質問は自動で声に戻る |
+| (C) アプリが文字に落とした質問 | (B) と同じ（task_032 / task_033 の既存の経路。`mode` は変えない） | 同上 |
+
+- **`FlowState.mode`** は「声を出さない」設定だけを表す。`.text` の間、`FlowMachine` は質問を文字で受け、M4 は文字の宣言（task_036 の文言）で待つ。
+- **`FlowState.isVoicelessDay`** は「その日の宣言が声で残っていない」を表す。朝の会話では宣言を受けた時点で `MorningFlow` が決め（`mode` で仮に決める）、`SessionViewModel.commit` が宣言の録音ファイルの有無で確定して書き戻す。会話を文字で始めたこと・途中で文字を使ったことでは立てない。昼フローが読む値（`FlowEntry.isVoicelessDay`）は従来どおり保存済みの約束の `isVoiceless`。約束がまだ無い日は false で入る（以前は「文字で始めたら true」だった）。
+- **Codable の形は変えていない。** `FlowState` / `FlowEntry` に項目を足していない。マイクの可否は `SessionViewModel` が持つ（`start` のたびに呼び出し側から渡されるので、途中状態に入れる必要が無かった）。
+- **`SaveInstruction.hasAudio`** は「音声を伴い得るか」に意味を揃えた（「声を出さない」の間とチップの答えは false）。実際に付けるかは、その答えの録音があるかで `SessionViewModel` が決める。入力欄から来た答えは、進行の入口で前の質問の録音を捨ててから流す（文字の答えに前の質問の録音が付く経路を塞いだ）。
+- **`SessionViewModel.isVoiceless`** は「今日の宣言が声で残っていない」だけを表す値にした（保存済みの約束と、この会話の `commit` で決まる）。会話を文字で始めただけでは立たない。
+
+### 仕様 1〜12 との対応
+
+1. **読み上げない**: `speak` は `isVoiceOff` の間 `synthesizer.speak` を呼ばず、`spokenLine` だけを更新する。`switchToTextMode()` は入口を通る前に `isVoiceOff` を立てて `synthesizer.stop()` を呼ぶ（処理中の入力がこの後に出す読み上げも鳴らない）。
+2. **入力欄**: `TextAnswerField`（新規）を会話画面の中に置いた。出す条件は `SessionViewModel.showsTextField`。`TextFallbackSheet` は削除した。キーボードの「送信」と「送る」で送れる。空（空白だけ）は送れない。
+3. **スキップ**: `SessionViewModel.canSkip`（答えを待っている質問があり、`FlowStep.isRequired` が false）。入力欄の下の右寄せの文字ボタン。声の経路でも同じ条件で出る。昼・夜の質問（必須ではない）にも従来どおり出る。
+4. **例のチップ**: `examples` を `ChoiceChipsView` で出し、押すと `select(_:)`（チップの答えと同じ経路）で流す。時刻のチップは `offerable(_:)` で、文言を `JapaneseTimeParser` にかけて「いまより後」のものだけ残す（`resolveTime` と同じ判定）。「時刻を選ぶ」は時刻として読めないので出ない。
+5. **チップだけの段階**: 前夜の引き継ぎの確認（M0 の入口）と、昼の「約束はまだ生きてる？」は、答えを待つ聞き取りが無いので入力欄を出さない。**M1（理由）は文字で自由に答えられるのが既存の仕様**（`MorningFlow.reason` が `.transcript` を受ける）なので、入力欄を出す。
+6. **前のチップと例を消す**: `apply` で段階（`FlowStep`）が変わったら `choices`・`examples`・`pendingListen`・`waiting` を消す。
+7. **状態行**: `SessionCopy.status(for:awaitsText:)`。文字の入力待ちは「入力を待っています」。呼吸のアニメーションは声の聞き取り中だけにした。
+8. **音声ありの判定**: `commit` の `voiceless` を「宣言の録音ファイルが無い（または後回し）」だけで決める。`current.isVoicelessDay ||` を外した。
+9. **(A) の間の M4**: `mode == .text` なので `MorningFlow` が文字の宣言で待つ。宣言の録音中に (A) に切り替えた場合は、録音を止めて M4 に入り直し、文字の宣言の文言に替える。(A) を戻してから M4 に来れば声の宣言。
+10. **最初から (A)**: `open` で `microphoneGranted && !voicelessMode` でなければ `isVoiceOff = true`。マイク拒否は `canSwitchToVoice == false`、時間帯は true。`FlowState` には何も足していない。
+11. **`mode` と `isVoicelessDay` の整理**: 上の「入力方式の状態の持ち方」のとおり。
+12. **文言・色・寸法**: 文言と VoiceOver ラベルは `SessionCopy`、色と寸法は `SaydoTheme`（新しい値は足していない。`minimumTapTarget` 44pt と `chipHeight` 46pt を使った）。
+
+### done_definition との対応
+
+| done_definition | 証拠 |
+|---|---|
+| 声を出さない状態で読み上げが鳴らない（VMT） | `testVoiceOffNeverSpeaksAndShowsTheQuestionOnScreen`（`spokenLines == []`、質問文は `spokenLine`）、`testAVoiceOffMorningTypedFromM0ToM4SavesOneVoicelessCommitment`、`testTurningTheVoiceOffDuringTheDeclarationRecordingAsksForATypedDeclaration`。passed |
+| 文字だけで M0〜M4 を通すと約束が保存される（VMT） | `testAVoiceOffMorningTypedFromM0ToM4SavesOneVoicelessCommitment`（約束 1 件、音声なし、`isVoiceless == true`、録音の開始 0 回）。passed |
+| 1 問だけ文字で答えた後、声に戻る（VMT） | `testAnsweringOneQuestionByTextReturnsToVoiceAndTheVoicedDeclarationKeepsItsAudio`（次の質問が読み上げられ、録音が始まり、宣言が音声ありで保存される）。passed |
+| 声で宣言した日は音声ありで保存される（MorningFlowTests） | `testADeclarationVoicedAfterTypingEarlierAnswersKeepsItsAudio`（宣言の保存命令が `hasAudio == true`、`isVoicelessDay == false`）。修正前 failed、修正後 passed。`CommitRequest` には音声の有無の項目が無いので、確かめているのは保存命令と状態である。保存された約束そのものは VMT の 2 件（上と `testVoiceOffCanBeSwitchedBackToVoiceFromTheNextQuestion`）で確かめた |
+| 必須の質問でスキップの操作が出ない（コードと実機で確認） | `testSkipIsOfferedOnlyOnQuestionsThatAreNotRequired`（M0・M2・M4 は false、M1・M3 は true）。画面は `canSkip` のときだけボタンを描く（コードで確認）。**実機では確かめていない** |
+| `scripts/test-core.sh` と `scripts/test-ios.sh` が exit 0 | `docs/logs/task_040-3.txt`、`docs/logs/task_040-4.txt` |
+
+### 書き換えた既存テスト
+
+マイク拒否（`microphoneGranted: false`）の会話は、新仕様では最初から「声を出さない」で、何も読み上げない。読み上げた行（`synthesizer.spokenLines`）を確かめていた既存テストを、次のどちらかに書き換えた。確かめている内容（どの文言が出るか）は弱めていない。
+
+読み上げる（声の）会話に替えたもの（`startSpokenMorning` と、キーボードのボタン → 入力欄で答える `type(_:into:)` を足した）:
+
+- `testSkippingTheFirstRequiredQuestionEndsAbandonedWithoutACommitment`、`testSkippingTheMicroActionEndsAbandonedWithoutACommitment`: 未成立の締めが読まれ、受領文が読まれないことを見るため。
+- `walkThroughDeclaration` を使う受領文のテスト 7 件（`testAScheduledPromiseIsNotifiedAtItsPlannedTimeAndTheReceiptSaysThatTime`、`testAnUnauthorizedNotification…`、`testAFailedNotification…`、`testANotificationInThePast…`、`testAPromiseWithoutATime…`、`testATemporaryStore…`、`testThePlaceIsSavedEvenWhenNoTimeWasDecided`）: 補助関数を、声の会話で各質問を「この質問だけ文字で答える」で通す形にした。テスト本体は変えていない。
+- `testListenModeIsAskedBeforeAnySoundStarts`、`testReadTextModePlaysNothingAndShowsTheDeclaration`、`testVoicelessCommitmentShowsTextAndIsNeverAskedToChoose`: マイク拒否のままだと「読み上げない」の確認が空振りになる（または前置きが読まれない）ため。
+
+「声を出さない」の会話のまま、画面の行（`spokenLine`）で確かめる形に替えたもの:
+
+- `testASaveFailureReadsNoReceiptAndAsksForTheDeclarationOnceMore`、`testASecondSaveFailureEndsWithoutACommitmentOrAReceipt`: 文字で宣言した会話は文字で受け直す、という経路を残すため（新しい補助 `walkThroughTypedDeclaration`）。途中の行の履歴は見られないので、確かめるのはその時点で画面に出ている行である。
+- `testADeclarationWithoutTheRequiredValuesSavesNothing`: 未成立の締めが画面に出ていること。
+- `testAPastTimeIsAskedAgainWithTheTimeChips`: 聞き直しの文言を画面の行で確かめる。15 時の時計なので、チップの期待値から「昼」を外した（仕様 4）。
+- `testATextDeclarationOffersNeitherThePreviewNorTheRetake`: 文字だけの日を作る補助を `walkThroughTypedDeclaration` に替えた。
+- `testTextInputWaitIsNeverNudgedOrAdvanced`: 画面の質問が替わらないことの確認を足した（読み上げの確認だけでは空振りになるため）。
+
+SaydoCore:
+
+- `MorningFlowTests.testPlannedTimeAsksTimeAndPlaceInOneQuestion`: M3 の例の期待値を `timeExampleIDs` から `timeChipIDs` に替えた（実装計画 §16.8「時刻のチップは 30 分後・昼・夕方・決めない」）。
+
+Guardrails の禁止語とテストは変えていない。
+
+### 新しい文言（`SessionCopy`）
+
+| 用途 | 文言 |
+|---|---|
+| 文字の入力待ちの状態行 | 入力を待っています |
+| 左下の切り替え（声の会話のとき） | 声を出さない（旧「話せない時」） |
+| その VoiceOver ラベル | 声を出さずに、文字で答える |
+| 左下の切り替え（声を出さない間） | 声に戻す |
+| その VoiceOver ラベル | 次の質問から、声で答える |
+| 右下のキーボードのボタンの VoiceOver ラベル | この質問だけ文字で答える（旧「キーボードで答える」） |
+| スキップの VoiceOver ラベル | この質問をスキップする |
+
+「短い言葉で」「送る」「スキップ」「文字で答える」（入力欄の VoiceOver ラベル）は既存の文言のまま。例の区切り（`exampleSeparator`）は使わなくなったので消した。読み上げる文言（`DialogueCopy`）は足していない。
+
+### 未解決
+
+- **画面の見た目は目視していない。** 入力欄・例のチップ・スキップを会話画面の縦の並びに足した。キーボードが上がった状態、理由のチップ 7 個と入力欄が同時に出る M1、小さい端末、Dynamic Type の大きい設定で収まるかは未確認。
+- **キーボードの上げ下げは未確認。** キーボードのボタンを押したときに入力欄へフォーカスを移す処理と、送信後にフォーカスを戻す処理は、コードを書いただけで実際の動きを見ていない。
+- **「声を出さない」の間、続けて出る 2 行のうち最初の行は見えない。** 2 日以上空いた日の「おかえりなさい」と最初の質問は続けて出るので、画面に残るのは質問だけになる。読ませるための間は入れていない。
+- **例のチップで保存される行動文は、チップの文言と同じとは限らない。** 「開くだけ」を押すと行動は「開く」になる（`DialogueCopy.actionText`。task_033 の必須の質問のチップと同じ経路で、行動文の規則を満たす言葉）。
+- **昼の再生は「声を出さない」でも鳴る。** 朝の声がある日の昼の会話は、(A) で始まっていても宣言の音声を再生する（聞き方の確認が出る条件なら確認は出る）。従来からの挙動で、昼の再生は task_043 の範囲なので変えていない。
+- **引き継ぎの確認の段階では、キーボードのボタンを押しても何も起きない。** チップだけが答えになる段階で、文字では受けない。ボタンは声の会話の間ずっと出している。
+- **(B) で宣言を文字にした場合、質問文は声の宣言を頼む文言のまま**（(C) と同じ）。文字の宣言の文言に替わるのは (A) のときだけ。
+- **設定画面の節の名前は「話せない時」のまま**（設定画面は範囲外）。会話画面の「声を出さない」と呼び名が揃っていない。
+- **`DialogueCopy.timeExampleIDs`（1時間後 / 午後 / 夕方 / 時刻を選ぶ）は、昼の「時間を変える」の例として残っている。** 押せるチップになったが、「時刻を選ぶ」は出ない。朝の M3 の例は `timeChipIDs` に替えた。
+- **中断からの再開**（task_044）: 再開する途中状態の `mode` は、再開時のマイクの可否と時間帯で上書きするようにした。再開そのものはまだ画面から使われていない。
+- 実機の読み上げ（`AVSpeechSynthesizer`）が切り替えの瞬間に止まることは、モックの `stop()` 呼び出しまでの確認である。
+
+### 人間の確認待ち
+
+- 実機で、左下の「声を出さない」を押すと読み上げが止まり、入力欄が出て、M0 から M4 まで文字だけで通せること。「声に戻す」で次の質問から読み上げと聞き取りに戻ること。
+- 実機で、右下のキーボードのボタンを押すとその質問だけ入力欄が出てキーボードが上がり、送ると次の質問は声に戻ること。
+- 必須の質問（M0・M2・M4）にスキップが出ず、理由と時刻には出ること。
+- 入力欄・チップ・スキップの配置と、キーボードを出したときの収まり（特に iPhone SE と xxxLarge）。
+- 文言 7 つの言い回し。特に「声を出さない」「声に戻す」。
+- 設定画面の「話せない時」の呼び名を「声を出さない」に揃えるかどうか。

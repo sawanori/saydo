@@ -186,7 +186,11 @@ public struct Choice: Sendable, Equatable, Hashable, Codable, Identifiable {
 
 // MARK: - 命令
 
-/// 入力の受け方。「話せない時」モードとマイク拒否では `.text` になる。
+/// 入力の受け方。
+///
+/// `FlowState.mode` としては「声を出さない」設定（task_040）を表す。`.text` の間は、質問を文字で受け、
+/// 宣言も文字で待つ。本人が会話の途中で切り替えられ、元にも戻せる（マイク拒否の端末は `.text` のまま）。
+/// 1 問だけ文字で答える場合は `mode` を変えず、その質問の `ListenRequest.input` だけが `.text` になる。
 public enum InputMode: String, Sendable, Equatable, Hashable, Codable {
     case voice
     case text
@@ -279,7 +283,10 @@ public struct SaveInstruction: Sendable, Equatable, Hashable, Codable {
     public var step: FlowStep
     /// 文字起こし、または選択肢の言葉。
     public var text: String
-    /// 音声ファイルを伴うか。選択肢と短文入力で答えた場合は false。
+    /// 音声ファイルを伴い得るか。選択肢で答えた場合と、「声を出さない」の間の答えは false。
+    ///
+    /// true でも、その質問だけ文字で答えた場合は録音が無い。実際に音声を付けるかは、
+    /// その答えの録音ファイルがあるかでアプリが決める（task_040）。
     public var hasAudio: Bool
 
     public init(kind: VoiceEntryKind, step: FlowStep, text: String, hasAudio: Bool) {
@@ -356,6 +363,7 @@ public enum FlowCommand: Sendable, Equatable, Hashable, Codable {
 public struct FlowState: Sendable, Equatable, Hashable, Codable {
     public var sessionType: SessionType
     public var step: FlowStep
+    /// 「声を出さない」設定か（`.text`）。その日の宣言が声で残るかどうかは、これでは決めない。
     public var mode: InputMode
     public var picker: CopyPicker
 
@@ -399,7 +407,11 @@ public struct FlowState: Sendable, Equatable, Hashable, Codable {
     public var isPromiseCheck: Bool
     /// 「時間を変える」を選んで、新しい時刻を聞いている最中か。
     public var isChangingTime: Bool
-    /// 「声なし」の日か（マイク拒否・宣言の後回し）。
+    /// その日の宣言が声で残っていないか。
+    ///
+    /// 朝の会話では、宣言を受けた時点で決まる（それまでの値は使わない）。会話を文字で始めたことや、
+    /// 途中で文字を使ったことでは決めない。昼の会話は、保存済みの約束の値を入口で受け取り、
+    /// 朝の声を再生するか、宣言を文字で見せるかをこれで選ぶ。
     public var isVoicelessDay: Bool
 
     /// 現在のステップで沈黙した回数（0 → 催促、1 → 必須でなければスキップ、必須なら受け方を変える）。
@@ -499,7 +511,7 @@ public struct FlowState: Sendable, Equatable, Hashable, Codable {
 /// 会話の入口の条件。フローを開く前に呼び出し側が埋める。
 public struct FlowEntry: Sendable, Equatable, Hashable, Codable {
     public var sessionType: SessionType
-    /// 「話せない時」モードとマイク拒否では `.text`。
+    /// 「声を出さない」設定で始めるなら `.text`（マイク拒否の端末と、設定した時間帯）。
     public var mode: InputMode
     /// 前夜からの引き継ぎ。
     public var carryover: String?
@@ -513,7 +525,7 @@ public struct FlowEntry: Sendable, Equatable, Hashable, Codable {
     public var isBeforePlannedTime: Bool
     /// 宣言に添えた時刻の表示（「14時」）。
     public var plannedTimeLabel: String?
-    /// 「声なし」の日か。
+    /// 当日の約束の宣言が声で残っていないか。約束がまだ無ければ false。
     public var isVoicelessDay: Bool
     /// 文言選択のための通し日番号。
     public var day: Int
@@ -729,13 +741,14 @@ public enum FlowMachine {
         )
     }
 
-    /// 例示（選択肢ではない）。
+    /// 例示。画面では押せるチップとして出し、押すとその文言が答えになる（実装計画 §16.8）。
+    /// 時刻の例は、聞き直しで出す時刻のチップと同じ 4 つ。
     static func examples(for step: FlowStep) -> [Choice] {
         switch step {
         case .morningMicroAction, .noonShrink:
             DialogueCopy.exampleActionIDs.map(Choice.init)
         case .morningPlannedTime:
-            DialogueCopy.timeExampleIDs.map(Choice.init)
+            DialogueCopy.timeChipIDs.map(Choice.init)
         default:
             []
         }
@@ -830,7 +843,8 @@ public enum FlowMachine {
         return .save(SaveInstruction(kind: kind, step: step, text: text, hasAudio: hasAudio))
     }
 
-    /// 音声で答えたか（「話せない時」モードと選択肢では音声を持たない）。
+    /// 声で答え得るか（「声を出さない」の間は音声を持たない）。
+    /// その質問だけ文字で答えた場合は録音が無いので、実際に付けるかはアプリが録音の有無で決める。
     static func hasAudio(_ state: FlowState) -> Bool {
         state.mode == .voice
     }
