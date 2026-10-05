@@ -2484,3 +2484,142 @@ EXIT=0
 ### 人間の確認待ち
 
 なし（実機の確認は task_035 の受領文と合わせて行う）。
+
+---
+
+## task_031 — 会話の進行を 1 本の直列の流れにし、聞き取りを世代で管理する
+
+- 日時: 2026-10-06
+- 状態: done（シミュレータでの単体テストまで。実機で読み上げと聞き取りが重ならないことは未確認で、task_039 で確かめる）
+- ブランチ / コミット: task/031-serial-turns / このエントリを含むコミット（ハッシュは `git log` の `task_031:` 行）
+
+### 証拠
+
+| コマンド | exit code | ログ |
+|---|---|---|
+| `scripts/test-ios.sh`（修正前のアプリ + 作り替えたモックと新しいテスト 6 件） | **65**（Executed 148 tests, 16 failures。新しい 5 件が失敗） | `docs/logs/task_031-1.txt` |
+| `scripts/test-ios.sh`（修正後・1 回目） | 0（Executed 148 tests, 0 failures） | `docs/logs/task_031-2.txt` |
+| `scripts/test-ios.sh`（`git stash -- App` で修正前のアプリに戻し、テスト 7 件で実行。この後でテストに足したのは時間切れのテストの `player.stopCount` の確認 2 行だけ） | **65**（Executed 148 tests, 17 failures。6 件が失敗） | `docs/logs/task_031-3.txt` |
+| `scripts/test-ios.sh`（修正後・最終。コミットした内容） | 0（`** TEST SUCCEEDED **`、Executed 148 tests, 0 failures、lint-principles: OK） | `docs/logs/task_031-4.txt` |
+| `scripts/lint-principles.sh` | 0（lint-principles: OK） | `docs/logs/task_031-5.txt` |
+
+採った設計:
+
+- `SessionViewModel` が `AsyncStream<Envelope>` の入口（`inbox`）を 1 つ持ち、`init` で起こした 1 本のタスクが入力を順に処理する（`process`）。`FlowMachine` に渡して命令を実行するのはこのタスクだけである。
+- 画面の操作（`start` / `submit` / `select` / `skip` / `interrupt` / `retakeAvoidance` / `switchToTextMode` / `chooseListenMode`）は `deliver` で入力を渡し、処理の終わりを待つ。録音の見張り・沈黙の見張り・時間切れの見張りは `post` で渡すだけで待たない。見張りのタスクが止められても進行は止まらない。公開メソッドのシグネチャは変えていない（`AppRouter` と View は無変更）。
+- 割り込み（`cutIn`）: `submit` / `select` / `skip` / `retakeAvoidance` / `timeboxElapsed` / `interrupt` は、入力を渡す前にその場で聞き取りを止めて世代を進め、`interruptions` を増やす。処理中（と処理待ち）の入力は、残りの発話・聞き取り・選択肢・録音・再生を実行せず、保存・通知・終了だけを実行する。時間切れと `interrupt` は読み上げと再生もその場で止める。
+- 聞き取りの世代（`listenGeneration`）: 始めるたび・止めるたび・確定するたびに進める。`prepareTranscriber()`・`transcriber.start()`・`transcriber.finish()` の `await` から戻るたびに `isCurrent(generation)`（世代が同じで、会話が終わっていない）を確かめ、古ければ録音を始めず（始めていれば止め）、結果を流さない。
+- `FlowMachine` が受け流した入力（前の質問のチップが画面に残っていて押された場合など）のために止めた聞き取りは、`waiting` に覚えた命令で戻す。これが無いと、`select()` が聞き取りを止めるようになった分だけ、会話が止まったままになる。
+
+done_definition との対応（VMT = `Tests/SaydoTests/SessionViewModelTests.swift`）:
+
+| done_definition | 証拠（テスト名） | 修正前 | 修正後 |
+|---|---|---|---|
+| 読み上げの完了を遅らせたテストで、全段階とも完了の前に録音が開始されない | `testRecordingNeverStartsBeforeSpeechCompletesThroughMorningFlow`（M0〜M4 の 5 段階すべてで、完了を解放する前に録音開始 0 回。録音開始は計 5 回） | failed | passed |
+| 沈黙の見張りを経た読み上げでも同じである | `testRecordingWaitsForTheNudgeAfterSilenceWatchFires`（見張りのタスクから発火させる。催促の完了前は録音開始 1 回のまま） | failed | passed |
+| 聞き取り中のチップ選択の後に、聞き直しの文言が読まれない | `testChoosingAChipWhileListeningDoesNotLeadToARetryPrompt`、`testChoosingAChipWhileFinalizingDiscardsTheTranscript`（確定の `await` の途中で選ぶ場合） | failed / failed | passed / passed |
+| 録音の準備中に閉じても録音が始まらない | `testClosingWhileThePreparationIsPendingNeverStartsRecording` | failed | passed |
+| 会話の終了後に録音が開始されず、読み上げも再生も止まっている | `testTimeboxDuringSpeechStopsTheSpeechAndNeverStartsRecording`（読み上げ中に時間切れ。録音開始 0 回、読み上げの残り 0、`player.stop()` が呼ばれている） | failed | passed |
+| `@unchecked Sendable` と `nonisolated(unsafe)` を足していない | `scripts/lint-principles.sh` が OK（`docs/logs/task_031-5.txt`） | — | OK |
+| `scripts/test-ios.sh` が exit 0 | `docs/logs/task_031-4.txt` | 65 | 0 |
+
+`testAnIgnoredChipResumesListening`（無関係なチップを押しても聞き取りが止まったままにならない）は、今回の変更で新しく起こり得る退行を防ぐためのテストで、修正前のコードでも passed である。
+
+修正前（`docs/logs/task_031-3.txt`）:
+
+```
+707:Test Case '-[SaydoTests.SessionViewModelTests testChoosingAChipWhileFinalizingDiscardsTheTranscript]' failed (0.039 seconds).
+731:Test Case '-[SaydoTests.SessionViewModelTests testChoosingAChipWhileListeningDoesNotLeadToARetryPrompt]' failed (0.012 seconds).
+744:Test Case '-[SaydoTests.SessionViewModelTests testClosingWhileThePreparationIsPendingNeverStartsRecording]' failed (0.007 seconds).
+1145:Test Case '-[SaydoTests.SessionViewModelTests testRecordingNeverStartsBeforeSpeechCompletesThroughMorningFlow]' failed (0.012 seconds).
+1160:Test Case '-[SaydoTests.SessionViewModelTests testRecordingWaitsForTheNudgeAfterSilenceWatchFires]' failed (0.007 seconds).
+1194:Test Case '-[SaydoTests.SessionViewModelTests testTimeboxDuringSpeechStopsTheSpeechAndNeverStartsRecording]' failed (0.035 seconds).
+1267:	 Executed 148 tests, with 17 failures (0 unexpected) in 0.609 (0.660) seconds
+1269:	 Executed 148 tests, with 17 failures (0 unexpected) in 0.609 (0.668) seconds
+1277:** TEST FAILED **
+EXIT=65
+```
+
+修正後（`docs/logs/task_031-4.txt`）:
+
+```
+355:Test Case '-[SaydoTests.SessionViewModelTests testAnIgnoredChipResumesListening]' passed (0.014 seconds).
+395:Test Case '-[SaydoTests.SessionViewModelTests testChoosingAChipWhileFinalizingDiscardsTheTranscript]' passed (0.005 seconds).
+412:Test Case '-[SaydoTests.SessionViewModelTests testChoosingAChipWhileListeningDoesNotLeadToARetryPrompt]' passed (0.004 seconds).
+420:Test Case '-[SaydoTests.SessionViewModelTests testClosingWhileThePreparationIsPendingNeverStartsRecording]' passed (0.003 seconds).
+818:Test Case '-[SaydoTests.SessionViewModelTests testRecordingNeverStartsBeforeSpeechCompletesThroughMorningFlow]' passed (0.010 seconds).
+830:Test Case '-[SaydoTests.SessionViewModelTests testRecordingWaitsForTheNudgeAfterSilenceWatchFires]' passed (0.004 seconds).
+853:Test Case '-[SaydoTests.SessionViewModelTests testTimeboxDuringSpeechStopsTheSpeechAndNeverStartsRecording]' passed (0.002 seconds).
+926:	 Executed 148 tests, with 0 failures (0 unexpected) in 0.526 (0.569) seconds
+928:	 Executed 148 tests, with 0 failures (0 unexpected) in 0.526 (0.572) seconds
+936:** TEST SUCCEEDED **
+```
+
+書き換えた既存テスト: **なし**。既存の 141 件は本体を 1 行も変えていない。変えたのはモックだけである。
+
+- `MockSynthesizer`: `holdsCompletion` を true にすると `speak()` が `completeNext()` まで戻らない（内部は `AsyncStream` を `for await` で待つので、呼び出し元のタスクが止められているとすぐ戻る）。既定は従来どおり即座に戻る。`stop()` は待っている読み上げを解放する。
+- `MockVoiceCapture`: `autoSilenceStarts` で「何回目の録音まで自動で無音を流すか」を決められる。`stop()` でストリームを閉じる。録音中の二重開始は実物と同じく `alreadyCapturing` を投げる。
+- `MockTranscriber`: `prepareGate` / `finishGate` で準備と確定の `await` を止められる。`cancel()` と `reset()` は確定済みの文字列も消す（実物の仕様に合わせた）。
+- `MockPlayer`: `stopCount` を足した。
+- 追加: `Gate`、`ManualTimer`。
+
+変更: `App/Features/Session/SessionViewModel.swift`、`App/Audio/SpeechSynthesisService.swift`（通知を発話の同一性で照合。発話中の再入は前の発話の終わりを待つ。待っているタスクが止められたら音を止める。`stop()` は中止の通知を待たずに待ち手を返す）、`App/Audio/TranscriptionService.swift`（`cancel()` が確定済みの文字列と件数も消す）、`Tests/SaydoTests/SessionViewModelTests.swift`。
+
+OSLog: `category=tts` の `utterance chars=… end=… elapsed=… voice=…` 行（`end` の値に `stopped` と `abandoned` が増えた）、`category=session` の `speak done` / `listen begin` / `listen end reason=…` 行は残した。足した行は `listen dropped stage=prepare|start|finalize`、`record dropped stage=…`、`command dropped …` である。
+
+`scripts/test-ios.sh` の末尾 30 行（`docs/logs/task_031-4.txt`）:
+
+```
+    Packages/SaydoCore/Sources/SaydoCore/Domain/FlowStep.swift:65: "今日の前進"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/FlowStep.swift:66: "明日のこと"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/FlowStep.swift:67: "終わり"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/ReasonCategory.swift:22: "気まずい"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/ReasonCategory.swift:23: "完璧にやりたい"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/ReasonCategory.swift:24: "面倒"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/ReasonCategory.swift:25: "不安・怖い"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/ReasonCategory.swift:26: "量が多い"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/ReasonCategory.swift:27: "何から始めるかわからない"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/ReasonCategory.swift:28: "期限が怖い"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/SessionType.swift:15: "朝"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/SessionType.swift:16: "昼"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/SessionType.swift:17: "夜"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/SessionType.swift:18: "手動"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/TaskDomain.swift:20: "人への返信"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/TaskDomain.swift:21: "お金"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/TaskDomain.swift:22: "大きなタスク"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/TaskDomain.swift:23: "営業"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/TaskDomain.swift:24: "書類"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/TaskDomain.swift:25: "健康"
+    Packages/SaydoCore/Sources/SaydoCore/Domain/TaskDomain.swift:26: "その他"
+    Packages/SaydoCore/Sources/SaydoCore/Flows/MorningFlow.swift:131: "特にない"
+    Packages/SaydoCore/Sources/SaydoCore/Flows/NightFlow.swift:56: "ない"
+    Packages/SaydoCore/Sources/SaydoCore/Flows/NightFlow.swift:57: "何もできなかった"
+    Packages/SaydoCore/Sources/SaydoCore/Flows/NoonFlow.swift:184: "少し"
+    Packages/SaydoCore/Sources/SaydoCore/Flows/NoonFlow.swift:185: "まだ"
+    Packages/SaydoCore/Sources/SaydoCore/Flows/NoonFlow.swift:187: "やった"
+    Packages/SaydoCore/Sources/SaydoCore/Flows/NoonFlow.swift:188: "終わった"
+lint-principles: OK
+EXIT=0
+```
+
+`scripts/lint-principles.sh` の末尾（`docs/logs/task_031-5.txt`）:
+
+```
+    Packages/SaydoCore/Sources/SaydoCore/Flows/NoonFlow.swift:188: "終わった"
+lint-principles: OK
+EXIT=0
+```
+
+### 未解決
+
+- `SpeechSynthesisService` と `TranscriptionService` の変更には単体テストが無い（`AVSpeechSynthesizer` と `SpeechAnalyzer` をシミュレータのテストで動かしていない）。コンパイルと、モック経由の `SessionViewModel` のテストまでしか確かめていない。特に次の 2 点は実機でしか分からない: `stopSpeaking(at: .immediate)` の直後に次の `speak()` を呼んでも正しく鳴るか。止めた発話の `didCancel` が遅れて届いたとき、次の発話に影響しないか（同一性の照合で捨てる設計にしてある）。
+- `select()` / `skip()` / `submit()` / `retakeAvoidance()` は聞き取りを止めるが、読み上げは止めない。読み上げ中に押した場合、その読み上げが終わってから次へ進む（残りの聞き取りは始めない）。読み上げを即座に切るかどうかは仕様の判断なので変えていない。
+- 「話せない時」への切り替え（`switchToTextMode()`）を読み上げ中に行うと、読み上げを止めた直後に声の聞き取りが一瞬始まり、すぐ止めて文字の入力待ちに切り替わる（修正前のコードは、読む限り声の聞き取りが始まったまま残る。実行しては確かめていない）。マイクが一瞬動く点は残っている。
+- 世代が古くて捨てた聞き取りと、沈黙の催促で止めた聞き取りの音声ファイルは、その場では消していない（修正前と同じ。起動時の掃除に任せている）。
+- `beginListening` で `transcriber.start()` が失敗した場合、録音（`capture`）を止めないまま文字の入力待ちに落ちる（修正前からの挙動。失敗の扱いは task_032 の範囲なので触っていない）。
+- 声で答えた後も前の質問のチップ（`choices`）が画面に残る（修正前からの挙動。画面の変更は範囲外）。押された場合は聞き取りを戻すようにしたが、チップ自体を消すのは task_033 以降で決める。
+- `PlaybackCardView` の `replayDeclaration()` は進行の外で直接再生する（会話を進めないため、直列の流れに入れていない）。会話の読み上げと同時に押せば重なり得る。
+
+### 人間の確認待ち
+
+- 実機で朝フローを声で 1 周し、2 回目以降の読み上げと聞き取りが重ならないことを確かめる（task_039）。Console で `subsystem:com.nonturn.saydo` を絞り、各段階で `category=tts` の `utterance … end=finished` と `category=session` の `speak done` が、次の `listen begin` より前に出ていることを見る。重なりが残った場合の切り分けは実装計画 §16.6 の 6 に従う（順序の不具合なら task_031 に戻す。音の回り込みなら task_052）。

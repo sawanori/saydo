@@ -1,0 +1,1026 @@
+⚙️  Generating plists...
+⚙️  Generating project...
+⚙️  Writing project...
+Created project at /Users/noritakasawada/AI_P/SAYDO/Saydo.xcodeproj
+test-ios: scheme=Saydo device=iPhone 17 runtime=com.apple.CoreSimulator.SimRuntime.iOS-26-3 udid=9D2D913B-5C7B-4969-B86C-C69CDFE434E2
+Command line invocation:
+    /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild test -project Saydo.xcodeproj -scheme Saydo -configuration Debug -destination id=9D2D913B-5C7B-4969-B86C-C69CDFE434E2 CODE_SIGNING_ALLOWED=NO
+
+Build settings from command line:
+    CODE_SIGNING_ALLOWED = NO
+
+Resolve Package Graph
+
+
+Resolved source packages:
+  SaydoCore: /Users/noritakasawada/AI_P/SAYDO/Packages/SaydoCore
+  SaydoAI: /Users/noritakasawada/AI_P/SAYDO/Packages/SaydoAI
+
+ComputePackagePrebuildTargetDependencyGraph
+
+Prepare packages
+
+CreateBuildRequest
+
+SendProjectDescription
+
+CreateBuildOperation
+
+ComputeTargetDependencyGraph
+note: Building targets in dependency order
+note: Target dependency graph (6 targets)
+    Target 'SaydoTests' in project 'Saydo'
+        ➜ Explicit dependency on target 'Saydo' in project 'Saydo'
+    Target 'Saydo' in project 'Saydo'
+        ➜ Explicit dependency on target 'SaydoCore' in project 'SaydoCore'
+        ➜ Explicit dependency on target 'SaydoAI' in project 'SaydoAI'
+    Target 'SaydoAI' in project 'SaydoAI'
+        ➜ Explicit dependency on target 'SaydoAI' in project 'SaydoAI'
+        ➜ Explicit dependency on target 'SaydoCore' in project 'SaydoCore'
+    Target 'SaydoAI' in project 'SaydoAI'
+        ➜ Explicit dependency on target 'SaydoCore' in project 'SaydoCore'
+    Target 'SaydoCore' in project 'SaydoCore'
+        ➜ Explicit dependency on target 'SaydoCore' in project 'SaydoCore'
+    Target 'SaydoCore' in project 'SaydoCore' (no dependencies)
+
+GatherProvisioningInputs
+
+CreateBuildDescription
+
+ClangStatCache /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.2.sdk /Users/noritakasawada/Library/Developer/Xcode/DerivedData/SDKStatCaches.noindex/iphonesimulator26.2-23C53-7d00a8b37fbd7999ea79df8ebc024bf0.sdkstatcache
+    cd /Users/noritakasawada/AI_P/SAYDO/Saydo.xcodeproj
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.2.sdk -o /Users/noritakasawada/Library/Developer/Xcode/DerivedData/SDKStatCaches.noindex/iphonesimulator26.2-23C53-7d00a8b37fbd7999ea79df8ebc024bf0.sdkstatcache
+
+SwiftDriver Saydo normal arm64 com.apple.xcode.tools.swift.compiler (in target 'Saydo' from project 'Saydo')
+    cd /Users/noritakasawada/AI_P/SAYDO
+    builtin-SwiftDriver -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name Saydo -Onone -enforce-exclusivity\=checked @/Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/Saydo.build/Objects-normal/arm64/Saydo.SwiftFileList -DDEBUG -enable-upcoming-feature ExistentialAny -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.2.sdk -target arm64-apple-ios26.0-simulator -g -module-cache-path /Users/noritakasawada/Library/Developer/Xcode/DerivedData/ModuleCache.noindex -Xfrontend -serialize-debugging-options -enable-testing -index-store-path /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Index.noindex/DataStore -Xcc -D_LIBCPP_HARDENING_MODE\=_LIBCPP_HARDENING_MODE_DEBUG -swift-version 6 -I /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Products/Debug-iphonesimulator -F /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Products/Debug-iphonesimulator/PackageFrameworks -F /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Products/Debug-iphonesimulator/PackageFrameworks -F /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Products/Debug-iphonesimulator -emit-localized-strings -emit-localized-strings-path /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/Saydo.build/Objects-normal/arm64 -c -j10 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /Users/noritakasawada/Library/Developer/Xcode/DerivedData/SDKStatCaches.noindex/iphonesimulator26.2-23C53-7d00a8b37fbd7999ea79df8ebc024bf0.sdkstatcache -output-file-map /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/Saydo.build/Objects-normal/arm64/Saydo-OutputFileMap.json -use-frontend-parseable-output -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules -clang-scanner-module-cache-path /Users/noritakasawada/Library/Developer/Xcode/DerivedData/ModuleCache.noindex -sdk-module-cache-path /Users/noritakasawada/Library/Developer/Xcode/DerivedData/ModuleCache.noindex -serialize-diagnostics -emit-dependencies -emit-module -emit-module-path /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/Saydo.build/Objects-normal/arm64/Saydo.swiftmodule -validate-clang-modules-once -clang-build-session-file /Users/noritakasawada/Library/Developer/Xcode/DerivedData/ModuleCache.noindex/Session.modulevalidation -Xcc -I/Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/Saydo.build/swift-overrides.hmap -emit-const-values -Xfrontend -const-gather-protocols-file -Xfrontend /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/Saydo.build/Objects-normal/arm64/Saydo_const_extract_protocols.json -Xcc -iquote -Xcc /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/Saydo.build/Saydo-generated-files.hmap -Xcc -I/Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/Saydo.build/Saydo-own-target-headers.hmap -Xcc -I/Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/Saydo.build/Saydo-all-non-framework-target-headers.hmap -Xcc -ivfsoverlay -Xcc /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/Saydo-6ca381a8fee1c498b948e65025eed0c5-VFS-iphonesimulator/all-product-headers.yaml -Xcc -iquote -Xcc /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/Saydo.build/Saydo-project-headers.hmap -Xcc -I/Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Products/Debug-iphonesimulator/include -Xcc -I/Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/Saydo.build/DerivedSources-normal/arm64 -Xcc -I/Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/Saydo.build/DerivedSources/arm64 -Xcc -I/Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/Saydo.build/DerivedSources -Xcc -DDEBUG\=1 -emit-objc-header -emit-objc-header-path /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/Saydo.build/Objects-normal/arm64/Saydo-Swift.h -working-directory /Users/noritakasawada/AI_P/SAYDO -experimental-emit-module-separately -disable-cmo
+
+SwiftCompile normal arm64 Compiling\ SaydoApp.swift /Users/noritakasawada/AI_P/SAYDO/App/SaydoApp.swift (in target 'Saydo' from project 'Saydo')
+
+SwiftCompile normal arm64 /Users/noritakasawada/AI_P/SAYDO/App/SaydoApp.swift (in target 'Saydo' from project 'Saydo')
+    cd /Users/noritakasawada/AI_P/SAYDO
+    
+
+SwiftEmitModule normal arm64 Emitting\ module\ for\ Saydo (in target 'Saydo' from project 'Saydo')
+EmitSwiftModule normal arm64 (in target 'Saydo' from project 'Saydo')
+    cd /Users/noritakasawada/AI_P/SAYDO
+    
+
+SwiftDriverJobDiscovery normal arm64 Compiling SaydoApp.swift (in target 'Saydo' from project 'Saydo')
+
+SwiftDriverJobDiscovery normal arm64 Emitting module for Saydo (in target 'Saydo' from project 'Saydo')
+
+SwiftDriver\ Compilation\ Requirements Saydo normal arm64 com.apple.xcode.tools.swift.compiler (in target 'Saydo' from project 'Saydo')
+    cd /Users/noritakasawada/AI_P/SAYDO
+    builtin-Swift-Compilation-Requirements -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name Saydo -Onone -enforce-exclusivity\=checked @/Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/Saydo.build/Objects-normal/arm64/Saydo.SwiftFileList -DDEBUG -enable-upcoming-feature ExistentialAny -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.2.sdk -target arm64-apple-ios26.0-simulator -g -module-cache-path /Users/noritakasawada/Library/Developer/Xcode/DerivedData/ModuleCache.noindex -Xfrontend -serialize-debugging-options -enable-testing -index-store-path /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Index.noindex/DataStore -Xcc -D_LIBCPP_HARDENING_MODE\=_LIBCPP_HARDENING_MODE_DEBUG -swift-version 6 -I /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Products/Debug-iphonesimulator -F /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Products/Debug-iphonesimulator/PackageFrameworks -F /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Products/Debug-iphonesimulator/PackageFrameworks -F /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Products/Debug-iphonesimulator -emit-localized-strings -emit-localized-strings-path /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/Saydo.build/Objects-normal/arm64 -c -j10 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /Users/noritakasawada/Library/Developer/Xcode/DerivedData/SDKStatCaches.noindex/iphonesimulator26.2-23C53-7d00a8b37fbd7999ea79df8ebc024bf0.sdkstatcache -output-file-map /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/Saydo.build/Objects-normal/arm64/Saydo-OutputFileMap.json -use-frontend-parseable-output -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules -clang-scanner-module-cache-path /Users/noritakasawada/Library/Developer/Xcode/DerivedData/ModuleCache.noindex -sdk-module-cache-path /Users/noritakasawada/Library/Developer/Xcode/DerivedData/ModuleCache.noindex -serialize-diagnostics -emit-dependencies -emit-module -emit-module-path /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/Saydo.build/Objects-normal/arm64/Saydo.swiftmodule -validate-clang-modules-once -clang-build-session-file /Users/noritakasawada/Library/Developer/Xcode/DerivedData/ModuleCache.noindex/Session.modulevalidation -Xcc -I/Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/Saydo.build/swift-overrides.hmap -emit-const-values -Xfrontend -const-gather-protocols-file -Xfrontend /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/Saydo.build/Objects-normal/arm64/Saydo_const_extract_protocols.json -Xcc -iquote -Xcc /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/Saydo.build/Saydo-generated-files.hmap -Xcc -I/Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/Saydo.build/Saydo-own-target-headers.hmap -Xcc -I/Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/Saydo.build/Saydo-all-non-framework-target-headers.hmap -Xcc -ivfsoverlay -Xcc /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/Saydo-6ca381a8fee1c498b948e65025eed0c5-VFS-iphonesimulator/all-product-headers.yaml -Xcc -iquote -Xcc /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/Saydo.build/Saydo-project-headers.hmap -Xcc -I/Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Products/Debug-iphonesimulator/include -Xcc -I/Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/Saydo.build/DerivedSources-normal/arm64 -Xcc -I/Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/Saydo.build/DerivedSources/arm64 -Xcc -I/Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/Saydo.build/DerivedSources -Xcc -DDEBUG\=1 -emit-objc-header -emit-objc-header-path /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/Saydo.build/Objects-normal/arm64/Saydo-Swift.h -working-directory /Users/noritakasawada/AI_P/SAYDO -experimental-emit-module-separately -disable-cmo
+
+SwiftDriver\ Compilation Saydo normal arm64 com.apple.xcode.tools.swift.compiler (in target 'Saydo' from project 'Saydo')
+    cd /Users/noritakasawada/AI_P/SAYDO
+    builtin-Swift-Compilation -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name Saydo -Onone -enforce-exclusivity\=checked @/Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/Saydo.build/Objects-normal/arm64/Saydo.SwiftFileList -DDEBUG -enable-upcoming-feature ExistentialAny -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.2.sdk -target arm64-apple-ios26.0-simulator -g -module-cache-path /Users/noritakasawada/Library/Developer/Xcode/DerivedData/ModuleCache.noindex -Xfrontend -serialize-debugging-options -enable-testing -index-store-path /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Index.noindex/DataStore -Xcc -D_LIBCPP_HARDENING_MODE\=_LIBCPP_HARDENING_MODE_DEBUG -swift-version 6 -I /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Products/Debug-iphonesimulator -F /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Products/Debug-iphonesimulator/PackageFrameworks -F /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Products/Debug-iphonesimulator/PackageFrameworks -F /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Products/Debug-iphonesimulator -emit-localized-strings -emit-localized-strings-path /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/Saydo.build/Objects-normal/arm64 -c -j10 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /Users/noritakasawada/Library/Developer/Xcode/DerivedData/SDKStatCaches.noindex/iphonesimulator26.2-23C53-7d00a8b37fbd7999ea79df8ebc024bf0.sdkstatcache -output-file-map /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/Saydo.build/Objects-normal/arm64/Saydo-OutputFileMap.json -use-frontend-parseable-output -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules -clang-scanner-module-cache-path /Users/noritakasawada/Library/Developer/Xcode/DerivedData/ModuleCache.noindex -sdk-module-cache-path /Users/noritakasawada/Library/Developer/Xcode/DerivedData/ModuleCache.noindex -serialize-diagnostics -emit-dependencies -emit-module -emit-module-path /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/Saydo.build/Objects-normal/arm64/Saydo.swiftmodule -validate-clang-modules-once -clang-build-session-file /Users/noritakasawada/Library/Developer/Xcode/DerivedData/ModuleCache.noindex/Session.modulevalidation -Xcc -I/Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/Saydo.build/swift-overrides.hmap -emit-const-values -Xfrontend -const-gather-protocols-file -Xfrontend /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/Saydo.build/Objects-normal/arm64/Saydo_const_extract_protocols.json -Xcc -iquote -Xcc /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/Saydo.build/Saydo-generated-files.hmap -Xcc -I/Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/Saydo.build/Saydo-own-target-headers.hmap -Xcc -I/Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/Saydo.build/Saydo-all-non-framework-target-headers.hmap -Xcc -ivfsoverlay -Xcc /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/Saydo-6ca381a8fee1c498b948e65025eed0c5-VFS-iphonesimulator/all-product-headers.yaml -Xcc -iquote -Xcc /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/Saydo.build/Saydo-project-headers.hmap -Xcc -I/Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Products/Debug-iphonesimulator/include -Xcc -I/Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/Saydo.build/DerivedSources-normal/arm64 -Xcc -I/Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/Saydo.build/DerivedSources/arm64 -Xcc -I/Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/Saydo.build/DerivedSources -Xcc -DDEBUG\=1 -emit-objc-header -emit-objc-header-path /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/Saydo.build/Objects-normal/arm64/Saydo-Swift.h -working-directory /Users/noritakasawada/AI_P/SAYDO -experimental-emit-module-separately -disable-cmo
+
+Copy /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Products/Debug-iphonesimulator/Saydo.swiftmodule/Project/arm64-apple-ios-simulator.swiftsourceinfo /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/Saydo.build/Objects-normal/arm64/Saydo.swiftsourceinfo (in target 'Saydo' from project 'Saydo')
+    cd /Users/noritakasawada/AI_P/SAYDO
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/Saydo.build/Objects-normal/arm64/Saydo.swiftsourceinfo /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Products/Debug-iphonesimulator/Saydo.swiftmodule/Project/arm64-apple-ios-simulator.swiftsourceinfo
+
+Copy /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Products/Debug-iphonesimulator/Saydo.swiftmodule/arm64-apple-ios-simulator.abi.json /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/Saydo.build/Objects-normal/arm64/Saydo.abi.json (in target 'Saydo' from project 'Saydo')
+    cd /Users/noritakasawada/AI_P/SAYDO
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/Saydo.build/Objects-normal/arm64/Saydo.abi.json /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Products/Debug-iphonesimulator/Saydo.swiftmodule/arm64-apple-ios-simulator.abi.json
+
+SwiftDriver SaydoTests normal arm64 com.apple.xcode.tools.swift.compiler (in target 'SaydoTests' from project 'Saydo')
+    cd /Users/noritakasawada/AI_P/SAYDO
+    builtin-SwiftDriver -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name SaydoTests -Onone -enforce-exclusivity\=checked @/Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/SaydoTests.build/Objects-normal/arm64/SaydoTests.SwiftFileList -DDEBUG -plugin-path /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing -enable-upcoming-feature ExistentialAny -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.2.sdk -target arm64-apple-ios26.0-simulator -g -module-cache-path /Users/noritakasawada/Library/Developer/Xcode/DerivedData/ModuleCache.noindex -Xfrontend -serialize-debugging-options -enable-testing -index-store-path /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Index.noindex/DataStore -Xcc -D_LIBCPP_HARDENING_MODE\=_LIBCPP_HARDENING_MODE_DEBUG -swift-version 6 -I /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Products/Debug-iphonesimulator -Isystem /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/lib -F /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Products/Debug-iphonesimulator/PackageFrameworks -F /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Products/Debug-iphonesimulator/PackageFrameworks -F /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Products/Debug-iphonesimulator -F /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/Library/Frameworks -F /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.2.sdk/Developer/Library/Frameworks -c -j10 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /Users/noritakasawada/Library/Developer/Xcode/DerivedData/SDKStatCaches.noindex/iphonesimulator26.2-23C53-7d00a8b37fbd7999ea79df8ebc024bf0.sdkstatcache -output-file-map /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/SaydoTests.build/Objects-normal/arm64/SaydoTests-OutputFileMap.json -use-frontend-parseable-output -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules -clang-scanner-module-cache-path /Users/noritakasawada/Library/Developer/Xcode/DerivedData/ModuleCache.noindex -sdk-module-cache-path /Users/noritakasawada/Library/Developer/Xcode/DerivedData/ModuleCache.noindex -serialize-diagnostics -emit-dependencies -emit-module -emit-module-path /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/SaydoTests.build/Objects-normal/arm64/SaydoTests.swiftmodule -validate-clang-modules-once -clang-build-session-file /Users/noritakasawada/Library/Developer/Xcode/DerivedData/ModuleCache.noindex/Session.modulevalidation -Xcc -I/Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/SaydoTests.build/swift-overrides.hmap -emit-const-values -Xfrontend -const-gather-protocols-file -Xfrontend /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/SaydoTests.build/Objects-normal/arm64/SaydoTests_const_extract_protocols.json -Xcc -iquote -Xcc /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/SaydoTests.build/SaydoTests-generated-files.hmap -Xcc -I/Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/SaydoTests.build/SaydoTests-own-target-headers.hmap -Xcc -I/Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/SaydoTests.build/SaydoTests-all-non-framework-target-headers.hmap -Xcc -ivfsoverlay -Xcc /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/Saydo-6ca381a8fee1c498b948e65025eed0c5-VFS-iphonesimulator/all-product-headers.yaml -Xcc -iquote -Xcc /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/SaydoTests.build/SaydoTests-project-headers.hmap -Xcc -I/Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Products/Debug-iphonesimulator/include -Xcc -I/Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/SaydoTests.build/DerivedSources-normal/arm64 -Xcc -I/Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/SaydoTests.build/DerivedSources/arm64 -Xcc -I/Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/SaydoTests.build/DerivedSources -Xcc -DDEBUG\=1 -emit-objc-header -emit-objc-header-path /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/SaydoTests.build/Objects-normal/arm64/SaydoTests-Swift.h -working-directory /Users/noritakasawada/AI_P/SAYDO -experimental-emit-module-separately -disable-cmo
+
+ExtractAppIntentsMetadata (in target 'Saydo' from project 'Saydo')
+    cd /Users/noritakasawada/AI_P/SAYDO
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/appintentsmetadataprocessor --toolchain-dir /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain --module-name Saydo --sdk-root /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.2.sdk --xcode-version 17C52 --platform-family iOS --deployment-target 26.0 --bundle-identifier com.nonturn.saydo --output /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Products/Debug-iphonesimulator/Saydo.app --target-triple arm64-apple-ios26.0-simulator --binary-file /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Products/Debug-iphonesimulator/Saydo.app/Saydo --dependency-file /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/Saydo.build/Objects-normal/arm64/Saydo_dependency_info.dat --stringsdata-file /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/Saydo.build/Objects-normal/arm64/ExtractedAppShortcutsMetadata.stringsdata --source-file-list /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/Saydo.build/Objects-normal/arm64/Saydo.SwiftFileList --metadata-file-list /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/Saydo.build/Saydo.DependencyMetadataFileList --static-metadata-file-list /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/Saydo.build/Saydo.DependencyStaticMetadataFileList --swift-const-vals-list /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/Saydo.build/Objects-normal/arm64/Saydo.SwiftConstValuesFileList --compile-time-extraction --deployment-aware-processing --validate-assistant-intents --no-app-shortcuts-localization
+2026-10-06 06:44:55.052 appintentsmetadataprocessor[74068:64802964] Starting appintentsmetadataprocessor export
+2026-10-06 06:44:55.054 appintentsmetadataprocessor[74068:64802964] warning: Metadata extraction skipped. No AppIntents.framework dependency found.
+
+SwiftCompile normal arm64 Compiling\ LaunchSafetyTests.swift /Users/noritakasawada/AI_P/SAYDO/Tests/SaydoTests/LaunchSafetyTests.swift (in target 'SaydoTests' from project 'Saydo')
+
+SwiftCompile normal arm64 /Users/noritakasawada/AI_P/SAYDO/Tests/SaydoTests/LaunchSafetyTests.swift (in target 'SaydoTests' from project 'Saydo')
+    cd /Users/noritakasawada/AI_P/SAYDO
+    
+
+SwiftEmitModule normal arm64 Emitting\ module\ for\ SaydoTests (in target 'SaydoTests' from project 'Saydo')
+EmitSwiftModule normal arm64 (in target 'SaydoTests' from project 'Saydo')
+    cd /Users/noritakasawada/AI_P/SAYDO
+    
+
+SwiftCompile normal arm64 Compiling\ SessionViewModelTests.swift /Users/noritakasawada/AI_P/SAYDO/Tests/SaydoTests/SessionViewModelTests.swift (in target 'SaydoTests' from project 'Saydo')
+SwiftCompile normal arm64 /Users/noritakasawada/AI_P/SAYDO/Tests/SaydoTests/SessionViewModelTests.swift (in target 'SaydoTests' from project 'Saydo')
+    cd /Users/noritakasawada/AI_P/SAYDO
+    
+
+SwiftDriverJobDiscovery normal arm64 Compiling LaunchSafetyTests.swift (in target 'SaydoTests' from project 'Saydo')
+
+SwiftDriverJobDiscovery normal arm64 Emitting module for SaydoTests (in target 'SaydoTests' from project 'Saydo')
+
+SwiftDriver\ Compilation\ Requirements SaydoTests normal arm64 com.apple.xcode.tools.swift.compiler (in target 'SaydoTests' from project 'Saydo')
+    cd /Users/noritakasawada/AI_P/SAYDO
+    builtin-Swift-Compilation-Requirements -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name SaydoTests -Onone -enforce-exclusivity\=checked @/Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/SaydoTests.build/Objects-normal/arm64/SaydoTests.SwiftFileList -DDEBUG -plugin-path /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing -enable-upcoming-feature ExistentialAny -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.2.sdk -target arm64-apple-ios26.0-simulator -g -module-cache-path /Users/noritakasawada/Library/Developer/Xcode/DerivedData/ModuleCache.noindex -Xfrontend -serialize-debugging-options -enable-testing -index-store-path /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Index.noindex/DataStore -Xcc -D_LIBCPP_HARDENING_MODE\=_LIBCPP_HARDENING_MODE_DEBUG -swift-version 6 -I /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Products/Debug-iphonesimulator -Isystem /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/lib -F /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Products/Debug-iphonesimulator/PackageFrameworks -F /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Products/Debug-iphonesimulator/PackageFrameworks -F /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Products/Debug-iphonesimulator -F /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/Library/Frameworks -F /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.2.sdk/Developer/Library/Frameworks -c -j10 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /Users/noritakasawada/Library/Developer/Xcode/DerivedData/SDKStatCaches.noindex/iphonesimulator26.2-23C53-7d00a8b37fbd7999ea79df8ebc024bf0.sdkstatcache -output-file-map /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/SaydoTests.build/Objects-normal/arm64/SaydoTests-OutputFileMap.json -use-frontend-parseable-output -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules -clang-scanner-module-cache-path /Users/noritakasawada/Library/Developer/Xcode/DerivedData/ModuleCache.noindex -sdk-module-cache-path /Users/noritakasawada/Library/Developer/Xcode/DerivedData/ModuleCache.noindex -serialize-diagnostics -emit-dependencies -emit-module -emit-module-path /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/SaydoTests.build/Objects-normal/arm64/SaydoTests.swiftmodule -validate-clang-modules-once -clang-build-session-file /Users/noritakasawada/Library/Developer/Xcode/DerivedData/ModuleCache.noindex/Session.modulevalidation -Xcc -I/Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/SaydoTests.build/swift-overrides.hmap -emit-const-values -Xfrontend -const-gather-protocols-file -Xfrontend /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/SaydoTests.build/Objects-normal/arm64/SaydoTests_const_extract_protocols.json -Xcc -iquote -Xcc /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/SaydoTests.build/SaydoTests-generated-files.hmap -Xcc -I/Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/SaydoTests.build/SaydoTests-own-target-headers.hmap -Xcc -I/Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/SaydoTests.build/SaydoTests-all-non-framework-target-headers.hmap -Xcc -ivfsoverlay -Xcc /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/Saydo-6ca381a8fee1c498b948e65025eed0c5-VFS-iphonesimulator/all-product-headers.yaml -Xcc -iquote -Xcc /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/SaydoTests.build/SaydoTests-project-headers.hmap -Xcc -I/Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Products/Debug-iphonesimulator/include -Xcc -I/Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/SaydoTests.build/DerivedSources-normal/arm64 -Xcc -I/Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/SaydoTests.build/DerivedSources/arm64 -Xcc -I/Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/SaydoTests.build/DerivedSources -Xcc -DDEBUG\=1 -emit-objc-header -emit-objc-header-path /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/SaydoTests.build/Objects-normal/arm64/SaydoTests-Swift.h -working-directory /Users/noritakasawada/AI_P/SAYDO -experimental-emit-module-separately -disable-cmo
+
+Copy /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Products/Debug-iphonesimulator/SaydoTests.swiftmodule/Project/arm64-apple-ios-simulator.swiftsourceinfo /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/SaydoTests.build/Objects-normal/arm64/SaydoTests.swiftsourceinfo (in target 'SaydoTests' from project 'Saydo')
+    cd /Users/noritakasawada/AI_P/SAYDO
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/SaydoTests.build/Objects-normal/arm64/SaydoTests.swiftsourceinfo /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Products/Debug-iphonesimulator/SaydoTests.swiftmodule/Project/arm64-apple-ios-simulator.swiftsourceinfo
+
+Copy /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Products/Debug-iphonesimulator/SaydoTests.swiftmodule/arm64-apple-ios-simulator.swiftmodule /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/SaydoTests.build/Objects-normal/arm64/SaydoTests.swiftmodule (in target 'SaydoTests' from project 'Saydo')
+    cd /Users/noritakasawada/AI_P/SAYDO
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/SaydoTests.build/Objects-normal/arm64/SaydoTests.swiftmodule /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Products/Debug-iphonesimulator/SaydoTests.swiftmodule/arm64-apple-ios-simulator.swiftmodule
+
+Copy /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Products/Debug-iphonesimulator/SaydoTests.swiftmodule/arm64-apple-ios-simulator.swiftdoc /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/SaydoTests.build/Objects-normal/arm64/SaydoTests.swiftdoc (in target 'SaydoTests' from project 'Saydo')
+    cd /Users/noritakasawada/AI_P/SAYDO
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/SaydoTests.build/Objects-normal/arm64/SaydoTests.swiftdoc /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Products/Debug-iphonesimulator/SaydoTests.swiftmodule/arm64-apple-ios-simulator.swiftdoc
+
+Copy /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Products/Debug-iphonesimulator/SaydoTests.swiftmodule/arm64-apple-ios-simulator.abi.json /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/SaydoTests.build/Objects-normal/arm64/SaydoTests.abi.json (in target 'SaydoTests' from project 'Saydo')
+    cd /Users/noritakasawada/AI_P/SAYDO
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/SaydoTests.build/Objects-normal/arm64/SaydoTests.abi.json /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Products/Debug-iphonesimulator/SaydoTests.swiftmodule/arm64-apple-ios-simulator.abi.json
+
+SwiftDriverJobDiscovery normal arm64 Compiling SessionViewModelTests.swift (in target 'SaydoTests' from project 'Saydo')
+
+SwiftDriver\ Compilation SaydoTests normal arm64 com.apple.xcode.tools.swift.compiler (in target 'SaydoTests' from project 'Saydo')
+    cd /Users/noritakasawada/AI_P/SAYDO
+    builtin-Swift-Compilation -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name SaydoTests -Onone -enforce-exclusivity\=checked @/Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/SaydoTests.build/Objects-normal/arm64/SaydoTests.SwiftFileList -DDEBUG -plugin-path /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing -enable-upcoming-feature ExistentialAny -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.2.sdk -target arm64-apple-ios26.0-simulator -g -module-cache-path /Users/noritakasawada/Library/Developer/Xcode/DerivedData/ModuleCache.noindex -Xfrontend -serialize-debugging-options -enable-testing -index-store-path /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Index.noindex/DataStore -Xcc -D_LIBCPP_HARDENING_MODE\=_LIBCPP_HARDENING_MODE_DEBUG -swift-version 6 -I /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Products/Debug-iphonesimulator -Isystem /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/lib -F /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Products/Debug-iphonesimulator/PackageFrameworks -F /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Products/Debug-iphonesimulator/PackageFrameworks -F /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Products/Debug-iphonesimulator -F /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/Library/Frameworks -F /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.2.sdk/Developer/Library/Frameworks -c -j10 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /Users/noritakasawada/Library/Developer/Xcode/DerivedData/SDKStatCaches.noindex/iphonesimulator26.2-23C53-7d00a8b37fbd7999ea79df8ebc024bf0.sdkstatcache -output-file-map /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/SaydoTests.build/Objects-normal/arm64/SaydoTests-OutputFileMap.json -use-frontend-parseable-output -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules -clang-scanner-module-cache-path /Users/noritakasawada/Library/Developer/Xcode/DerivedData/ModuleCache.noindex -sdk-module-cache-path /Users/noritakasawada/Library/Developer/Xcode/DerivedData/ModuleCache.noindex -serialize-diagnostics -emit-dependencies -emit-module -emit-module-path /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/SaydoTests.build/Objects-normal/arm64/SaydoTests.swiftmodule -validate-clang-modules-once -clang-build-session-file /Users/noritakasawada/Library/Developer/Xcode/DerivedData/ModuleCache.noindex/Session.modulevalidation -Xcc -I/Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/SaydoTests.build/swift-overrides.hmap -emit-const-values -Xfrontend -const-gather-protocols-file -Xfrontend /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/SaydoTests.build/Objects-normal/arm64/SaydoTests_const_extract_protocols.json -Xcc -iquote -Xcc /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/SaydoTests.build/SaydoTests-generated-files.hmap -Xcc -I/Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/SaydoTests.build/SaydoTests-own-target-headers.hmap -Xcc -I/Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/SaydoTests.build/SaydoTests-all-non-framework-target-headers.hmap -Xcc -ivfsoverlay -Xcc /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/Saydo-6ca381a8fee1c498b948e65025eed0c5-VFS-iphonesimulator/all-product-headers.yaml -Xcc -iquote -Xcc /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/SaydoTests.build/SaydoTests-project-headers.hmap -Xcc -I/Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Products/Debug-iphonesimulator/include -Xcc -I/Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/SaydoTests.build/DerivedSources-normal/arm64 -Xcc -I/Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/SaydoTests.build/DerivedSources/arm64 -Xcc -I/Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/SaydoTests.build/DerivedSources -Xcc -DDEBUG\=1 -emit-objc-header -emit-objc-header-path /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/SaydoTests.build/Objects-normal/arm64/SaydoTests-Swift.h -working-directory /Users/noritakasawada/AI_P/SAYDO -experimental-emit-module-separately -disable-cmo
+
+Ld /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Products/Debug-iphonesimulator/Saydo.app/PlugIns/SaydoTests.xctest/SaydoTests normal (in target 'SaydoTests' from project 'Saydo')
+    cd /Users/noritakasawada/AI_P/SAYDO
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -Xlinker -reproducible -target arm64-apple-ios26.0-simulator -bundle -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.2.sdk -O0 -L/Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/EagerLinkingTBDs/Debug-iphonesimulator -L/Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Products/Debug-iphonesimulator -L/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/lib -F/Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/EagerLinkingTBDs/Debug-iphonesimulator -F/Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Products/Debug-iphonesimulator/PackageFrameworks -F/Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Products/Debug-iphonesimulator/PackageFrameworks -F/Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Products/Debug-iphonesimulator -iframework /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/Library/Frameworks -iframework /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.2.sdk/Developer/Library/Frameworks -filelist /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/SaydoTests.build/Objects-normal/arm64/SaydoTests.LinkFileList -Xlinker -rpath -Xlinker /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Products/Debug-iphonesimulator/PackageFrameworks -Xlinker -rpath -Xlinker @loader_path/Frameworks -Xlinker -rpath -Xlinker @executable_path/Frameworks -dead_strip -bundle_loader /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Products/Debug-iphonesimulator/Saydo.app/Saydo -Xlinker -object_path_lto -Xlinker /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/SaydoTests.build/Objects-normal/arm64/SaydoTests_lto.o -rdynamic -Xlinker -no_deduplicate -Xlinker -objc_abi_version -Xlinker 2 -Xlinker -dependency_info -Xlinker /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/SaydoTests.build/Objects-normal/arm64/SaydoTests_dependency_info.dat -fobjc-link-runtime -L/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/iphonesimulator -L/usr/lib/swift -Xlinker -add_ast_path -Xlinker /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/SaydoTests.build/Objects-normal/arm64/SaydoTests.swiftmodule @/Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/SaydoTests.build/Objects-normal/arm64/SaydoTests-linker-args.resp -Wl,-no_warn_duplicate_libraries -Wl,-no_warn_duplicate_libraries -Xlinker -needed_framework -Xlinker XCTest -framework XCTest -Xlinker -needed-lXCTestSwiftSupport -lXCTestSwiftSupport /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Products/Debug-iphonesimulator/Saydo.app/Saydo.debug.dylib -o /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Products/Debug-iphonesimulator/Saydo.app/PlugIns/SaydoTests.xctest/SaydoTests
+
+CopySwiftLibs /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Products/Debug-iphonesimulator/Saydo.app/PlugIns/SaydoTests.xctest (in target 'SaydoTests' from project 'Saydo')
+    cd /Users/noritakasawada/AI_P/SAYDO
+    builtin-swiftStdLibTool --copy --verbose --scan-executable /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Products/Debug-iphonesimulator/Saydo.app/PlugIns/SaydoTests.xctest/SaydoTests --scan-folder /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Products/Debug-iphonesimulator/Saydo.app/PlugIns/SaydoTests.xctest/Frameworks --scan-folder /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Products/Debug-iphonesimulator/Saydo.app/PlugIns/SaydoTests.xctest/PlugIns --scan-folder /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Products/Debug-iphonesimulator/Saydo.app/PlugIns/SaydoTests.xctest/SystemExtensions --scan-folder /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Products/Debug-iphonesimulator/Saydo.app/PlugIns/SaydoTests.xctest/Extensions --platform iphonesimulator --toolchain /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain --destination /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Products/Debug-iphonesimulator/Saydo.app/PlugIns/SaydoTests.xctest/Frameworks --strip-bitcode --scan-executable /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/lib/libXCTestSwiftSupport.dylib --strip-bitcode-tool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/bitcode_strip --emit-dependency-info /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/SaydoTests.build/SwiftStdLibToolInputDependencies.dep --filter-for-swift-os
+Ignoring --strip-bitcode because --sign was not passed
+
+ExtractAppIntentsMetadata (in target 'SaydoTests' from project 'Saydo')
+    cd /Users/noritakasawada/AI_P/SAYDO
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/appintentsmetadataprocessor --toolchain-dir /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain --module-name SaydoTests --sdk-root /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.2.sdk --xcode-version 17C52 --platform-family iOS --deployment-target 26.0 --bundle-identifier com.nonturn.saydo.tests --output /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Products/Debug-iphonesimulator/Saydo.app/PlugIns/SaydoTests.xctest --target-triple arm64-apple-ios26.0-simulator --binary-file /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Products/Debug-iphonesimulator/Saydo.app/PlugIns/SaydoTests.xctest/SaydoTests --dependency-file /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/SaydoTests.build/Objects-normal/arm64/SaydoTests_dependency_info.dat --stringsdata-file /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/SaydoTests.build/Objects-normal/arm64/ExtractedAppShortcutsMetadata.stringsdata --source-file-list /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/SaydoTests.build/Objects-normal/arm64/SaydoTests.SwiftFileList --metadata-file-list /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/SaydoTests.build/SaydoTests.DependencyMetadataFileList --static-metadata-file-list /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/SaydoTests.build/SaydoTests.DependencyStaticMetadataFileList --swift-const-vals-list /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Intermediates.noindex/Saydo.build/Debug-iphonesimulator/SaydoTests.build/Objects-normal/arm64/SaydoTests.SwiftConstValuesFileList --compile-time-extraction --deployment-aware-processing --validate-assistant-intents --no-app-shortcuts-localization
+2026-10-06 06:44:56.574 appintentsmetadataprocessor[74075:64803049] Starting appintentsmetadataprocessor export
+2026-10-06 06:44:56.575 appintentsmetadataprocessor[74075:64803049] warning: Metadata extraction skipped. No AppIntents.framework dependency found.
+
+Validate /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Products/Debug-iphonesimulator/Saydo.app (in target 'Saydo' from project 'Saydo')
+    cd /Users/noritakasawada/AI_P/SAYDO
+    builtin-validationUtility /Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Products/Debug-iphonesimulator/Saydo.app -shallow-bundle -infoplist-subpath Info.plist
+
+2026-10-06 06:45:25.336780+0900 Saydo[74302:64805490] [loading] Error loading /System/Library/Extensions/IOHIDFamily.kext/Contents/PlugIns/IOHIDLib.plugin/Contents/MacOS/IOHIDLib (100):  dlopen(/System/Library/Extensions/IOHIDFamily.kext/Contents/PlugIns/IOHIDLib.plugin/Contents/MacOS/IOHIDLib, 0x0106): tried: '/Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Products/Debug-iphonesimulator/IOHIDLib' (no such file), '/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/lib/IOHIDLib' (no such file), '/Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Products/Debug-iphonesimulator/IOHIDLib' (no such file), '/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/lib/IOHIDLib' (no such file), '/Library/Developer/CoreSimulator/Volumes/iOS_23D8133/Library/Developer/CoreSimulator/Profiles/Runtimes/iOS 26.3.simruntime/Contents/Resources/RuntimeRoot/System/Library/Extensions/IOHIDFamily.kext/Contents/PlugIns/IOHIDLib.plugin/Contents/MacOS/IOHIDLib' (no such file), '/System/Library/Extensions/IOHIDFamily.kext/Contents/PlugIns/IOHIDLib.plugin/Contents/MacOS/IOHIDLib' (fat file, but missing compatible architecture (have 'x86_64,arm64e', need 'arm64' or 'arm64'))
+2026-10-06 06:45:25.337363+0900 Saydo[74302:64805490] [plugin] Cannot find function pointer IOHIDLibFactory for factory <CFUUID 0x600003fc2360> 13AA9C44-6F1B-11D4-907C-0005028F18D5 in CFBundle/CFPlugIn 0x6000006e0460 </System/Library/Extensions/IOHIDFamily.kext/Contents/PlugIns/IOHIDLib.plugin> (bundle, not loaded)
+2026-10-06 06:45:25.337441+0900 Saydo[74302:64805490] [default] failed to create instance for plugin for <CFUUID 0x600003fc1dc0> 7DDEECA8-A7B4-11DA-8A0E-0014519758EF
+2026-10-06 06:45:25.337486+0900 Saydo[74302:64805490] [default] IOCreatePlugInInterfaceForService:0xe00002be for serviceID:0x100001194
+2026-10-06 06:45:25.338155+0900 Saydo[74302:64805490] [loading] Error loading /System/Library/Extensions/IOHIDFamily.kext/Contents/PlugIns/IOHIDLib.plugin/Contents/MacOS/IOHIDLib (100):  dlopen(/System/Library/Extensions/IOHIDFamily.kext/Contents/PlugIns/IOHIDLib.plugin/Contents/MacOS/IOHIDLib, 0x0106): tried: '/Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Products/Debug-iphonesimulator/IOHIDLib' (no such file), '/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/lib/IOHIDLib' (no such file), '/Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Build/Products/Debug-iphonesimulator/IOHIDLib' (no such file), '/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/lib/IOHIDLib' (no such file), '/Library/Developer/CoreSimulator/Volumes/iOS_23D8133/Library/Developer/CoreSimulator/Profiles/Runtimes/iOS 26.3.simruntime/Contents/Resources/RuntimeRoot/System/Library/Extensions/IOHIDFamily.kext/Contents/PlugIns/IOHIDLib.plugin/Contents/MacOS/IOHIDLib' (no such file), '/System/Library/Extensions/IOHIDFamily.kext/Contents/PlugIns/IOHIDLib.plugin/Contents/MacOS/IOHIDLib' (fat file, but missing compatible architecture (have 'x86_64,arm64e', need 'arm64' or 'arm64'))
+2026-10-06 06:45:25.338585+0900 Saydo[74302:64805490] [plugin] Cannot find function pointer IOHIDLibFactory for factory <CFUUID 0x600003fc2360> 13AA9C44-6F1B-11D4-907C-0005028F18D5 in CFBundle/CFPlugIn 0x6000006e0460 </System/Library/Extensions/IOHIDFamily.kext/Contents/PlugIns/IOHIDLib.plugin> (bundle, not loaded)
+2026-10-06 06:45:25.338651+0900 Saydo[74302:64805490] [default] failed to create instance for plugin for <CFUUID 0x600003fc1dc0> 7DDEECA8-A7B4-11DA-8A0E-0014519758EF
+2026-10-06 06:45:25.338683+0900 Saydo[74302:64805490] [default] IOCreatePlugInInterfaceForService:0xe00002be for serviceID:0x100001193
+2026-10-06 06:45:25.577856+0900 Saydo[74302:64805490] FontParser could not open filePath /Library/Developer/CoreSimulator/Volumes/iOS_23D8133/Library/Developer/CoreSimulator/Profiles/Runtimes/iOS 26.3.simruntime/Contents/Resources/RuntimeRoot/System/Library/Fonts/Core/AppleColorEmoji.ttc: [2: No such file or directory]
+2026-10-06 06:45:25.577985+0900 Saydo[74302:64805490] Requested font not available from file:///Library/Developer/CoreSimulator/Volumes/iOS_23D8133/Library/Developer/CoreSimulator/Profiles/Runtimes/iOS%2026.3.simruntime/Contents/Resources/RuntimeRoot/System/Library/Fonts/Core/AppleColorEmoji.ttc#postscript-name=.AppleColorEmojiUI (path:/Library/Developer/CoreSimulator/Volumes/iOS_23D8133/Library/Developer/CoreSimulator/Profiles/Runtimes/iOS 26.3.simruntime/Contents/Resources/RuntimeRoot/System/Library/Fonts/Core/AppleColorEmoji.ttc ps:.AppleColorEmojiUI), fallback to LastResort.
+Test Suite 'All tests' started at 2026-10-06 06:45:26.276.
+Test Suite 'SaydoTests.xctest' started at 2026-10-06 06:45:26.276.
+Test Suite 'AppRouterTests' started at 2026-10-06 06:45:26.276.
+Test Case '-[SaydoTests.AppRouterTests testCompleteOnboardingIsRemembered]' started.
+Test Case '-[SaydoTests.AppRouterTests testCompleteOnboardingIsRemembered]' passed (0.006 seconds).
+Test Case '-[SaydoTests.AppRouterTests testDismissClearsActiveSession]' started.
+Test Case '-[SaydoTests.AppRouterTests testDismissClearsActiveSession]' passed (0.014 seconds).
+Test Case '-[SaydoTests.AppRouterTests testManualSessionWithoutTodayCommitmentOpensMorning]' started.
+Test Case '-[SaydoTests.AppRouterTests testManualSessionWithoutTodayCommitmentOpensMorning]' passed (0.015 seconds).
+Test Case '-[SaydoTests.AppRouterTests testManualSessionWithTodayCommitmentOpensAdhoc]' started.
+Test Case '-[SaydoTests.AppRouterTests testManualSessionWithTodayCommitmentOpensAdhoc]' passed (0.036 seconds).
+Test Case '-[SaydoTests.AppRouterTests testMorningLinkKeepsMorningSessionType]' started.
+Test Case '-[SaydoTests.AppRouterTests testMorningLinkKeepsMorningSessionType]' passed (0.009 seconds).
+Test Case '-[SaydoTests.AppRouterTests testOpenLinkStartsMatchingSession]' started.
+Test Case '-[SaydoTests.AppRouterTests testOpenLinkStartsMatchingSession]' passed (0.011 seconds).
+Test Case '-[SaydoTests.AppRouterTests testRestLinkDoesNotOpenAnything]' started.
+Test Case '-[SaydoTests.AppRouterTests testRestLinkDoesNotOpenAnything]' passed (0.011 seconds).
+Test Suite 'AppRouterTests' passed at 2026-10-06 06:45:26.380.
+	 Executed 7 tests, with 0 failures (0 unexpected) in 0.102 (0.104) seconds
+Test Suite 'AppSettingsTests' started at 2026-10-06 06:45:26.380.
+Test Case '-[SaydoTests.AppSettingsTests testDefaultsMatchThePlan]' started.
+Test Case '-[SaydoTests.AppSettingsTests testDefaultsMatchThePlan]' passed (0.001 seconds).
+Test Case '-[SaydoTests.AppSettingsTests testEffectiveAloneTimeFallsBackToTheNightTime]' started.
+Test Case '-[SaydoTests.AppSettingsTests testEffectiveAloneTimeFallsBackToTheNightTime]' passed (0.002 seconds).
+Test Case '-[SaydoTests.AppSettingsTests testNotificationModeDecidesWhichFixedNotificationsFire]' started.
+Test Case '-[SaydoTests.AppSettingsTests testNotificationModeDecidesWhichFixedNotificationsFire]' passed (0.004 seconds).
+Test Case '-[SaydoTests.AppSettingsTests testNotificationSettingsBridgeCarriesTheChosenValues]' started.
+Test Case '-[SaydoTests.AppSettingsTests testNotificationSettingsBridgeCarriesTheChosenValues]' passed (0.004 seconds).
+Test Case '-[SaydoTests.AppSettingsTests testQuietModeIncludesTheStartAndExcludesTheEnd]' started.
+Test Case '-[SaydoTests.AppSettingsTests testQuietModeIncludesTheStartAndExcludesTheEnd]' passed (0.002 seconds).
+Test Case '-[SaydoTests.AppSettingsTests testQuietModeScheduleDefaultsAreOffFromNineToSix]' started.
+Test Case '-[SaydoTests.AppSettingsTests testQuietModeScheduleDefaultsAreOffFromNineToSix]' passed (0.001 seconds).
+Test Case '-[SaydoTests.AppSettingsTests testQuietModeSettingsRoundTripAndReset]' started.
+Test Case '-[SaydoTests.AppSettingsTests testQuietModeSettingsRoundTripAndReset]' passed (0.004 seconds).
+Test Case '-[SaydoTests.AppSettingsTests testQuietModeWithTheSameStartAndEndCoversNothing]' started.
+Test Case '-[SaydoTests.AppSettingsTests testQuietModeWithTheSameStartAndEndCoversNothing]' passed (0.003 seconds).
+Test Case '-[SaydoTests.AppSettingsTests testQuietModeWrapsAroundMidnight]' started.
+Test Case '-[SaydoTests.AppSettingsTests testQuietModeWrapsAroundMidnight]' passed (0.002 seconds).
+Test Case '-[SaydoTests.AppSettingsTests testResetRestoresDefaults]' started.
+Test Case '-[SaydoTests.AppSettingsTests testResetRestoresDefaults]' passed (0.004 seconds).
+Test Case '-[SaydoTests.AppSettingsTests testSilenceThresholdRejectsValuesOutsideTheChoices]' started.
+Test Case '-[SaydoTests.AppSettingsTests testSilenceThresholdRejectsValuesOutsideTheChoices]' passed (0.003 seconds).
+Test Case '-[SaydoTests.AppSettingsTests testTimeOfDayClampsAndOrders]' started.
+Test Case '-[SaydoTests.AppSettingsTests testTimeOfDayClampsAndOrders]' passed (0.000 seconds).
+Test Case '-[SaydoTests.AppSettingsTests testValuesRoundTripThroughUserDefaults]' started.
+Test Case '-[SaydoTests.AppSettingsTests testValuesRoundTripThroughUserDefaults]' passed (0.003 seconds).
+Test Suite 'AppSettingsTests' passed at 2026-10-06 06:45:26.416.
+	 Executed 13 tests, with 0 failures (0 unexpected) in 0.033 (0.036) seconds
+Test Suite 'AudioFileStoreTests' started at 2026-10-06 06:45:26.416.
+Test Case '-[SaydoTests.AudioFileStoreTests testAllocateCreatesParentDirectories]' started.
+Test Case '-[SaydoTests.AudioFileStoreTests testAllocateCreatesParentDirectories]' passed (0.002 seconds).
+Test Case '-[SaydoTests.AudioFileStoreTests testAllRelativePathsFindsOnlyAudioFiles]' started.
+Test Case '-[SaydoTests.AudioFileStoreTests testAllRelativePathsFindsOnlyAudioFiles]' passed (0.003 seconds).
+Test Case '-[SaydoTests.AudioFileStoreTests testDeleteRejectsPathsOutsideTheRoot]' started.
+Test Case '-[SaydoTests.AudioFileStoreTests testDeleteRejectsPathsOutsideTheRoot]' passed (0.002 seconds).
+Test Case '-[SaydoTests.AudioFileStoreTests testDeleteRemovesTheFileAndIsSafeWhenMissing]' started.
+Test Case '-[SaydoTests.AudioFileStoreTests testDeleteRemovesTheFileAndIsSafeWhenMissing]' passed (0.001 seconds).
+Test Case '-[SaydoTests.AudioFileStoreTests testRelativePathUsesYearMonthAndUUID]' started.
+Test Case '-[SaydoTests.AudioFileStoreTests testRelativePathUsesYearMonthAndUUID]' passed (0.000 seconds).
+Test Case '-[SaydoTests.AudioFileStoreTests testRemoveOrphansKeepsLivePathsAndDeletesTheRest]' started.
+Test Case '-[SaydoTests.AudioFileStoreTests testRemoveOrphansKeepsLivePathsAndDeletesTheRest]' passed (0.002 seconds).
+Test Case '-[SaydoTests.AudioFileStoreTests testRemoveOrphansOnMissingRootIsEmpty]' started.
+Test Case '-[SaydoTests.AudioFileStoreTests testRemoveOrphansOnMissingRootIsEmpty]' passed (0.000 seconds).
+Test Case '-[SaydoTests.AudioFileStoreTests testURLForRelativePathIsUnderRoot]' started.
+Test Case '-[SaydoTests.AudioFileStoreTests testURLForRelativePathIsUnderRoot]' passed (0.000 seconds).
+Test Suite 'AudioFileStoreTests' passed at 2026-10-06 06:45:26.428.
+	 Executed 8 tests, with 0 failures (0 unexpected) in 0.010 (0.012) seconds
+Test Suite 'DataExporterTests' started at 2026-10-06 06:45:26.428.
+Test Case '-[SaydoTests.DataExporterTests testArchiveRoundTripsThroughJSON]' started.
+Test Case '-[SaydoTests.DataExporterTests testArchiveRoundTripsThroughJSON]' passed (0.012 seconds).
+Test Case '-[SaydoTests.DataExporterTests testAverageAudioByteCountMatchesTheCapacityEstimate]' started.
+Test Case '-[SaydoTests.DataExporterTests testAverageAudioByteCountMatchesTheCapacityEstimate]' passed (0.053 seconds).
+Test Case '-[SaydoTests.DataExporterTests testBundleContainsManifestAndAudioFiles]' started.
+Test Case '-[SaydoTests.DataExporterTests testBundleContainsManifestAndAudioFiles]' passed (0.003 seconds).
+Test Case '-[SaydoTests.DataExporterTests testDeclarationAudioIsCopiedOnlyOnce]' started.
+Test Case '-[SaydoTests.DataExporterTests testDeclarationAudioIsCopiedOnlyOnce]' passed (0.003 seconds).
+Test Case '-[SaydoTests.DataExporterTests testManifestJSONCarriesEveryModelCollection]' started.
+Test Case '-[SaydoTests.DataExporterTests testManifestJSONCarriesEveryModelCollection]' passed (0.002 seconds).
+Test Case '-[SaydoTests.DataExporterTests testManifestKeepsTheUsersOwnWordsVerbatim]' started.
+Test Case '-[SaydoTests.DataExporterTests testManifestKeepsTheUsersOwnWordsVerbatim]' passed (0.001 seconds).
+Test Case '-[SaydoTests.DataExporterTests testMissingAudioIsReportedWithoutStoppingTheExport]' started.
+Test Case '-[SaydoTests.DataExporterTests testMissingAudioIsReportedWithoutStoppingTheExport]' passed (0.003 seconds).
+Test Case '-[SaydoTests.DataExporterTests testPathOutsideTheAudioStoreIsNotCopied]' started.
+Test Case '-[SaydoTests.DataExporterTests testPathOutsideTheAudioStoreIsNotCopied]' passed (0.002 seconds).
+Test Case '-[SaydoTests.DataExporterTests testZipContainsTheManifestAndTheAudioFile]' started.
+Test Case '-[SaydoTests.DataExporterTests testZipContainsTheManifestAndTheAudioFile]' passed (0.007 seconds).
+Test Case '-[SaydoTests.DataExporterTests testZipFileNameFollowsTheDeviceTimeZone]' started.
+Test Case '-[SaydoTests.DataExporterTests testZipFileNameFollowsTheDeviceTimeZone]' passed (0.001 seconds).
+Test Case '-[SaydoTests.DataExporterTests testZipFileNameIsGregorianEvenOnAJapaneseCalendarDevice]' started.
+Test Case '-[SaydoTests.DataExporterTests testZipFileNameIsGregorianEvenOnAJapaneseCalendarDevice]' passed (0.000 seconds).
+Test Suite 'DataExporterTests' passed at 2026-10-06 06:45:26.516.
+	 Executed 11 tests, with 0 failures (0 unexpected) in 0.086 (0.088) seconds
+Test Suite 'DeepLinkTests' started at 2026-10-06 06:45:26.516.
+Test Case '-[SaydoTests.DeepLinkTests testActionSlotUsesNoonSessionType]' started.
+Test Case '-[SaydoTests.DeepLinkTests testActionSlotUsesNoonSessionType]' passed (0.001 seconds).
+Test Case '-[SaydoTests.DeepLinkTests testBrokenCommitmentIDDoesNotDropTheLink]' started.
+Test Case '-[SaydoTests.DeepLinkTests testBrokenCommitmentIDDoesNotDropTheLink]' passed (0.000 seconds).
+Test Case '-[SaydoTests.DeepLinkTests testBusyNowActionIdentifierIsSnooze]' started.
+Test Case '-[SaydoTests.DeepLinkTests testBusyNowActionIdentifierIsSnooze]' passed (0.000 seconds).
+Test Case '-[SaydoTests.DeepLinkTests testDefaultActionIdentifierIsOpen]' started.
+Test Case '-[SaydoTests.DeepLinkTests testDefaultActionIdentifierIsOpen]' passed (0.000 seconds).
+Test Case '-[SaydoTests.DeepLinkTests testDismissActionStartsNothing]' started.
+Test Case '-[SaydoTests.DeepLinkTests testDismissActionStartsNothing]' passed (0.000 seconds).
+Test Case '-[SaydoTests.DeepLinkTests testEmptySessionTypeIsNotOurNotification]' started.
+Test Case '-[SaydoTests.DeepLinkTests testEmptySessionTypeIsNotOurNotification]' passed (0.000 seconds).
+Test Case '-[SaydoTests.DeepLinkTests testForeignIdentifierIsNotManaged]' started.
+Test Case '-[SaydoTests.DeepLinkTests testForeignIdentifierIsNotManaged]' passed (0.000 seconds).
+Test Case '-[SaydoTests.DeepLinkTests testForeignSnoozeIdentifierIsNotManaged]' started.
+Test Case '-[SaydoTests.DeepLinkTests testForeignSnoozeIdentifierIsNotManaged]' passed (0.000 seconds).
+Test Case '-[SaydoTests.DeepLinkTests testManagedPrefixesCoverEverySlot]' started.
+Test Case '-[SaydoTests.DeepLinkTests testManagedPrefixesCoverEverySlot]' passed (0.001 seconds).
+Test Case '-[SaydoTests.DeepLinkTests testMatchesOnlyTheGivenDay]' started.
+Test Case '-[SaydoTests.DeepLinkTests testMatchesOnlyTheGivenDay]' passed (0.001 seconds).
+Test Case '-[SaydoTests.DeepLinkTests testMissingSessionTypeIsNotOurNotification]' started.
+Test Case '-[SaydoTests.DeepLinkTests testMissingSessionTypeIsNotOurNotification]' passed (0.000 seconds).
+Test Case '-[SaydoTests.DeepLinkTests testNonStringValuesAreIgnored]' started.
+Test Case '-[SaydoTests.DeepLinkTests testNonStringValuesAreIgnored]' passed (0.002 seconds).
+Test Case '-[SaydoTests.DeepLinkTests testRestActionIdentifierIsRest]' started.
+Test Case '-[SaydoTests.DeepLinkTests testRestActionIdentifierIsRest]' passed (0.000 seconds).
+Test Case '-[SaydoTests.DeepLinkTests testRestActionKeepsSessionTypeAndCommitmentID]' started.
+Test Case '-[SaydoTests.DeepLinkTests testRestActionKeepsSessionTypeAndCommitmentID]' passed (0.000 seconds).
+Test Case '-[SaydoTests.DeepLinkTests testRoundTripKeepsEveryField]' started.
+Test Case '-[SaydoTests.DeepLinkTests testRoundTripKeepsEveryField]' passed (0.000 seconds).
+Test Case '-[SaydoTests.DeepLinkTests testSnoozeActionKeepsSlotCopyKeyAndCommitmentID]' started.
+Test Case '-[SaydoTests.DeepLinkTests testSnoozeActionKeepsSlotCopyKeyAndCommitmentID]' passed (0.000 seconds).
+Test Case '-[SaydoTests.DeepLinkTests testSnoozeIdentifierIsManaged]' started.
+Test Case '-[SaydoTests.DeepLinkTests testSnoozeIdentifierIsManaged]' passed (0.001 seconds).
+Test Case '-[SaydoTests.DeepLinkTests testSnoozeIdentifierMatchesTheSameDayStamp]' started.
+Test Case '-[SaydoTests.DeepLinkTests testSnoozeIdentifierMatchesTheSameDayStamp]' passed (0.001 seconds).
+Test Case '-[SaydoTests.DeepLinkTests testUnknownActionStartsNothing]' started.
+Test Case '-[SaydoTests.DeepLinkTests testUnknownActionStartsNothing]' passed (0.000 seconds).
+Test Case '-[SaydoTests.DeepLinkTests testUnknownSessionTypeIsNotOurNotification]' started.
+Test Case '-[SaydoTests.DeepLinkTests testUnknownSessionTypeIsNotOurNotification]' passed (0.000 seconds).
+Test Case '-[SaydoTests.DeepLinkTests testUnknownSlotAndCopyKeyDoNotDropTheLink]' started.
+Test Case '-[SaydoTests.DeepLinkTests testUnknownSlotAndCopyKeyDoNotDropTheLink]' passed (0.000 seconds).
+Test Case '-[SaydoTests.DeepLinkTests testUserInfoCarriesSessionTypeSlotAndCopyKey]' started.
+Test Case '-[SaydoTests.DeepLinkTests testUserInfoCarriesSessionTypeSlotAndCopyKey]' passed (0.000 seconds).
+Test Case '-[SaydoTests.DeepLinkTests testUserInfoOmitsCommitmentIDWhenAbsent]' started.
+Test Case '-[SaydoTests.DeepLinkTests testUserInfoOmitsCommitmentIDWhenAbsent]' passed (0.000 seconds).
+Test Suite 'DeepLinkTests' passed at 2026-10-06 06:45:26.540.
+	 Executed 23 tests, with 0 failures (0 unexpected) in 0.012 (0.024) seconds
+Test Suite 'InsightViewModelTests' started at 2026-10-06 06:45:26.540.
+Test Case '-[SaydoTests.InsightViewModelTests testNoRecordsShowNothing]' started.
+Test Case '-[SaydoTests.InsightViewModelTests testNoRecordsShowNothing]' passed (0.003 seconds).
+Test Case '-[SaydoTests.InsightViewModelTests testReflectionProviderFailureFallsBackToTheTemplate]' started.
+Test Case '-[SaydoTests.InsightViewModelTests testReflectionProviderFailureFallsBackToTheTemplate]' passed (0.013 seconds).
+Test Case '-[SaydoTests.InsightViewModelTests testReflectionProviderReplacesTheTemplate]' started.
+Test Case '-[SaydoTests.InsightViewModelTests testReflectionProviderReplacesTheTemplate]' passed (0.015 seconds).
+Test Case '-[SaydoTests.InsightViewModelTests testReflectionProviderViolationFallsBackToTheTemplate]' started.
+Test Case '-[SaydoTests.InsightViewModelTests testReflectionProviderViolationFallsBackToTheTemplate]' passed (0.009 seconds).
+Test Case '-[SaydoTests.InsightViewModelTests testSevenDaysProduceTheWeeklyInsight]' started.
+Test Case '-[SaydoTests.InsightViewModelTests testSevenDaysProduceTheWeeklyInsight]' passed (0.009 seconds).
+Test Case '-[SaydoTests.InsightViewModelTests testThirdRecordProducesTheOneLineInsight]' started.
+Test Case '-[SaydoTests.InsightViewModelTests testThirdRecordProducesTheOneLineInsight]' passed (0.007 seconds).
+Test Case '-[SaydoTests.InsightViewModelTests testThreeRecordsWithoutABiasShowNothing]' started.
+Test Case '-[SaydoTests.InsightViewModelTests testThreeRecordsWithoutABiasShowNothing]' passed (0.007 seconds).
+Test Case '-[SaydoTests.InsightViewModelTests testTwoRecordsShowNothing]' started.
+Test Case '-[SaydoTests.InsightViewModelTests testTwoRecordsShowNothing]' passed (0.005 seconds).
+Test Suite 'InsightViewModelTests' passed at 2026-10-06 06:45:26.609.
+	 Executed 8 tests, with 0 failures (0 unexpected) in 0.067 (0.069) seconds
+Test Suite 'LaunchSafetyTests' started at 2026-10-06 06:45:26.610.
+Test Case '-[SaydoTests.LaunchSafetyTests testSweepIsSkippedOnInMemoryStore]' started.
+Test Case '-[SaydoTests.LaunchSafetyTests testSweepIsSkippedOnInMemoryStore]' passed (0.000 seconds).
+Test Case '-[SaydoTests.LaunchSafetyTests testSweepRunsOnPersistentStore]' started.
+Test Case '-[SaydoTests.LaunchSafetyTests testSweepRunsOnPersistentStore]' passed (0.000 seconds).
+Test Suite 'LaunchSafetyTests' passed at 2026-10-06 06:45:26.611.
+	 Executed 2 tests, with 0 failures (0 unexpected) in 0.001 (0.001) seconds
+Test Suite 'RepositoryTests' started at 2026-10-06 06:45:26.611.
+Test Case '-[SaydoTests.RepositoryTests testAvoidanceStatusDecidesWhetherTheItemIsReusedTomorrow]' started.
+Test Case '-[SaydoTests.RepositoryTests testAvoidanceStatusDecidesWhetherTheItemIsReusedTomorrow]' passed (0.008 seconds).
+Test Case '-[SaydoTests.RepositoryTests testCarryoverIsReadBackForTheTargetDayAndOverwritten]' started.
+Test Case '-[SaydoTests.RepositoryTests testCarryoverIsReadBackForTheTargetDayAndOverwritten]' passed (0.008 seconds).
+Test Case '-[SaydoTests.RepositoryTests testCommitmentOnTheNextDayIsAllowed]' started.
+Test Case '-[SaydoTests.RepositoryTests testCommitmentOnTheNextDayIsAllowed]' passed (0.004 seconds).
+Test Case '-[SaydoTests.RepositoryTests testCreateCommitmentStoresTheDayKeyAndAvoidanceItem]' started.
+Test Case '-[SaydoTests.RepositoryTests testCreateCommitmentStoresTheDayKeyAndAvoidanceItem]' passed (0.004 seconds).
+Test Case '-[SaydoTests.RepositoryTests testDeclarationAudioIsAlsoStoredAsAVoiceEntryWithTheSameFile]' started.
+Test Case '-[SaydoTests.RepositoryTests testDeclarationAudioIsAlsoStoredAsAVoiceEntryWithTheSameFile]' passed (0.012 seconds).
+Test Case '-[SaydoTests.RepositoryTests testDeletingAVoiceEntryDeletesItsAudioFile]' started.
+Test Case '-[SaydoTests.RepositoryTests testDeletingAVoiceEntryDeletesItsAudioFile]' passed (0.009 seconds).
+Test Case '-[SaydoTests.RepositoryTests testDeletingTheDeclarationEntryAlsoClearsTheCommitmentReference]' started.
+Test Case '-[SaydoTests.RepositoryTests testDeletingTheDeclarationEntryAlsoClearsTheCommitmentReference]' passed (0.008 seconds).
+Test Case '-[SaydoTests.RepositoryTests testEntriesForDayAreFilteredAndSortedAscending]' started.
+Test Case '-[SaydoTests.RepositoryTests testEntriesForDayAreFilteredAndSortedAscending]' passed (0.004 seconds).
+Test Case '-[SaydoTests.RepositoryTests testLastEntryDateReturnsTheNewestRecording]' started.
+Test Case '-[SaydoTests.RepositoryTests testLastEntryDateReturnsTheNewestRecording]' passed (0.003 seconds).
+Test Case '-[SaydoTests.RepositoryTests testPlannedPlaceStaysNilWhenItWasNotAsked]' started.
+Test Case '-[SaydoTests.RepositoryTests testPlannedPlaceStaysNilWhenItWasNotAsked]' passed (0.003 seconds).
+Test Case '-[SaydoTests.RepositoryTests testPlannedTimeAndPlaceAreStoredAndReadBack]' started.
+Test Case '-[SaydoTests.RepositoryTests testPlannedTimeAndPlaceAreStoredAndReadBack]' passed (0.004 seconds).
+Test Case '-[SaydoTests.RepositoryTests testSecondCommitmentOnTheSameDayIsRejected]' started.
+Test Case '-[SaydoTests.RepositoryTests testSecondCommitmentOnTheSameDayIsRejected]' passed (0.005 seconds).
+Test Case '-[SaydoTests.RepositoryTests testShrinkIncrementsShrinkCountAndReplacesTheText]' started.
+Test Case '-[SaydoTests.RepositoryTests testShrinkIncrementsShrinkCountAndReplacesTheText]' passed (0.005 seconds).
+Test Case '-[SaydoTests.RepositoryTests testSweepRemovesOnlyFilesWithoutAVoiceEntry]' started.
+Test Case '-[SaydoTests.RepositoryTests testSweepRemovesOnlyFilesWithoutAVoiceEntry]' passed (0.005 seconds).
+Test Case '-[SaydoTests.RepositoryTests testTodayCommitmentIsNilWithoutOne]' started.
+Test Case '-[SaydoTests.RepositoryTests testTodayCommitmentIsNilWithoutOne]' passed (0.003 seconds).
+Test Case '-[SaydoTests.RepositoryTests testUpdateOutcomeStoresOutcomeAndProgressNote]' started.
+Test Case '-[SaydoTests.RepositoryTests testUpdateOutcomeStoresOutcomeAndProgressNote]' passed (0.005 seconds).
+Test Case '-[SaydoTests.RepositoryTests testUpdatingAnUnknownCommitmentThrows]' started.
+Test Case '-[SaydoTests.RepositoryTests testUpdatingAnUnknownCommitmentThrows]' passed (0.003 seconds).
+Test Case '-[SaydoTests.RepositoryTests testVoicelessCommitmentHasNoAudioAndNoVoiceEntry]' started.
+Test Case '-[SaydoTests.RepositoryTests testVoicelessCommitmentHasNoAudioAndNoVoiceEntry]' passed (0.004 seconds).
+Test Case '-[SaydoTests.RepositoryTests testWeeklyStatsCountsDomainsAndRatiosReasonsOverCommitmentsThatHaveOne]' started.
+Test Case '-[SaydoTests.RepositoryTests testWeeklyStatsCountsDomainsAndRatiosReasonsOverCommitmentsThatHaveOne]' passed (0.007 seconds).
+Test Case '-[SaydoTests.RepositoryTests testWeeklyStatsIsEmptyWithoutData]' started.
+Test Case '-[SaydoTests.RepositoryTests testWeeklyStatsIsEmptyWithoutData]' passed (0.003 seconds).
+Test Suite 'RepositoryTests' passed at 2026-10-06 06:45:26.720.
+	 Executed 20 tests, with 0 failures (0 unexpected) in 0.105 (0.110) seconds
+Test Suite 'SessionViewModelTests' started at 2026-10-06 06:45:26.720.
+Test Case '-[SaydoTests.SessionViewModelTests testAnIgnoredChipResumesListening]' started.
+2026-10-06 06:45:26.730021+0900 Saydo[74302:64805490] [session] commands speak(21),listen(voice,5s)
+2026-10-06 06:45:26.731457+0900 Saydo[74302:64805490] [session] speak done chars=21 elapsed=1.425e-05 seconds
+2026-10-06 06:45:26.732365+0900 Saydo[74302:64805490] [session] listen begin step=morningAvoidance input=voice silence=5s
+2026-10-06 06:45:26.735655+0900 Saydo[74302:64805490] [session] listen end reason=silence elapsed=3.500000 peakRMS=0.400000 levels=11 partial=0chars
+2026-10-06 06:45:26.735718+0900 Saydo[74302:64805490] [session] transcript ready chars=10 finalize=7.5e-06 seconds recorded=3.500000s
+2026-10-06 06:45:26.736186+0900 Saydo[74302:64805490] [session] event transcript(10chars) step morningAvoidance -> morningReason retry=0
+2026-10-06 06:45:26.737308+0900 Saydo[74302:64805490] [session] commands save(avoidance),speak(9),choices(7),listen(voice,5s)
+2026-10-06 06:45:26.737793+0900 Saydo[74302:64805490] [session] speak done chars=9 elapsed=1.958e-06 seconds
+2026-10-06 06:45:26.737848+0900 Saydo[74302:64805490] [session] listen begin step=morningReason input=voice silence=5s
+2026-10-06 06:45:26.738146+0900 Saydo[74302:64805490] [session] listen end reason=silence elapsed=3.500000 peakRMS=0.400000 levels=11 partial=0chars
+2026-10-06 06:45:26.738176+0900 Saydo[74302:64805490] [session] transcript ready chars=6 finalize=2.584e-06 seconds recorded=3.500000s
+2026-10-06 06:45:26.738235+0900 Saydo[74302:64805490] [session] event transcript(6chars) step morningReason -> morningMicroAction retry=0
+2026-10-06 06:45:26.738265+0900 Saydo[74302:64805490] [session] commands save(reason),speak(21),listen(voice,5s)
+2026-10-06 06:45:26.738553+0900 Saydo[74302:64805490] [session] speak done chars=21 elapsed=9.17e-07 seconds
+2026-10-06 06:45:26.738583+0900 Saydo[74302:64805490] [session] listen begin step=morningMicroAction input=voice silence=5s
+2026-10-06 06:45:26.741085+0900 Saydo[74302:64805490] [session] event choice(SaydoCore.ChoiceID.reason(SaydoCore.ReasonCategory.awkward)) step morningMicroAction -> morningMicroAction retry=0
+2026-10-06 06:45:26.741183+0900 Saydo[74302:64805490] [session] commands
+2026-10-06 06:45:26.741602+0900 Saydo[74302:64805490] [session] event interrupted step morningMicroAction -> morningMicroAction retry=0
+2026-10-06 06:45:26.742608+0900 Saydo[74302:64805490] [session] commands finish(suspended)
+Test Case '-[SaydoTests.SessionViewModelTests testAnIgnoredChipResumesListening]' passed (0.023 seconds).
+Test Case '-[SaydoTests.SessionViewModelTests testAvoidanceTranscriptCanBeRetakenOnce]' started.
+2026-10-06 06:45:26.745434+0900 Saydo[74302:64805490] [session] commands speak(21),listen(voice,5s)
+2026-10-06 06:45:26.745502+0900 Saydo[74302:64805490] [session] speak done chars=21 elapsed=1.625e-06 seconds
+2026-10-06 06:45:26.745584+0900 Saydo[74302:64805490] [session] listen begin step=morningAvoidance input=voice silence=5s
+2026-10-06 06:45:26.746073+0900 Saydo[74302:64805490] [session] listen end reason=silence elapsed=3.500000 peakRMS=0.400000 levels=11 partial=0chars
+2026-10-06 06:45:26.746110+0900 Saydo[74302:64805490] [session] transcript ready chars=10 finalize=3.834e-06 seconds recorded=3.500000s
+2026-10-06 06:45:26.746165+0900 Saydo[74302:64805490] [session] event transcript(10chars) step morningAvoidance -> morningReason retry=0
+2026-10-06 06:45:26.746203+0900 Saydo[74302:64805490] [session] commands save(avoidance),speak(9),choices(7),listen(voice,5s)
+2026-10-06 06:45:26.746300+0900 Saydo[74302:64805490] [session] speak done chars=9 elapsed=1.292e-06 seconds
+2026-10-06 06:45:26.746330+0900 Saydo[74302:64805490] [session] listen begin step=morningReason input=voice silence=5s
+2026-10-06 06:45:26.746635+0900 Saydo[74302:64805490] [session] listen end reason=silence elapsed=3.500000 peakRMS=0.400000 levels=11 partial=0chars
+2026-10-06 06:45:26.746662+0900 Saydo[74302:64805490] [session] transcript ready chars=0 finalize=1.417e-06 seconds recorded=3.500000s
+2026-10-06 06:45:26.746702+0900 Saydo[74302:64805490] [session] event transcript(0chars) step morningReason -> morningReason retry=1
+2026-10-06 06:45:26.746740+0900 Saydo[74302:64805490] [session] commands speak(14),listen(voice,5s)
+2026-10-06 06:45:26.746766+0900 Saydo[74302:64805490] [session] speak done chars=14 elapsed=8.75e-07 seconds
+2026-10-06 06:45:26.746790+0900 Saydo[74302:64805490] [session] listen begin step=morningReason input=voice silence=5s
+2026-10-06 06:45:26.746918+0900 Saydo[74302:64805490] [session] commands speak(21),listen(voice,5s)
+2026-10-06 06:45:26.746941+0900 Saydo[74302:64805490] [session] speak done chars=21 elapsed=5.41e-07 seconds
+2026-10-06 06:45:26.746967+0900 Saydo[74302:64805490] [session] listen begin step=morningAvoidance input=voice silence=5s
+2026-10-06 06:45:26.749881+0900 Saydo[74302:64805490] [session] listen start failed: The operation couldn’t be completed. (Saydo.VoiceCaptureFault error 2.) -> text fallback
+2026-10-06 06:45:26.750157+0900 Saydo[74302:64805490] [session] listen end reason=silence elapsed=3.500000 peakRMS=0.400000 levels=11 partial=0chars
+2026-10-06 06:45:26.750203+0900 Saydo[74302:64805490] [session] transcript ready chars=10 finalize=4.917e-06 seconds recorded=3.500000s
+2026-10-06 06:45:26.750276+0900 Saydo[74302:64805490] [session] event transcript(10chars) step morningAvoidance -> morningReason retry=0
+2026-10-06 06:45:26.750314+0900 Saydo[74302:64805490] [session] commands save(avoidance),speak(9),choices(7),listen(text,5s)
+2026-10-06 06:45:26.750396+0900 Saydo[74302:64805490] [session] speak done chars=9 elapsed=1.625e-06 seconds
+2026-10-06 06:45:26.750428+0900 Saydo[74302:64805490] [session] listen begin step=morningReason input=text silence=5s
+Test Case '-[SaydoTests.SessionViewModelTests testAvoidanceTranscriptCanBeRetakenOnce]' passed (0.007 seconds).
+Test Case '-[SaydoTests.SessionViewModelTests testChoosingAChipWhileFinalizingDiscardsTheTranscript]' started.
+2026-10-06 06:45:26.751762+0900 Saydo[74302:64805490] [session] commands speak(21),listen(voice,5s)
+2026-10-06 06:45:26.751798+0900 Saydo[74302:64805490] [session] speak done chars=21 elapsed=1.208e-06 seconds
+2026-10-06 06:45:26.751828+0900 Saydo[74302:64805490] [session] listen begin step=morningAvoidance input=voice silence=5s
+2026-10-06 06:45:26.752258+0900 Saydo[74302:64805490] [session] listen end reason=silence elapsed=3.500000 peakRMS=0.400000 levels=11 partial=0chars
+2026-10-06 06:45:26.752288+0900 Saydo[74302:64805490] [session] transcript ready chars=10 finalize=3.167e-06 seconds recorded=3.500000s
+2026-10-06 06:45:26.752336+0900 Saydo[74302:64805490] [session] event transcript(10chars) step morningAvoidance -> morningReason retry=0
+2026-10-06 06:45:26.752367+0900 Saydo[74302:64805490] [session] commands save(avoidance),speak(9),choices(7),listen(voice,5s)
+2026-10-06 06:45:26.752437+0900 Saydo[74302:64805490] [session] speak done chars=9 elapsed=7.08e-07 seconds
+2026-10-06 06:45:26.752460+0900 Saydo[74302:64805490] [session] listen begin step=morningReason input=voice silence=5s
+2026-10-06 06:45:26.752720+0900 Saydo[74302:64805490] [session] listen end reason=silence elapsed=3.500000 peakRMS=0.400000 levels=11 partial=0chars
+2026-10-06 06:45:26.753527+0900 Saydo[74302:64805490] [session] event choice(SaydoCore.ChoiceID.reason(SaydoCore.ReasonCategory.awkward)) step morningReason -> morningMicroAction retry=0
+2026-10-06 06:45:26.753565+0900 Saydo[74302:64805490] [session] commands save(reason),speak(21),listen(voice,5s)
+2026-10-06 06:45:26.753610+0900 Saydo[74302:64805490] [session] speak done chars=21 elapsed=8.75e-07 seconds
+2026-10-06 06:45:26.753634+0900 Saydo[74302:64805490] [session] listen begin step=morningMicroAction input=voice silence=5s
+2026-10-06 06:45:26.754917+0900 Saydo[74302:64805490] [session] event interrupted step morningMicroAction -> morningMicroAction retry=0
+2026-10-06 06:45:26.754965+0900 Saydo[74302:64805490] [session] commands finish(suspended)
+2026-10-06 06:45:26.755028+0900 Saydo[74302:64805490] [session] transcript ready chars=0 finalize=0.001688292 seconds recorded=3.500000s
+2026-10-06 06:45:26.755057+0900 Saydo[74302:64805490] [session] event transcript(0chars) step morningMicroAction -> morningMicroAction retry=0
+2026-10-06 06:45:26.755088+0900 Saydo[74302:64805490] [session] commands
+Test Case '-[SaydoTests.SessionViewModelTests testChoosingAChipWhileFinalizingDiscardsTheTranscript]' passed (0.004 seconds).
+Test Case '-[SaydoTests.SessionViewModelTests testChoosingAChipWhileListeningDoesNotLeadToARetryPrompt]' started.
+2026-10-06 06:45:26.756506+0900 Saydo[74302:64805490] [session] commands speak(21),listen(voice,5s)
+2026-10-06 06:45:26.756540+0900 Saydo[74302:64805490] [session] speak done chars=21 elapsed=1.458e-06 seconds
+2026-10-06 06:45:26.756576+0900 Saydo[74302:64805490] [session] listen begin step=morningAvoidance input=voice silence=5s
+2026-10-06 06:45:26.756963+0900 Saydo[74302:64805490] [session] listen end reason=silence elapsed=3.500000 peakRMS=0.400000 levels=11 partial=0chars
+2026-10-06 06:45:26.756989+0900 Saydo[74302:64805490] [session] transcript ready chars=10 finalize=2.833e-06 seconds recorded=3.500000s
+2026-10-06 06:45:26.757033+0900 Saydo[74302:64805490] [session] event transcript(10chars) step morningAvoidance -> morningReason retry=0
+2026-10-06 06:45:26.757067+0900 Saydo[74302:64805490] [session] commands save(avoidance),speak(9),choices(7),listen(voice,5s)
+2026-10-06 06:45:26.757120+0900 Saydo[74302:64805490] [session] speak done chars=9 elapsed=6.67e-07 seconds
+2026-10-06 06:45:26.757144+0900 Saydo[74302:64805490] [session] listen begin step=morningReason input=voice silence=5s
+2026-10-06 06:45:26.757256+0900 Saydo[74302:64805490] [session] event choice(SaydoCore.ChoiceID.reason(SaydoCore.ReasonCategory.awkward)) step morningReason -> morningMicroAction retry=0
+2026-10-06 06:45:26.757716+0900 Saydo[74302:64805490] [session] commands save(reason),speak(21),listen(voice,5s)
+2026-10-06 06:45:26.757935+0900 Saydo[74302:64805490] [session] listen end reason=silence elapsed=3.500000 peakRMS=0.400000 levels=11 partial=0chars
+2026-10-06 06:45:26.757959+0900 Saydo[74302:64805490] [session] transcript ready chars=0 finalize=1.334e-06 seconds recorded=3.500000s
+2026-10-06 06:45:26.757994+0900 Saydo[74302:64805490] [session] event transcript(0chars) step morningMicroAction -> morningMicroAction retry=1
+2026-10-06 06:45:26.758021+0900 Saydo[74302:64805490] [session] commands speak(14),listen(voice,5s)
+2026-10-06 06:45:26.758068+0900 Saydo[74302:64805490] [session] speak done chars=14 elapsed=2.6625e-05 seconds
+2026-10-06 06:45:26.758097+0900 Saydo[74302:64805490] [session] listen begin step=morningMicroAction input=voice silence=5s
+/Users/noritakasawada/AI_P/SAYDO/Tests/SaydoTests/SessionViewModelTests.swift:1326: error: -[SaydoTests.SessionViewModelTests testChoosingAChipWhileListeningDoesNotLeadToARetryPrompt] : XCTAssertTrue failed
+2026-10-06 06:45:26.818685+0900 Saydo[74302:64805490] [session] event interrupted step morningMicroAction -> morningMicroAction retry=1
+2026-10-06 06:45:26.819730+0900 Saydo[74302:64805490] [session] commands finish(suspended)
+2026-10-06 06:45:26.820021+0900 Saydo[74302:64805490] [session] speak done chars=21 elapsed=0.062247292 seconds
+2026-10-06 06:45:26.821053+0900 Saydo[74302:64805490] [session] listen begin step=morningMicroAction input=voice silence=5s
+Test Case '-[SaydoTests.SessionViewModelTests testChoosingAChipWhileListeningDoesNotLeadToARetryPrompt]' failed (0.067 seconds).
+Test Case '-[SaydoTests.SessionViewModelTests testClosingWhileThePreparationIsPendingNeverStartsRecording]' started.
+2026-10-06 06:45:26.823961+0900 Saydo[74302:64805490] [session] commands speak(21),listen(voice,5s)
+2026-10-06 06:45:26.824060+0900 Saydo[74302:64805490] [session] speak done chars=21 elapsed=1.708e-06 seconds
+2026-10-06 06:45:26.824106+0900 Saydo[74302:64805490] [session] listen begin step=morningAvoidance input=voice silence=5s
+2026-10-06 06:45:26.824173+0900 Saydo[74302:64805490] [session] event interrupted step morningAvoidance -> morningAvoidance retry=0
+2026-10-06 06:45:26.824221+0900 Saydo[74302:64805490] [session] commands finish(suspended)
+2026-10-06 06:45:26.825936+0900 Saydo[74302:64805490] [session] listen end reason=silence elapsed=3.500000 peakRMS=0.400000 levels=11 partial=0chars
+2026-10-06 06:45:26.826009+0900 Saydo[74302:64805490] [session] transcript ready chars=0 finalize=4.542e-06 seconds recorded=3.500000s
+2026-10-06 06:45:26.826068+0900 Saydo[74302:64805490] [session] event transcript(0chars) step morningAvoidance -> morningAvoidance retry=0
+2026-10-06 06:45:26.826107+0900 Saydo[74302:64805490] [session] commands
+/Users/noritakasawada/AI_P/SAYDO/Tests/SaydoTests/SessionViewModelTests.swift:1395: error: -[SaydoTests.SessionViewModelTests testClosingWhileThePreparationIsPendingNeverStartsRecording] : XCTAssertEqual failed: ("1") is not equal to ("0")
+/Users/noritakasawada/AI_P/SAYDO/Tests/SaydoTests/SessionViewModelTests.swift:1398: error: -[SaydoTests.SessionViewModelTests testClosingWhileThePreparationIsPendingNeverStartsRecording] : XCTAssertEqual failed: ("thinking") is not equal to ("done")
+Test Case '-[SaydoTests.SessionViewModelTests testClosingWhileThePreparationIsPendingNeverStartsRecording]' failed (0.009 seconds).
+Test Case '-[SaydoTests.SessionViewModelTests testCopyHistoryDropsRecordsOlderThanThreeDays]' started.
+Test Case '-[SaydoTests.SessionViewModelTests testCopyHistoryDropsRecordsOlderThanThreeDays]' passed (0.001 seconds).
+Test Case '-[SaydoTests.SessionViewModelTests testCopyHistoryPersistsAcrossViewModels]' started.
+2026-10-06 06:45:26.841964+0900 Saydo[74302:64805490] [session] commands speak(21),listen(text,5s)
+2026-10-06 06:45:26.842032+0900 Saydo[74302:64805490] [session] speak done chars=21 elapsed=2.125e-06 seconds
+2026-10-06 06:45:26.842513+0900 Saydo[74302:64805490] [session] listen begin step=morningAvoidance input=text silence=5s
+2026-10-06 06:45:26.842715+0900 Saydo[74302:64805490] [session] commands speak(21),listen(text,5s)
+2026-10-06 06:45:26.842750+0900 Saydo[74302:64805490] [session] speak done chars=21 elapsed=1e-06 seconds
+2026-10-06 06:45:26.842779+0900 Saydo[74302:64805490] [session] listen begin step=morningAvoidance input=text silence=5s
+Test Case '-[SaydoTests.SessionViewModelTests testCopyHistoryPersistsAcrossViewModels]' passed (0.002 seconds).
+Test Case '-[SaydoTests.SessionViewModelTests testInterruptionSuspendsAndResumesFromSameStep]' started.
+2026-10-06 06:45:26.846565+0900 Saydo[74302:64805490] [session] commands speak(21),listen(text,5s)
+2026-10-06 06:45:26.846639+0900 Saydo[74302:64805490] [session] speak done chars=21 elapsed=1.75e-06 seconds
+2026-10-06 06:45:26.846685+0900 Saydo[74302:64805490] [session] listen begin step=morningAvoidance input=text silence=5s
+2026-10-06 06:45:26.846750+0900 Saydo[74302:64805490] [session] event transcript(10chars) step morningAvoidance -> morningReason retry=0
+2026-10-06 06:45:26.848081+0900 Saydo[74302:64805490] [session] commands save(avoidance),speak(9),choices(7),listen(text,5s)
+2026-10-06 06:45:26.848252+0900 Saydo[74302:64805490] [session] speak done chars=9 elapsed=2.5e-06 seconds
+2026-10-06 06:45:26.848311+0900 Saydo[74302:64805490] [session] listen begin step=morningReason input=text silence=5s
+2026-10-06 06:45:26.848357+0900 Saydo[74302:64805490] [session] event interrupted step morningReason -> morningReason retry=0
+2026-10-06 06:45:26.848400+0900 Saydo[74302:64805490] [session] commands finish(suspended)
+2026-10-06 06:45:26.850161+0900 Saydo[74302:64805490] [session] commands speak(11),choices(7),listen(text,5s)
+2026-10-06 06:45:26.850206+0900 Saydo[74302:64805490] [session] speak done chars=11 elapsed=1.75e-06 seconds
+2026-10-06 06:45:26.850235+0900 Saydo[74302:64805490] [session] listen begin step=morningReason input=text silence=5s
+Test Case '-[SaydoTests.SessionViewModelTests testInterruptionSuspendsAndResumesFromSameStep]' passed (0.007 seconds).
+Test Case '-[SaydoTests.SessionViewModelTests testListenModeIsAskedBeforeAnySoundStarts]' started.
+Test Case '-[SaydoTests.SessionViewModelTests testListenModeIsAskedBeforeAnySoundStarts]' passed (0.014 seconds).
+Test Case '-[SaydoTests.SessionViewModelTests testListenModeIsNotAskedWhenConfirmationIsNotRequired]' started.
+2026-10-06 06:45:26.865447+0900 Saydo[74302:64805490] [session] commands speak(10),play
+2026-10-06 06:45:26.865502+0900 Saydo[74302:64805490] [session] speak done chars=10 elapsed=1.292e-06 seconds
+2026-10-06 06:45:26.865593+0900 Saydo[74302:64805490] [session] event playbackFinished step noonPlayback -> noonStatus retry=0
+2026-10-06 06:45:26.865628+0900 Saydo[74302:64805490] [session] commands speak(6),choices(3),listen(text,5s)
+2026-10-06 06:45:26.865652+0900 Saydo[74302:64805490] [session] speak done chars=6 elapsed=9.16e-07 seconds
+2026-10-06 06:45:26.865688+0900 Saydo[74302:64805490] [session] listen begin step=noonStatus input=text silence=5s
+Test Case '-[SaydoTests.SessionViewModelTests testListenModeIsNotAskedWhenConfirmationIsNotRequired]' passed (0.001 seconds).
+Test Case '-[SaydoTests.SessionViewModelTests testMorningFlowCompletesAndSavesCommitmentWithThreeVoiceEntries]' started.
+2026-10-06 06:45:26.866656+0900 Saydo[74302:64805490] [session] commands speak(21),listen(voice,5s)
+2026-10-06 06:45:26.866691+0900 Saydo[74302:64805490] [session] speak done chars=21 elapsed=7.5e-07 seconds
+2026-10-06 06:45:26.867119+0900 Saydo[74302:64805490] [session] listen begin step=morningAvoidance input=voice silence=5s
+2026-10-06 06:45:26.867621+0900 Saydo[74302:64805490] [session] listen end reason=silence elapsed=3.500000 peakRMS=0.400000 levels=11 partial=0chars
+2026-10-06 06:45:26.867657+0900 Saydo[74302:64805490] [session] transcript ready chars=10 finalize=3.75e-06 seconds recorded=3.500000s
+2026-10-06 06:45:26.867713+0900 Saydo[74302:64805490] [session] event transcript(10chars) step morningAvoidance -> morningReason retry=0
+2026-10-06 06:45:26.867751+0900 Saydo[74302:64805490] [session] commands save(avoidance),speak(9),choices(7),listen(voice,5s)
+2026-10-06 06:45:26.867843+0900 Saydo[74302:64805490] [session] speak done chars=9 elapsed=8.75e-07 seconds
+2026-10-06 06:45:26.867872+0900 Saydo[74302:64805490] [session] listen begin step=morningReason input=voice silence=5s
+2026-10-06 06:45:26.868170+0900 Saydo[74302:64805490] [session] listen end reason=silence elapsed=3.500000 peakRMS=0.400000 levels=11 partial=0chars
+2026-10-06 06:45:26.868200+0900 Saydo[74302:64805490] [session] transcript ready chars=6 finalize=2.667e-06 seconds recorded=3.500000s
+2026-10-06 06:45:26.868240+0900 Saydo[74302:64805490] [session] event transcript(6chars) step morningReason -> morningMicroAction retry=0
+2026-10-06 06:45:26.868269+0900 Saydo[74302:64805490] [session] commands save(reason),speak(21),listen(voice,5s)
+2026-10-06 06:45:26.868335+0900 Saydo[74302:64805490] [session] speak done chars=21 elapsed=5e-07 seconds
+2026-10-06 06:45:26.868360+0900 Saydo[74302:64805490] [session] listen begin step=morningMicroAction input=voice silence=5s
+2026-10-06 06:45:26.868616+0900 Saydo[74302:64805490] [session] listen end reason=silence elapsed=3.500000 peakRMS=0.400000 levels=11 partial=0chars
+2026-10-06 06:45:26.868643+0900 Saydo[74302:64805490] [session] transcript ready chars=11 finalize=2e-06 seconds recorded=3.500000s
+2026-10-06 06:45:26.868676+0900 Saydo[74302:64805490] [session] event transcript(11chars) step morningMicroAction -> morningPlannedTime retry=0
+2026-10-06 06:45:26.868707+0900 Saydo[74302:64805490] [session] commands speak(13),listen(voice,5s)
+2026-10-06 06:45:26.868732+0900 Saydo[74302:64805490] [session] speak done chars=13 elapsed=7.92e-07 seconds
+2026-10-06 06:45:26.868757+0900 Saydo[74302:64805490] [session] listen begin step=morningPlannedTime input=voice silence=5s
+2026-10-06 06:45:26.869019+0900 Saydo[74302:64805490] [session] listen end reason=silence elapsed=3.500000 peakRMS=0.400000 levels=11 partial=0chars
+2026-10-06 06:45:26.869046+0900 Saydo[74302:64805490] [session] transcript ready chars=7 finalize=2.041e-06 seconds recorded=3.500000s
+2026-10-06 06:45:26.870103+0900 Saydo[74302:64805490] [session] event transcript(7chars) step morningPlannedTime -> morningDeclaration retry=0
+2026-10-06 06:45:26.870136+0900 Saydo[74302:64805490] [session] commands speak(32),record
+2026-10-06 06:45:26.870213+0900 Saydo[74302:64805490] [session] speak done chars=32 elapsed=1.625e-06 seconds
+2026-10-06 06:45:26.870541+0900 Saydo[74302:64805490] [session] listen end reason=silence elapsed=3.500000 peakRMS=0.400000 levels=11 partial=0chars
+2026-10-06 06:45:26.870571+0900 Saydo[74302:64805490] [session] transcript ready chars=18 finalize=2.792e-06 seconds recorded=3.500000s
+2026-10-06 06:45:26.870642+0900 Saydo[74302:64805490] [session] event transcript(18chars) step morningDeclaration -> morningDeclaration retry=0
+2026-10-06 06:45:26.871887+0900 Saydo[74302:64805490] [session] commands save(declaration),schedule(actionTime),speak(29),finish(completed)
+2026-10-06 06:45:26.871960+0900 Saydo[74302:64805490] [session] speak done chars=29 elapsed=1.416e-06 seconds
+Test Case '-[SaydoTests.SessionViewModelTests testMorningFlowCompletesAndSavesCommitmentWithThreeVoiceEntries]' passed (0.017 seconds).
+Test Case '-[SaydoTests.SessionViewModelTests testMorningFlowWithoutMicrophoneStillSavesThreeVoiceEntries]' started.
+2026-10-06 06:45:26.883541+0900 Saydo[74302:64805490] [session] commands speak(21),listen(text,5s)
+2026-10-06 06:45:26.883597+0900 Saydo[74302:64805490] [session] speak done chars=21 elapsed=1.792e-06 seconds
+2026-10-06 06:45:26.883634+0900 Saydo[74302:64805490] [session] listen begin step=morningAvoidance input=text silence=5s
+2026-10-06 06:45:26.883699+0900 Saydo[74302:64805490] [session] event transcript(10chars) step morningAvoidance -> morningReason retry=0
+2026-10-06 06:45:26.883731+0900 Saydo[74302:64805490] [session] commands save(avoidance),speak(9),choices(7),listen(text,5s)
+2026-10-06 06:45:26.883835+0900 Saydo[74302:64805490] [session] speak done chars=9 elapsed=1.042e-06 seconds
+2026-10-06 06:45:26.883859+0900 Saydo[74302:64805490] [session] listen begin step=morningReason input=text silence=5s
+2026-10-06 06:45:26.885974+0900 Saydo[74302:64805490] [session] event choice(SaydoCore.ChoiceID.reason(SaydoCore.ReasonCategory.awkward)) step morningReason -> morningMicroAction retry=0
+2026-10-06 06:45:26.886047+0900 Saydo[74302:64805490] [session] commands save(reason),speak(21),listen(text,5s)
+2026-10-06 06:45:26.886131+0900 Saydo[74302:64805490] [session] speak done chars=21 elapsed=1.416e-06 seconds
+2026-10-06 06:45:26.886228+0900 Saydo[74302:64805490] [session] listen begin step=morningMicroAction input=text silence=5s
+2026-10-06 06:45:26.886296+0900 Saydo[74302:64805490] [session] event transcript(9chars) step morningMicroAction -> morningPlannedTime retry=0
+2026-10-06 06:45:26.886324+0900 Saydo[74302:64805490] [session] commands speak(13),listen(text,5s)
+2026-10-06 06:45:26.886345+0900 Saydo[74302:64805490] [session] speak done chars=13 elapsed=5.83e-07 seconds
+2026-10-06 06:45:26.886368+0900 Saydo[74302:64805490] [session] listen begin step=morningPlannedTime input=text silence=5s
+2026-10-06 06:45:26.886405+0900 Saydo[74302:64805490] [session] event transcript(7chars) step morningPlannedTime -> morningDeclaration retry=0
+2026-10-06 06:45:26.886432+0900 Saydo[74302:64805490] [session] commands speak(32),speak(15),choices(2)
+2026-10-06 06:45:26.886453+0900 Saydo[74302:64805490] [session] speak done chars=32 elapsed=5.83e-07 seconds
+2026-10-06 06:45:26.886480+0900 Saydo[74302:64805490] [session] speak done chars=15 elapsed=6.67e-07 seconds
+2026-10-06 06:45:26.886538+0900 Saydo[74302:64805490] [session] event choice(SaydoCore.ChoiceID.declareLater) step morningDeclaration -> morningDeclaration retry=0
+2026-10-06 06:45:26.886561+0900 Saydo[74302:64805490] [session] commands speak(18),listen(text,5s)
+2026-10-06 06:45:26.886580+0900 Saydo[74302:64805490] [session] speak done chars=18 elapsed=4.16e-07 seconds
+2026-10-06 06:45:26.886600+0900 Saydo[74302:64805490] [session] listen begin step=morningDeclaration input=text silence=5s
+2026-10-06 06:45:26.886643+0900 Saydo[74302:64805490] [session] event transcript(16chars) step morningDeclaration -> morningDeclaration retry=0
+2026-10-06 06:45:26.886670+0900 Saydo[74302:64805490] [session] commands save(declaration),schedule(actionTime),schedule(declarationReminder),speak(28),speak(29),finish(completed)
+2026-10-06 06:45:26.886716+0900 Saydo[74302:64805490] [session] speak done chars=28 elapsed=2.92e-07 seconds
+2026-10-06 06:45:26.886737+0900 Saydo[74302:64805490] [session] speak done chars=29 elapsed=6.25e-07 seconds
+Test Case '-[SaydoTests.SessionViewModelTests testMorningFlowWithoutMicrophoneStillSavesThreeVoiceEntries]' passed (0.005 seconds).
+Test Case '-[SaydoTests.SessionViewModelTests testNightMoveToTomorrowMarksTheAvoidanceCarriedOver]' started.
+2026-10-06 06:45:26.888942+0900 Saydo[74302:64805490] [session] commands speak(16),listen(text,5s)
+2026-10-06 06:45:26.888992+0900 Saydo[74302:64805490] [session] speak done chars=16 elapsed=1.333e-06 seconds
+2026-10-06 06:45:26.889028+0900 Saydo[74302:64805490] [session] listen begin step=nightProgress input=text silence=5s
+2026-10-06 06:45:26.889080+0900 Saydo[74302:64805490] [session] event transcript(8chars) step nightProgress -> nightProgress retry=0
+2026-10-06 06:45:26.889109+0900 Saydo[74302:64805490] [session] commands save(progress),speak(22),choices(2)
+2026-10-06 06:45:26.889184+0900 Saydo[74302:64805490] [session] speak done chars=22 elapsed=7.08e-07 seconds
+2026-10-06 06:45:26.889584+0900 Saydo[74302:64805490] [session] event choice(SaydoCore.ChoiceID.moveToTomorrow) step nightProgress -> nightTomorrow retry=0
+2026-10-06 06:45:26.889628+0900 Saydo[74302:64805490] [session] commands speak(8),listen(text,5s)
+2026-10-06 06:45:26.889656+0900 Saydo[74302:64805490] [session] speak done chars=8 elapsed=1.042e-06 seconds
+2026-10-06 06:45:26.889680+0900 Saydo[74302:64805490] [session] listen begin step=nightTomorrow input=text silence=5s
+2026-10-06 06:45:26.890695+0900 Saydo[74302:64805490] [session] event transcript(6chars) step nightTomorrow -> nightTomorrow retry=0
+2026-10-06 06:45:26.890739+0900 Saydo[74302:64805490] [session] commands save(tomorrow),speak(9),finish(completed)
+2026-10-06 06:45:26.890817+0900 Saydo[74302:64805490] [session] speak done chars=9 elapsed=8.75e-07 seconds
+Test Case '-[SaydoTests.SessionViewModelTests testNightMoveToTomorrowMarksTheAvoidanceCarriedOver]' passed (0.004 seconds).
+Test Case '-[SaydoTests.SessionViewModelTests testNightTomorrowBecomesNextMorningCarryover]' started.
+2026-10-06 06:45:26.892701+0900 Saydo[74302:64805490] [session] commands speak(16),listen(text,5s)
+2026-10-06 06:45:26.892746+0900 Saydo[74302:64805490] [session] speak done chars=16 elapsed=8.75e-07 seconds
+2026-10-06 06:45:26.892796+0900 Saydo[74302:64805490] [session] listen begin step=nightProgress input=text silence=5s
+2026-10-06 06:45:26.892853+0900 Saydo[74302:64805490] [session] event transcript(11chars) step nightProgress -> nightTomorrow retry=0
+2026-10-06 06:45:26.892885+0900 Saydo[74302:64805490] [session] commands save(progress),speak(16),speak(8),listen(text,5s)
+2026-10-06 06:45:26.892921+0900 Saydo[74302:64805490] [session] speak done chars=16 elapsed=6.25e-07 seconds
+2026-10-06 06:45:26.892948+0900 Saydo[74302:64805490] [session] speak done chars=8 elapsed=9.17e-07 seconds
+2026-10-06 06:45:26.892974+0900 Saydo[74302:64805490] [session] listen begin step=nightTomorrow input=text silence=5s
+2026-10-06 06:45:26.893008+0900 Saydo[74302:64805490] [session] event transcript(6chars) step nightTomorrow -> nightTomorrow retry=0
+2026-10-06 06:45:26.893034+0900 Saydo[74302:64805490] [session] commands save(tomorrow),speak(9),finish(completed)
+2026-10-06 06:45:26.894712+0900 Saydo[74302:64805490] [session] speak done chars=9 elapsed=1.166e-06 seconds
+2026-10-06 06:45:26.895026+0900 Saydo[74302:64805490] [session] commands speak(29),choices(2)
+2026-10-06 06:45:26.895059+0900 Saydo[74302:64805490] [session] speak done chars=29 elapsed=8.33e-07 seconds
+Test Case '-[SaydoTests.SessionViewModelTests testNightTomorrowBecomesNextMorningCarryover]' passed (0.003 seconds).
+Test Case '-[SaydoTests.SessionViewModelTests testNightWithoutProgressShowsTwoChoices]' started.
+2026-10-06 06:45:26.896055+0900 Saydo[74302:64805490] [session] commands speak(16),listen(text,5s)
+2026-10-06 06:45:26.896089+0900 Saydo[74302:64805490] [session] speak done chars=16 elapsed=7.5e-07 seconds
+2026-10-06 06:45:26.896126+0900 Saydo[74302:64805490] [session] listen begin step=nightProgress input=text silence=5s
+2026-10-06 06:45:26.896169+0900 Saydo[74302:64805490] [session] event transcript(8chars) step nightProgress -> nightProgress retry=0
+2026-10-06 06:45:26.896201+0900 Saydo[74302:64805490] [session] commands save(progress),speak(22),choices(2)
+2026-10-06 06:45:26.896263+0900 Saydo[74302:64805490] [session] speak done chars=22 elapsed=6.67e-07 seconds
+Test Case '-[SaydoTests.SessionViewModelTests testNightWithoutProgressShowsTwoChoices]' passed (0.001 seconds).
+Test Case '-[SaydoTests.SessionViewModelTests testNoonAfterDoneCancelsNotificationsAndEnds]' started.
+2026-10-06 06:45:26.897182+0900 Saydo[74302:64805490] [session] commands cancel(noonFixed),cancel(actionTime),speak(10),finish(completed)
+2026-10-06 06:45:26.897250+0900 Saydo[74302:64805490] [session] speak done chars=10 elapsed=7.5e-07 seconds
+Test Case '-[SaydoTests.SessionViewModelTests testNoonAfterDoneCancelsNotificationsAndEnds]' passed (0.001 seconds).
+Test Case '-[SaydoTests.SessionViewModelTests testNoonBeforePlannedTimeAsksPromiseOnly]' started.
+2026-10-06 06:45:26.898815+0900 Saydo[74302:64805490] [session] commands speak(15),choices(2)
+2026-10-06 06:45:26.898849+0900 Saydo[74302:64805490] [session] speak done chars=15 elapsed=8.75e-07 seconds
+2026-10-06 06:45:26.898908+0900 Saydo[74302:64805490] [session] event choice(SaydoCore.ChoiceID.promiseAlive) step noonStatus -> noonStatus retry=0
+2026-10-06 06:45:26.898948+0900 Saydo[74302:64805490] [session] commands speak(22),finish(completed)
+2026-10-06 06:45:26.898974+0900 Saydo[74302:64805490] [session] speak done chars=22 elapsed=6.25e-07 seconds
+Test Case '-[SaydoTests.SessionViewModelTests testNoonBeforePlannedTimeAsksPromiseOnly]' passed (0.001 seconds).
+Test Case '-[SaydoTests.SessionViewModelTests testNoonDoneMarksTheAvoidanceDoneAndShrinkLeavesItOpen]' started.
+2026-10-06 06:45:26.900096+0900 Saydo[74302:64805490] [session] commands speak(10),play
+2026-10-06 06:45:26.900131+0900 Saydo[74302:64805490] [session] speak done chars=10 elapsed=6.66e-07 seconds
+2026-10-06 06:45:26.900185+0900 Saydo[74302:64805490] [session] event playbackFinished step noonPlayback -> noonStatus retry=0
+2026-10-06 06:45:26.900845+0900 Saydo[74302:64805490] [session] commands speak(6),choices(3),listen(text,5s)
+2026-10-06 06:45:26.900873+0900 Saydo[74302:64805490] [session] speak done chars=6 elapsed=7.92e-07 seconds
+2026-10-06 06:45:26.900899+0900 Saydo[74302:64805490] [session] listen begin step=noonStatus input=text silence=5s
+2026-10-06 06:45:26.902067+0900 Saydo[74302:64805490] [session] event choice(SaydoCore.ChoiceID.status(SaydoCore.CommitmentOutcome.done)) step noonStatus -> noonStatus retry=0
+2026-10-06 06:45:26.902125+0900 Saydo[74302:64805490] [session] commands save(status),cancel(actionTime),speak(10),finish(completed)
+2026-10-06 06:45:26.902273+0900 Saydo[74302:64805490] [session] speak done chars=10 elapsed=1.292e-06 seconds
+Test Case '-[SaydoTests.SessionViewModelTests testNoonDoneMarksTheAvoidanceDoneAndShrinkLeavesItOpen]' passed (0.003 seconds).
+Test Case '-[SaydoTests.SessionViewModelTests testNoonDropTodayMarksTheAvoidanceDropped]' started.
+2026-10-06 06:45:26.903461+0900 Saydo[74302:64805490] [session] commands speak(10),play
+2026-10-06 06:45:26.903494+0900 Saydo[74302:64805490] [session] speak done chars=10 elapsed=8.33e-07 seconds
+2026-10-06 06:45:26.903548+0900 Saydo[74302:64805490] [session] event playbackFinished step noonPlayback -> noonStatus retry=0
+2026-10-06 06:45:26.903577+0900 Saydo[74302:64805490] [session] commands speak(6),choices(3),listen(text,5s)
+2026-10-06 06:45:26.903603+0900 Saydo[74302:64805490] [session] speak done chars=6 elapsed=8.75e-07 seconds
+2026-10-06 06:45:26.903628+0900 Saydo[74302:64805490] [session] listen begin step=noonStatus input=text silence=5s
+2026-10-06 06:45:26.903672+0900 Saydo[74302:64805490] [session] event choice(SaydoCore.ChoiceID.status(SaydoCore.CommitmentOutcome.notYet)) step noonStatus -> noonBlocker retry=0
+2026-10-06 06:45:26.903698+0900 Saydo[74302:64805490] [session] commands save(status),speak(7),listen(text,5s)
+2026-10-06 06:45:26.903772+0900 Saydo[74302:64805490] [session] speak done chars=7 elapsed=6.25e-07 seconds
+2026-10-06 06:45:26.905114+0900 Saydo[74302:64805490] [session] listen begin step=noonBlocker input=text silence=5s
+2026-10-06 06:45:26.905183+0900 Saydo[74302:64805490] [session] event transcript(14chars) step noonBlocker -> noonShrink retry=0
+2026-10-06 06:45:26.905218+0900 Saydo[74302:64805490] [session] commands save(blocker),speak(43),choices(4),listen(text,5s)
+2026-10-06 06:45:26.905277+0900 Saydo[74302:64805490] [session] speak done chars=43 elapsed=7.08e-07 seconds
+2026-10-06 06:45:26.905310+0900 Saydo[74302:64805490] [session] listen begin step=noonShrink input=text silence=5s
+2026-10-06 06:45:26.905359+0900 Saydo[74302:64805490] [session] event choice(SaydoCore.ChoiceID.dropToday) step noonShrink -> noonShrink retry=0
+2026-10-06 06:45:26.905395+0900 Saydo[74302:64805490] [session] commands cancel(actionTime),speak(18),finish(completed)
+2026-10-06 06:45:26.905449+0900 Saydo[74302:64805490] [session] speak done chars=18 elapsed=7.5e-07 seconds
+Test Case '-[SaydoTests.SessionViewModelTests testNoonDropTodayMarksTheAvoidanceDropped]' passed (0.003 seconds).
+Test Case '-[SaydoTests.SessionViewModelTests testNoonMoveToTomorrowMarksTheAvoidanceCarriedOver]' started.
+2026-10-06 06:45:26.906645+0900 Saydo[74302:64805490] [session] commands speak(10),play
+2026-10-06 06:45:26.906676+0900 Saydo[74302:64805490] [session] speak done chars=10 elapsed=6.25e-07 seconds
+2026-10-06 06:45:26.906726+0900 Saydo[74302:64805490] [session] event playbackFinished step noonPlayback -> noonStatus retry=0
+2026-10-06 06:45:26.906754+0900 Saydo[74302:64805490] [session] commands speak(6),choices(3),listen(text,5s)
+2026-10-06 06:45:26.906778+0900 Saydo[74302:64805490] [session] speak done chars=6 elapsed=5.83e-07 seconds
+2026-10-06 06:45:26.906805+0900 Saydo[74302:64805490] [session] listen begin step=noonStatus input=text silence=5s
+2026-10-06 06:45:26.906853+0900 Saydo[74302:64805490] [session] event choice(SaydoCore.ChoiceID.status(SaydoCore.CommitmentOutcome.notYet)) step noonStatus -> noonBlocker retry=0
+2026-10-06 06:45:26.906883+0900 Saydo[74302:64805490] [session] commands save(status),speak(7),listen(text,5s)
+2026-10-06 06:45:26.908071+0900 Saydo[74302:64805490] [session] speak done chars=7 elapsed=1.625e-06 seconds
+2026-10-06 06:45:26.908113+0900 Saydo[74302:64805490] [session] listen begin step=noonBlocker input=text silence=5s
+2026-10-06 06:45:26.908174+0900 Saydo[74302:64805490] [session] event transcript(14chars) step noonBlocker -> noonShrink retry=0
+2026-10-06 06:45:26.908208+0900 Saydo[74302:64805490] [session] commands save(blocker),speak(43),choices(4),listen(text,5s)
+2026-10-06 06:45:26.908257+0900 Saydo[74302:64805490] [session] speak done chars=43 elapsed=3.75e-07 seconds
+2026-10-06 06:45:26.908287+0900 Saydo[74302:64805490] [session] listen begin step=noonShrink input=text silence=5s
+2026-10-06 06:45:26.908332+0900 Saydo[74302:64805490] [session] event choice(SaydoCore.ChoiceID.moveToTomorrow) step noonShrink -> noonShrink retry=0
+2026-10-06 06:45:26.908366+0900 Saydo[74302:64805490] [session] commands cancel(actionTime),speak(15),finish(completed)
+2026-10-06 06:45:26.908408+0900 Saydo[74302:64805490] [session] speak done chars=15 elapsed=5.42e-07 seconds
+Test Case '-[SaydoTests.SessionViewModelTests testNoonMoveToTomorrowMarksTheAvoidanceCarriedOver]' passed (0.003 seconds).
+Test Case '-[SaydoTests.SessionViewModelTests testNoonRestoresTodaysActionAndPlaceFromTheCommitment]' started.
+2026-10-06 06:45:26.909528+0900 Saydo[74302:64805490] [session] commands speak(10),play
+2026-10-06 06:45:26.909557+0900 Saydo[74302:64805490] [session] speak done chars=10 elapsed=6.25e-07 seconds
+2026-10-06 06:45:26.909607+0900 Saydo[74302:64805490] [session] event playbackFinished step noonPlayback -> noonStatus retry=0
+2026-10-06 06:45:26.909635+0900 Saydo[74302:64805490] [session] commands speak(6),choices(3),listen(text,5s)
+2026-10-06 06:45:26.909658+0900 Saydo[74302:64805490] [session] speak done chars=6 elapsed=7.09e-07 seconds
+2026-10-06 06:45:26.909683+0900 Saydo[74302:64805490] [session] listen begin step=noonStatus input=text silence=5s
+2026-10-06 06:45:26.909727+0900 Saydo[74302:64805490] [session] event choice(SaydoCore.ChoiceID.status(SaydoCore.CommitmentOutcome.notYet)) step noonStatus -> noonBlocker retry=0
+2026-10-06 06:45:26.909753+0900 Saydo[74302:64805490] [session] commands save(status),speak(7),listen(text,5s)
+2026-10-06 06:45:26.910648+0900 Saydo[74302:64805490] [session] speak done chars=7 elapsed=8.75e-07 seconds
+2026-10-06 06:45:26.910674+0900 Saydo[74302:64805490] [session] listen begin step=noonBlocker input=text silence=5s
+2026-10-06 06:45:26.910726+0900 Saydo[74302:64805490] [session] event transcript(14chars) step noonBlocker -> noonShrink retry=0
+2026-10-06 06:45:26.910760+0900 Saydo[74302:64805490] [session] commands save(blocker),speak(43),choices(4),listen(text,5s)
+2026-10-06 06:45:26.910802+0900 Saydo[74302:64805490] [session] speak done chars=43 elapsed=4.58e-07 seconds
+2026-10-06 06:45:26.910824+0900 Saydo[74302:64805490] [session] listen begin step=noonShrink input=text silence=5s
+2026-10-06 06:45:26.910867+0900 Saydo[74302:64805490] [session] event transcript(6chars) step noonShrink -> noonShrink retry=0
+2026-10-06 06:45:26.910895+0900 Saydo[74302:64805490] [session] commands speak(14),finish(completed)
+2026-10-06 06:45:26.910916+0900 Saydo[74302:64805490] [session] speak done chars=14 elapsed=5.41e-07 seconds
+Test Case '-[SaydoTests.SessionViewModelTests testNoonRestoresTodaysActionAndPlaceFromTheCommitment]' passed (0.002 seconds).
+Test Case '-[SaydoTests.SessionViewModelTests testNoonShrinkLeavesTheAvoidanceStatusUntouched]' started.
+2026-10-06 06:45:26.912084+0900 Saydo[74302:64805490] [session] commands speak(10),play
+2026-10-06 06:45:26.912119+0900 Saydo[74302:64805490] [session] speak done chars=10 elapsed=6.25e-07 seconds
+2026-10-06 06:45:26.912170+0900 Saydo[74302:64805490] [session] event playbackFinished step noonPlayback -> noonStatus retry=0
+2026-10-06 06:45:26.912194+0900 Saydo[74302:64805490] [session] commands speak(6),choices(3),listen(text,5s)
+2026-10-06 06:45:26.912214+0900 Saydo[74302:64805490] [session] speak done chars=6 elapsed=6.25e-07 seconds
+2026-10-06 06:45:26.912235+0900 Saydo[74302:64805490] [session] listen begin step=noonStatus input=text silence=5s
+2026-10-06 06:45:26.912286+0900 Saydo[74302:64805490] [session] event choice(SaydoCore.ChoiceID.status(SaydoCore.CommitmentOutcome.notYet)) step noonStatus -> noonBlocker retry=0
+2026-10-06 06:45:26.912313+0900 Saydo[74302:64805490] [session] commands save(status),speak(7),listen(text,5s)
+2026-10-06 06:45:26.913569+0900 Saydo[74302:64805490] [session] speak done chars=7 elapsed=7.5e-07 seconds
+2026-10-06 06:45:26.913598+0900 Saydo[74302:64805490] [session] listen begin step=noonBlocker input=text silence=5s
+2026-10-06 06:45:26.913654+0900 Saydo[74302:64805490] [session] event transcript(14chars) step noonBlocker -> noonShrink retry=0
+2026-10-06 06:45:26.913678+0900 Saydo[74302:64805490] [session] commands save(blocker),speak(43),choices(4),listen(text,5s)
+2026-10-06 06:45:26.913724+0900 Saydo[74302:64805490] [session] speak done chars=43 elapsed=4.16e-07 seconds
+2026-10-06 06:45:26.913747+0900 Saydo[74302:64805490] [session] listen begin step=noonShrink input=text silence=5s
+2026-10-06 06:45:26.913780+0900 Saydo[74302:64805490] [session] event transcript(6chars) step noonShrink -> noonShrink retry=0
+2026-10-06 06:45:26.913806+0900 Saydo[74302:64805490] [session] commands speak(14),finish(completed)
+2026-10-06 06:45:26.913833+0900 Saydo[74302:64805490] [session] speak done chars=14 elapsed=6.67e-07 seconds
+Test Case '-[SaydoTests.SessionViewModelTests testNoonShrinkLeavesTheAvoidanceStatusUntouched]' passed (0.003 seconds).
+Test Case '-[SaydoTests.SessionViewModelTests testNoonStatusDoneEndsWithoutBlocker]' started.
+2026-10-06 06:45:26.915011+0900 Saydo[74302:64805490] [session] commands speak(10),play
+2026-10-06 06:45:26.915049+0900 Saydo[74302:64805490] [session] speak done chars=10 elapsed=7.92e-07 seconds
+2026-10-06 06:45:26.915104+0900 Saydo[74302:64805490] [session] event playbackFinished step noonPlayback -> noonStatus retry=0
+2026-10-06 06:45:26.915132+0900 Saydo[74302:64805490] [session] commands speak(6),choices(3),listen(text,5s)
+2026-10-06 06:45:26.915163+0900 Saydo[74302:64805490] [session] speak done chars=6 elapsed=8.33e-07 seconds
+2026-10-06 06:45:26.915193+0900 Saydo[74302:64805490] [session] listen begin step=noonStatus input=text silence=5s
+2026-10-06 06:45:26.915242+0900 Saydo[74302:64805490] [session] event choice(SaydoCore.ChoiceID.status(SaydoCore.CommitmentOutcome.done)) step noonStatus -> noonStatus retry=0
+2026-10-06 06:45:26.915269+0900 Saydo[74302:64805490] [session] commands save(status),cancel(actionTime),speak(10),finish(completed)
+2026-10-06 06:45:26.916533+0900 Saydo[74302:64805490] [session] speak done chars=10 elapsed=1.208e-06 seconds
+Test Case '-[SaydoTests.SessionViewModelTests testNoonStatusDoneEndsWithoutBlocker]' passed (0.003 seconds).
+Test Case '-[SaydoTests.SessionViewModelTests testNoonStatusNotYetGoesToBlockerAndShrink]' started.
+2026-10-06 06:45:26.918193+0900 Saydo[74302:64805490] [session] commands speak(10),play
+2026-10-06 06:45:26.918239+0900 Saydo[74302:64805490] [session] speak done chars=10 elapsed=7.09e-07 seconds
+2026-10-06 06:45:26.918294+0900 Saydo[74302:64805490] [session] event playbackFinished step noonPlayback -> noonStatus retry=0
+2026-10-06 06:45:26.918336+0900 Saydo[74302:64805490] [session] commands speak(6),choices(3),listen(text,5s)
+2026-10-06 06:45:26.918370+0900 Saydo[74302:64805490] [session] speak done chars=6 elapsed=9.17e-07 seconds
+2026-10-06 06:45:26.918398+0900 Saydo[74302:64805490] [session] listen begin step=noonStatus input=text silence=5s
+2026-10-06 06:45:26.918451+0900 Saydo[74302:64805490] [session] event choice(SaydoCore.ChoiceID.status(SaydoCore.CommitmentOutcome.notYet)) step noonStatus -> noonBlocker retry=0
+2026-10-06 06:45:26.918478+0900 Saydo[74302:64805490] [session] commands save(status),speak(7),listen(text,5s)
+2026-10-06 06:45:26.919170+0900 Saydo[74302:64805490] [session] speak done chars=7 elapsed=8.75e-07 seconds
+2026-10-06 06:45:26.919201+0900 Saydo[74302:64805490] [session] listen begin step=noonBlocker input=text silence=5s
+2026-10-06 06:45:26.919258+0900 Saydo[74302:64805490] [session] event transcript(14chars) step noonBlocker -> noonShrink retry=0
+2026-10-06 06:45:26.919295+0900 Saydo[74302:64805490] [session] commands save(blocker),speak(43),choices(4),listen(text,5s)
+2026-10-06 06:45:26.919336+0900 Saydo[74302:64805490] [session] speak done chars=43 elapsed=4.17e-07 seconds
+2026-10-06 06:45:26.919359+0900 Saydo[74302:64805490] [session] listen begin step=noonShrink input=text silence=5s
+2026-10-06 06:45:26.919392+0900 Saydo[74302:64805490] [session] event transcript(6chars) step noonShrink -> noonShrink retry=0
+2026-10-06 06:45:26.919417+0900 Saydo[74302:64805490] [session] commands speak(14),finish(completed)
+2026-10-06 06:45:26.919437+0900 Saydo[74302:64805490] [session] speak done chars=14 elapsed=5e-07 seconds
+Test Case '-[SaydoTests.SessionViewModelTests testNoonStatusNotYetGoesToBlockerAndShrink]' passed (0.002 seconds).
+Test Case '-[SaydoTests.SessionViewModelTests testNoonStatusPartialIsTreatedAsProgress]' started.
+2026-10-06 06:45:26.920580+0900 Saydo[74302:64805490] [session] commands speak(10),play
+2026-10-06 06:45:26.920626+0900 Saydo[74302:64805490] [session] speak done chars=10 elapsed=8.33e-07 seconds
+2026-10-06 06:45:26.920676+0900 Saydo[74302:64805490] [session] event playbackFinished step noonPlayback -> noonStatus retry=0
+2026-10-06 06:45:26.920707+0900 Saydo[74302:64805490] [session] commands speak(6),choices(3),listen(text,5s)
+2026-10-06 06:45:26.920730+0900 Saydo[74302:64805490] [session] speak done chars=6 elapsed=7.92e-07 seconds
+2026-10-06 06:45:26.920756+0900 Saydo[74302:64805490] [session] listen begin step=noonStatus input=text silence=5s
+2026-10-06 06:45:26.920803+0900 Saydo[74302:64805490] [session] event choice(SaydoCore.ChoiceID.status(SaydoCore.CommitmentOutcome.partial)) step noonStatus -> noonStatus retry=0
+2026-10-06 06:45:26.920831+0900 Saydo[74302:64805490] [session] commands save(status),speak(15),finish(completed)
+2026-10-06 06:45:26.922861+0900 Saydo[74302:64805490] [session] speak done chars=15 elapsed=1.541e-06 seconds
+Test Case '-[SaydoTests.SessionViewModelTests testNoonStatusPartialIsTreatedAsProgress]' passed (0.003 seconds).
+Test Case '-[SaydoTests.SessionViewModelTests testNoonWithoutCommitmentOpensShortMorningFlow]' started.
+2026-10-06 06:45:26.923975+0900 Saydo[74302:64805490] [session] commands speak(21),listen(text,5s)
+2026-10-06 06:45:26.924004+0900 Saydo[74302:64805490] [session] speak done chars=21 elapsed=8.75e-07 seconds
+2026-10-06 06:45:26.924033+0900 Saydo[74302:64805490] [session] listen begin step=morningAvoidance input=text silence=5s
+2026-10-06 06:45:26.924080+0900 Saydo[74302:64805490] [session] event transcript(11chars) step morningAvoidance -> morningMicroAction retry=0
+2026-10-06 06:45:26.924109+0900 Saydo[74302:64805490] [session] commands save(avoidance),speak(21),listen(text,5s)
+2026-10-06 06:45:26.924217+0900 Saydo[74302:64805490] [session] speak done chars=21 elapsed=5.84e-07 seconds
+2026-10-06 06:45:26.924242+0900 Saydo[74302:64805490] [session] listen begin step=morningMicroAction input=text silence=5s
+2026-10-06 06:45:26.925105+0900 Saydo[74302:64805490] [session] event transcript(10chars) step morningMicroAction -> morningDeclaration retry=0
+2026-10-06 06:45:26.925137+0900 Saydo[74302:64805490] [session] commands speak(32),speak(15),choices(2)
+2026-10-06 06:45:26.925163+0900 Saydo[74302:64805490] [session] speak done chars=32 elapsed=7.09e-07 seconds
+2026-10-06 06:45:26.925187+0900 Saydo[74302:64805490] [session] speak done chars=15 elapsed=5e-07 seconds
+2026-10-06 06:45:26.925234+0900 Saydo[74302:64805490] [session] event choice(SaydoCore.ChoiceID.declareLater) step morningDeclaration -> morningDeclaration retry=0
+2026-10-06 06:45:26.925261+0900 Saydo[74302:64805490] [session] commands speak(18),listen(text,5s)
+2026-10-06 06:45:26.925281+0900 Saydo[74302:64805490] [session] speak done chars=18 elapsed=4.58e-07 seconds
+2026-10-06 06:45:26.925304+0900 Saydo[74302:64805490] [session] listen begin step=morningDeclaration input=text silence=5s
+2026-10-06 06:45:26.925346+0900 Saydo[74302:64805490] [session] event transcript(13chars) step morningDeclaration -> morningDeclaration retry=0
+2026-10-06 06:45:26.925380+0900 Saydo[74302:64805490] [session] commands save(declaration),schedule(declarationReminder),speak(28),speak(28),finish(completed)
+2026-10-06 06:45:26.925403+0900 Saydo[74302:64805490] [session] speak done chars=28 elapsed=2.92e-07 seconds
+2026-10-06 06:45:26.925425+0900 Saydo[74302:64805490] [session] speak done chars=28 elapsed=5e-07 seconds
+Test Case '-[SaydoTests.SessionViewModelTests testNoonWithoutCommitmentOpensShortMorningFlow]' passed (0.002 seconds).
+Test Case '-[SaydoTests.SessionViewModelTests testPlannedPlaceIsNilWhenNoPlaceWasSaid]' started.
+2026-10-06 06:45:26.926657+0900 Saydo[74302:64805490] [session] commands speak(21),listen(text,5s)
+2026-10-06 06:45:26.926687+0900 Saydo[74302:64805490] [session] speak done chars=21 elapsed=5e-07 seconds
+2026-10-06 06:45:26.926723+0900 Saydo[74302:64805490] [session] listen begin step=morningAvoidance input=text silence=5s
+2026-10-06 06:45:26.926766+0900 Saydo[74302:64805490] [session] event transcript(10chars) step morningAvoidance -> morningReason retry=0
+2026-10-06 06:45:26.926793+0900 Saydo[74302:64805490] [session] commands save(avoidance),speak(9),choices(7),listen(text,5s)
+2026-10-06 06:45:26.926859+0900 Saydo[74302:64805490] [session] speak done chars=9 elapsed=7.09e-07 seconds
+2026-10-06 06:45:26.926884+0900 Saydo[74302:64805490] [session] listen begin step=morningReason input=text silence=5s
+2026-10-06 06:45:26.927080+0900 Saydo[74302:64805490] [session] event choice(SaydoCore.ChoiceID.reason(SaydoCore.ReasonCategory.awkward)) step morningReason -> morningMicroAction retry=0
+2026-10-06 06:45:26.927107+0900 Saydo[74302:64805490] [session] commands save(reason),speak(21),listen(text,5s)
+2026-10-06 06:45:26.927151+0900 Saydo[74302:64805490] [session] speak done chars=21 elapsed=7.08e-07 seconds
+2026-10-06 06:45:26.927177+0900 Saydo[74302:64805490] [session] listen begin step=morningMicroAction input=text silence=5s
+2026-10-06 06:45:26.927215+0900 Saydo[74302:64805490] [session] event transcript(11chars) step morningMicroAction -> morningPlannedTime retry=0
+2026-10-06 06:45:26.927243+0900 Saydo[74302:64805490] [session] commands speak(13),listen(text,5s)
+2026-10-06 06:45:26.927263+0900 Saydo[74302:64805490] [session] speak done chars=13 elapsed=5.42e-07 seconds
+2026-10-06 06:45:26.927286+0900 Saydo[74302:64805490] [session] listen begin step=morningPlannedTime input=text silence=5s
+2026-10-06 06:45:26.927326+0900 Saydo[74302:64805490] [session] event transcript(3chars) step morningPlannedTime -> morningDeclaration retry=0
+2026-10-06 06:45:26.927382+0900 Saydo[74302:64805490] [session] commands speak(32),speak(15),choices(2)
+2026-10-06 06:45:26.927403+0900 Saydo[74302:64805490] [session] speak done chars=32 elapsed=5e-07 seconds
+2026-10-06 06:45:26.927421+0900 Saydo[74302:64805490] [session] speak done chars=15 elapsed=2.92e-07 seconds
+2026-10-06 06:45:26.927454+0900 Saydo[74302:64805490] [session] event choice(SaydoCore.ChoiceID.declareLater) step morningDeclaration -> morningDeclaration retry=0
+2026-10-06 06:45:26.927480+0900 Saydo[74302:64805490] [session] commands speak(18),listen(text,5s)
+2026-10-06 06:45:26.927499+0900 Saydo[74302:64805490] [session] speak done chars=18 elapsed=2.08e-07 seconds
+2026-10-06 06:45:26.927522+0900 Saydo[74302:64805490] [session] listen begin step=morningDeclaration input=text silence=5s
+2026-10-06 06:45:26.927563+0900 Saydo[74302:64805490] [session] event transcript(18chars) step morningDeclaration -> morningDeclaration retry=0
+2026-10-06 06:45:26.927591+0900 Saydo[74302:64805490] [session] commands save(declaration),schedule(actionTime),schedule(declarationReminder),speak(28),speak(25),finish(completed)
+2026-10-06 06:45:26.927614+0900 Saydo[74302:64805490] [session] speak done chars=28 elapsed=2.5e-07 seconds
+2026-10-06 06:45:26.927635+0900 Saydo[74302:64805490] [session] speak done chars=25 elapsed=7.08e-07 seconds
+Test Case '-[SaydoTests.SessionViewModelTests testPlannedPlaceIsNilWhenNoPlaceWasSaid]' passed (0.002 seconds).
+Test Case '-[SaydoTests.SessionViewModelTests testPlannedPlaceIsSavedWithTheCommitment]' started.
+2026-10-06 06:45:26.928834+0900 Saydo[74302:64805490] [session] commands speak(21),listen(text,5s)
+2026-10-06 06:45:26.928867+0900 Saydo[74302:64805490] [session] speak done chars=21 elapsed=7.08e-07 seconds
+2026-10-06 06:45:26.928892+0900 Saydo[74302:64805490] [session] listen begin step=morningAvoidance input=text silence=5s
+2026-10-06 06:45:26.928938+0900 Saydo[74302:64805490] [session] event transcript(10chars) step morningAvoidance -> morningReason retry=0
+2026-10-06 06:45:26.928968+0900 Saydo[74302:64805490] [session] commands save(avoidance),speak(9),choices(7),listen(text,5s)
+2026-10-06 06:45:26.929032+0900 Saydo[74302:64805490] [session] speak done chars=9 elapsed=6.67e-07 seconds
+2026-10-06 06:45:26.929057+0900 Saydo[74302:64805490] [session] listen begin step=morningReason input=text silence=5s
+2026-10-06 06:45:26.929099+0900 Saydo[74302:64805490] [session] event choice(SaydoCore.ChoiceID.reason(SaydoCore.ReasonCategory.awkward)) step morningReason -> morningMicroAction retry=0
+2026-10-06 06:45:26.930663+0900 Saydo[74302:64805490] [session] commands save(reason),speak(21),listen(text,5s)
+2026-10-06 06:45:26.930745+0900 Saydo[74302:64805490] [session] speak done chars=21 elapsed=1.417e-06 seconds
+2026-10-06 06:45:26.930779+0900 Saydo[74302:64805490] [session] listen begin step=morningMicroAction input=text silence=5s
+2026-10-06 06:45:26.930838+0900 Saydo[74302:64805490] [session] event transcript(11chars) step morningMicroAction -> morningPlannedTime retry=0
+2026-10-06 06:45:26.930867+0900 Saydo[74302:64805490] [session] commands speak(13),listen(text,5s)
+2026-10-06 06:45:26.930889+0900 Saydo[74302:64805490] [session] speak done chars=13 elapsed=3.75e-07 seconds
+2026-10-06 06:45:26.930916+0900 Saydo[74302:64805490] [session] listen begin step=morningPlannedTime input=text silence=5s
+2026-10-06 06:45:26.930961+0900 Saydo[74302:64805490] [session] event transcript(7chars) step morningPlannedTime -> morningDeclaration retry=0
+2026-10-06 06:45:26.930985+0900 Saydo[74302:64805490] [session] commands speak(32),speak(15),choices(2)
+2026-10-06 06:45:26.931006+0900 Saydo[74302:64805490] [session] speak done chars=32 elapsed=7.92e-07 seconds
+2026-10-06 06:45:26.931028+0900 Saydo[74302:64805490] [session] speak done chars=15 elapsed=2.92e-07 seconds
+2026-10-06 06:45:26.931067+0900 Saydo[74302:64805490] [session] event choice(SaydoCore.ChoiceID.declareLater) step morningDeclaration -> morningDeclaration retry=0
+2026-10-06 06:45:26.931090+0900 Saydo[74302:64805490] [session] commands speak(18),listen(text,5s)
+2026-10-06 06:45:26.931113+0900 Saydo[74302:64805490] [session] speak done chars=18 elapsed=2.5e-07 seconds
+2026-10-06 06:45:26.931136+0900 Saydo[74302:64805490] [session] listen begin step=morningDeclaration input=text silence=5s
+2026-10-06 06:45:26.931176+0900 Saydo[74302:64805490] [session] event transcript(18chars) step morningDeclaration -> morningDeclaration retry=0
+2026-10-06 06:45:26.931204+0900 Saydo[74302:64805490] [session] commands save(declaration),schedule(actionTime),schedule(declarationReminder),speak(28),speak(29),finish(completed)
+2026-10-06 06:45:26.931230+0900 Saydo[74302:64805490] [session] speak done chars=28 elapsed=3.33e-07 seconds
+2026-10-06 06:45:26.931253+0900 Saydo[74302:64805490] [session] speak done chars=29 elapsed=6.67e-07 seconds
+Test Case '-[SaydoTests.SessionViewModelTests testPlannedPlaceIsSavedWithTheCommitment]' passed (0.004 seconds).
+Test Case '-[SaydoTests.SessionViewModelTests testReadTextModePlaysNothingAndShowsTheDeclaration]' started.
+2026-10-06 06:45:26.932779+0900 Saydo[74302:64805490] [session] event playbackFinished step noonPlayback -> noonStatus retry=0
+2026-10-06 06:45:26.932817+0900 Saydo[74302:64805490] [session] commands speak(6),choices(3),listen(text,5s)
+2026-10-06 06:45:26.932849+0900 Saydo[74302:64805490] [session] speak done chars=6 elapsed=5.42e-07 seconds
+2026-10-06 06:45:26.932876+0900 Saydo[74302:64805490] [session] listen begin step=noonStatus input=text silence=5s
+Test Case '-[SaydoTests.SessionViewModelTests testReadTextModePlaysNothingAndShowsTheDeclaration]' passed (0.001 seconds).
+Test Case '-[SaydoTests.SessionViewModelTests testReceiverModeRoutesToTheReceiverBeforePlaying]' started.
+2026-10-06 06:45:26.933872+0900 Saydo[74302:64805490] [session] speak done chars=10 elapsed=4.58e-07 seconds
+2026-10-06 06:45:26.933914+0900 Saydo[74302:64805490] [session] event playbackFinished step noonPlayback -> noonStatus retry=0
+2026-10-06 06:45:26.934058+0900 Saydo[74302:64805490] [session] commands speak(6),choices(3),listen(text,5s)
+2026-10-06 06:45:26.934086+0900 Saydo[74302:64805490] [session] speak done chars=6 elapsed=7.09e-07 seconds
+2026-10-06 06:45:26.934111+0900 Saydo[74302:64805490] [session] listen begin step=noonStatus input=text silence=5s
+Test Case '-[SaydoTests.SessionViewModelTests testReceiverModeRoutesToTheReceiverBeforePlaying]' passed (0.002 seconds).
+Test Case '-[SaydoTests.SessionViewModelTests testRecordingNeverStartsBeforeSpeechCompletesThroughMorningFlow]' started.
+2026-10-06 06:45:26.935548+0900 Saydo[74302:64805490] [session] commands speak(21),listen(voice,5s)
+2026-10-06 06:45:26.937139+0900 Saydo[74302:64805490] [session] speak done chars=21 elapsed=0.001550208 seconds
+2026-10-06 06:45:26.937282+0900 Saydo[74302:64805490] [session] listen begin step=morningAvoidance input=voice silence=5s
+2026-10-06 06:45:26.937874+0900 Saydo[74302:64805490] [session] listen end reason=silence elapsed=3.500000 peakRMS=0.400000 levels=11 partial=0chars
+2026-10-06 06:45:26.937911+0900 Saydo[74302:64805490] [session] transcript ready chars=10 finalize=4.041e-06 seconds recorded=3.500000s
+2026-10-06 06:45:26.937973+0900 Saydo[74302:64805490] [session] event transcript(10chars) step morningAvoidance -> morningReason retry=0
+2026-10-06 06:45:26.938016+0900 Saydo[74302:64805490] [session] commands save(avoidance),speak(9),choices(7),listen(voice,5s)
+2026-10-06 06:45:26.938131+0900 Saydo[74302:64805490] [session] speak done chars=9 elapsed=2.9833e-05 seconds
+2026-10-06 06:45:26.939408+0900 Saydo[74302:64805490] [session] listen begin step=morningReason input=voice silence=5s
+2026-10-06 06:45:26.940304+0900 Saydo[74302:64805490] [session] listen end reason=silence elapsed=3.500000 peakRMS=0.400000 levels=11 partial=0chars
+2026-10-06 06:45:26.940358+0900 Saydo[74302:64805490] [session] transcript ready chars=6 finalize=4.208e-06 seconds recorded=3.500000s
+2026-10-06 06:45:26.940416+0900 Saydo[74302:64805490] [session] event transcript(6chars) step morningReason -> morningMicroAction retry=0
+2026-10-06 06:45:26.940452+0900 Saydo[74302:64805490] [session] commands save(reason),speak(21),listen(voice,5s)
+2026-10-06 06:45:26.940554+0900 Saydo[74302:64805490] [session] speak done chars=21 elapsed=2.1625e-05 seconds
+2026-10-06 06:45:26.940578+0900 Saydo[74302:64805490] [session] listen begin step=morningMicroAction input=voice silence=5s
+2026-10-06 06:45:26.940881+0900 Saydo[74302:64805490] [session] listen end reason=silence elapsed=3.500000 peakRMS=0.400000 levels=11 partial=0chars
+2026-10-06 06:45:26.940908+0900 Saydo[74302:64805490] [session] transcript ready chars=11 finalize=2.5e-06 seconds recorded=3.500000s
+2026-10-06 06:45:26.940954+0900 Saydo[74302:64805490] [session] event transcript(11chars) step morningMicroAction -> morningPlannedTime retry=0
+2026-10-06 06:45:26.942299+0900 Saydo[74302:64805490] [session] commands speak(13),listen(voice,5s)
+2026-10-06 06:45:26.942408+0900 Saydo[74302:64805490] [session] speak done chars=13 elapsed=5.5625e-05 seconds
+2026-10-06 06:45:26.942455+0900 Saydo[74302:64805490] [session] listen begin step=morningPlannedTime input=voice silence=5s
+2026-10-06 06:45:26.942863+0900 Saydo[74302:64805490] [session] listen end reason=silence elapsed=3.500000 peakRMS=0.400000 levels=11 partial=0chars
+2026-10-06 06:45:26.942904+0900 Saydo[74302:64805490] [session] transcript ready chars=7 finalize=5.375e-06 seconds recorded=3.500000s
+2026-10-06 06:45:26.942963+0900 Saydo[74302:64805490] [session] event transcript(7chars) step morningPlannedTime -> morningDeclaration retry=0
+2026-10-06 06:45:26.942994+0900 Saydo[74302:64805490] [session] commands speak(32),record
+2026-10-06 06:45:26.943048+0900 Saydo[74302:64805490] [session] speak done chars=32 elapsed=2.3458e-05 seconds
+2026-10-06 06:45:26.943346+0900 Saydo[74302:64805490] [session] listen end reason=silence elapsed=3.500000 peakRMS=0.400000 levels=11 partial=0chars
+2026-10-06 06:45:26.943382+0900 Saydo[74302:64805490] [session] transcript ready chars=18 finalize=4.125e-06 seconds recorded=3.500000s
+2026-10-06 06:45:26.943430+0900 Saydo[74302:64805490] [session] event transcript(18chars) step morningDeclaration -> morningDeclaration retry=0
+2026-10-06 06:45:26.943470+0900 Saydo[74302:64805490] [session] commands save(declaration),schedule(actionTime),speak(29),finish(completed)
+2026-10-06 06:45:26.943514+0900 Saydo[74302:64805490] [session] speak done chars=29 elapsed=1.3583e-05 seconds
+/Users/noritakasawada/AI_P/SAYDO/Tests/SaydoTests/SessionViewModelTests.swift:1244: error: -[SaydoTests.SessionViewModelTests testRecordingNeverStartsBeforeSpeechCompletesThroughMorningFlow] : XCTAssertEqual failed: ("5") is not equal to ("1") - 読み上げの完了前に録音が始まった: Optional(SaydoCore.FlowStep.morningReason)
+/Users/noritakasawada/AI_P/SAYDO/Tests/SaydoTests/SessionViewModelTests.swift:1252: error: -[SaydoTests.SessionViewModelTests testRecordingNeverStartsBeforeSpeechCompletesThroughMorningFlow] : XCTAssertEqual failed: ("["Optional(SaydoCore.FlowStep.morningReason)", "Optional(SaydoCore.FlowStep.morningMicroAction)", "Optional(SaydoCore.FlowStep.morningPlannedTime)", "Optional(SaydoCore.FlowStep.morningDeclaration)"]") is not equal to ("[]")
+/Users/noritakasawada/AI_P/SAYDO/Tests/SaydoTests/SessionViewModelTests.swift:1254: error: -[SaydoTests.SessionViewModelTests testRecordingNeverStartsBeforeSpeechCompletesThroughMorningFlow] : XCTAssertEqual failed: ("[SaydoCore.FlowStep.morningAvoidance, SaydoCore.FlowStep.morningReason]") is not equal to ("[SaydoCore.FlowStep.morningPlannedTime, SaydoCore.FlowStep.morningReason, SaydoCore.FlowStep.morningMicroAction, SaydoCore.FlowStep.morningDeclaration, SaydoCore.FlowStep.morningAvoidance]")
+Test Case '-[SaydoTests.SessionViewModelTests testRecordingNeverStartsBeforeSpeechCompletesThroughMorningFlow]' failed (0.014 seconds).
+Test Case '-[SaydoTests.SessionViewModelTests testRecordingWaitsForTheNudgeAfterSilenceWatchFires]' started.
+2026-10-06 06:45:26.949431+0900 Saydo[74302:64805490] [session] commands speak(21),listen(voice,5s)
+2026-10-06 06:45:26.949527+0900 Saydo[74302:64805490] [session] speak done chars=21 elapsed=3.7916e-05 seconds
+2026-10-06 06:45:26.949565+0900 Saydo[74302:64805490] [session] listen begin step=morningAvoidance input=voice silence=5s
+2026-10-06 06:45:26.950332+0900 Saydo[74302:64805490] [session] silence watch fired heardSpeech=false
+2026-10-06 06:45:26.951458+0900 Saydo[74302:64805490] [session] event timeout(SaydoCore.FlowEvent.TimeoutKind.silence) step morningAvoidance -> morningAvoidance retry=0
+2026-10-06 06:45:26.951520+0900 Saydo[74302:64805490] [session] commands speak(18),listen(voice,10s)
+2026-10-06 06:45:26.951627+0900 Saydo[74302:64805490] [session] speak done chars=18 elapsed=6.65e-05 seconds
+2026-10-06 06:45:26.951659+0900 Saydo[74302:64805490] [session] listen begin step=morningAvoidance input=voice silence=10s
+/Users/noritakasawada/AI_P/SAYDO/Tests/SaydoTests/SessionViewModelTests.swift:1292: error: -[SaydoTests.SessionViewModelTests testRecordingWaitsForTheNudgeAfterSilenceWatchFires] : XCTAssertEqual failed: ("2") is not equal to ("1")
+/Users/noritakasawada/AI_P/SAYDO/Tests/SaydoTests/SessionViewModelTests.swift:1293: error: -[SaydoTests.SessionViewModelTests testRecordingWaitsForTheNudgeAfterSilenceWatchFires] : XCTAssertFalse failed
+/Users/noritakasawada/AI_P/SAYDO/Tests/SaydoTests/SessionViewModelTests.swift:1299: error: -[SaydoTests.SessionViewModelTests testRecordingWaitsForTheNudgeAfterSilenceWatchFires] : XCTAssertEqual failed: ("1") is not equal to ("0")
+2026-10-06 06:45:26.954674+0900 Saydo[74302:64805490] [session] event interrupted step morningAvoidance -> morningAvoidance retry=0
+2026-10-06 06:45:26.954740+0900 Saydo[74302:64805490] [session] commands finish(suspended)
+Test Case '-[SaydoTests.SessionViewModelTests testRecordingWaitsForTheNudgeAfterSilenceWatchFires]' failed (0.007 seconds).
+Test Case '-[SaydoTests.SessionViewModelTests testSilenceNudgesOnceThenSkipsTheQuestion]' started.
+2026-10-06 06:45:26.956078+0900 Saydo[74302:64805490] [session] commands speak(21),listen(text,5s)
+2026-10-06 06:45:26.956192+0900 Saydo[74302:64805490] [session] speak done chars=21 elapsed=1.667e-06 seconds
+2026-10-06 06:45:26.956264+0900 Saydo[74302:64805490] [session] listen begin step=morningAvoidance input=text silence=5s
+2026-10-06 06:45:26.958007+0900 Saydo[74302:64805490] [session] silence watch fired heardSpeech=false
+2026-10-06 06:45:26.958110+0900 Saydo[74302:64805490] [session] event timeout(SaydoCore.FlowEvent.TimeoutKind.silence) step morningAvoidance -> morningAvoidance retry=0
+2026-10-06 06:45:26.958154+0900 Saydo[74302:64805490] [session] commands speak(18),listen(text,10s)
+2026-10-06 06:45:26.958181+0900 Saydo[74302:64805490] [session] speak done chars=18 elapsed=1.958e-06 seconds
+2026-10-06 06:45:26.958207+0900 Saydo[74302:64805490] [session] listen begin step=morningAvoidance input=text silence=10s
+2026-10-06 06:45:26.959374+0900 Saydo[74302:64805490] [session] silence watch fired heardSpeech=false
+2026-10-06 06:45:26.959433+0900 Saydo[74302:64805490] [session] event timeout(SaydoCore.FlowEvent.TimeoutKind.silence) step morningAvoidance -> morningReason retry=0
+2026-10-06 06:45:26.959463+0900 Saydo[74302:64805490] [session] commands speak(9),choices(7),listen(text,5s)
+2026-10-06 06:45:26.959486+0900 Saydo[74302:64805490] [session] speak done chars=9 elapsed=1.166e-06 seconds
+2026-10-06 06:45:26.959508+0900 Saydo[74302:64805490] [session] listen begin step=morningReason input=text silence=5s
+Test Case '-[SaydoTests.SessionViewModelTests testSilenceNudgesOnceThenSkipsTheQuestion]' passed (0.007 seconds).
+Test Case '-[SaydoTests.SessionViewModelTests testTimeboxDuringSpeechStopsTheSpeechAndNeverStartsRecording]' started.
+2026-10-06 06:45:26.963581+0900 Saydo[74302:64805490] [session] commands speak(21),listen(voice,5s)
+2026-10-06 06:45:26.963681+0900 Saydo[74302:64805490] [session] event timeout(SaydoCore.FlowEvent.TimeoutKind.timebox) step morningAvoidance -> morningAvoidance retry=0
+2026-10-06 06:45:26.963944+0900 Saydo[74302:64805490] [session] commands speak(9),finish(timeboxExceeded)
+/Users/noritakasawada/AI_P/SAYDO/Tests/SaydoTests/SessionViewModelTests.swift:1413: error: -[SaydoTests.SessionViewModelTests testTimeboxDuringSpeechStopsTheSpeechAndNeverStartsRecording] : XCTAssertGreaterThanOrEqual failed: ("0") is less than ("1")
+/Users/noritakasawada/AI_P/SAYDO/Tests/SaydoTests/SessionViewModelTests.swift:1414: error: -[SaydoTests.SessionViewModelTests testTimeboxDuringSpeechStopsTheSpeechAndNeverStartsRecording] : XCTAssertEqual failed: ("2") is not equal to ("1")
+2026-10-06 06:45:26.965161+0900 Saydo[74302:64805490] [session] speak done chars=21 elapsed=0.001519083 seconds
+2026-10-06 06:45:26.965219+0900 Saydo[74302:64805490] [session] listen begin step=morningAvoidance input=voice silence=5s
+2026-10-06 06:45:26.969492+0900 Saydo[74302:64805490] [session] listen end reason=silence elapsed=3.500000 peakRMS=0.400000 levels=11 partial=0chars
+2026-10-06 06:45:26.969542+0900 Saydo[74302:64805490] [session] transcript ready chars=0 finalize=2.666e-06 seconds recorded=3.500000s
+2026-10-06 06:45:26.969587+0900 Saydo[74302:64805490] [session] event transcript(0chars) step morningAvoidance -> morningAvoidance retry=0
+2026-10-06 06:45:26.969632+0900 Saydo[74302:64805490] [session] commands
+/Users/noritakasawada/AI_P/SAYDO/Tests/SaydoTests/SessionViewModelTests.swift:1423: error: -[SaydoTests.SessionViewModelTests testTimeboxDuringSpeechStopsTheSpeechAndNeverStartsRecording] : XCTAssertEqual failed: ("nil") is not equal to ("Optional(SaydoCore.FlowCompletion.timeboxExceeded)")
+/Users/noritakasawada/AI_P/SAYDO/Tests/SaydoTests/SessionViewModelTests.swift:1424: error: -[SaydoTests.SessionViewModelTests testTimeboxDuringSpeechStopsTheSpeechAndNeverStartsRecording] : XCTAssertEqual failed: ("thinking") is not equal to ("done")
+/Users/noritakasawada/AI_P/SAYDO/Tests/SaydoTests/SessionViewModelTests.swift:1425: error: -[SaydoTests.SessionViewModelTests testTimeboxDuringSpeechStopsTheSpeechAndNeverStartsRecording] : XCTAssertEqual failed: ("1") is not equal to ("0")
+/Users/noritakasawada/AI_P/SAYDO/Tests/SaydoTests/SessionViewModelTests.swift:1428: error: -[SaydoTests.SessionViewModelTests testTimeboxDuringSpeechStopsTheSpeechAndNeverStartsRecording] : XCTAssertEqual failed: ("1") is not equal to ("0")
+/Users/noritakasawada/AI_P/SAYDO/Tests/SaydoTests/SessionViewModelTests.swift:1429: error: -[SaydoTests.SessionViewModelTests testTimeboxDuringSpeechStopsTheSpeechAndNeverStartsRecording] : XCTAssertFalse failed
+2026-10-06 06:45:27.003524+0900 Saydo[74302:64805490] [session] speak done chars=9 elapsed=0.039545625 seconds
+Test Case '-[SaydoTests.SessionViewModelTests testTimeboxDuringSpeechStopsTheSpeechAndNeverStartsRecording]' failed (0.041 seconds).
+Test Case '-[SaydoTests.SessionViewModelTests testTimeboxExceededEndsSessionAndRecordsLastStep]' started.
+2026-10-06 06:45:27.004698+0900 Saydo[74302:64805490] [session] commands speak(21),listen(text,5s)
+2026-10-06 06:45:27.004741+0900 Saydo[74302:64805490] [session] speak done chars=21 elapsed=1.708e-06 seconds
+2026-10-06 06:45:27.004777+0900 Saydo[74302:64805490] [session] listen begin step=morningAvoidance input=text silence=5s
+2026-10-06 06:45:27.004841+0900 Saydo[74302:64805490] [session] event transcript(10chars) step morningAvoidance -> morningReason retry=0
+2026-10-06 06:45:27.004876+0900 Saydo[74302:64805490] [session] commands save(avoidance),speak(9),choices(7),listen(text,5s)
+2026-10-06 06:45:27.004976+0900 Saydo[74302:64805490] [session] speak done chars=9 elapsed=8.75e-07 seconds
+2026-10-06 06:45:27.005006+0900 Saydo[74302:64805490] [session] listen begin step=morningReason input=text silence=5s
+2026-10-06 06:45:27.005050+0900 Saydo[74302:64805490] [session] event timeout(SaydoCore.FlowEvent.TimeoutKind.timebox) step morningReason -> morningReason retry=0
+2026-10-06 06:45:27.005087+0900 Saydo[74302:64805490] [session] commands speak(9),finish(timeboxExceeded)
+2026-10-06 06:45:27.005113+0900 Saydo[74302:64805490] [session] speak done chars=9 elapsed=7.08e-07 seconds
+Test Case '-[SaydoTests.SessionViewModelTests testTimeboxExceededEndsSessionAndRecordsLastStep]' passed (0.001 seconds).
+Test Case '-[SaydoTests.SessionViewModelTests testVoicelessCommitmentShowsTextAndIsNeverAskedToChoose]' started.
+2026-10-06 06:45:27.006102+0900 Saydo[74302:64805490] [session] commands speak(10),play
+2026-10-06 06:45:27.006128+0900 Saydo[74302:64805490] [session] speak done chars=10 elapsed=6.25e-07 seconds
+2026-10-06 06:45:27.006170+0900 Saydo[74302:64805490] [session] event playbackFinished step noonPlayback -> noonStatus retry=0
+2026-10-06 06:45:27.006195+0900 Saydo[74302:64805490] [session] commands speak(6),choices(3),listen(text,5s)
+2026-10-06 06:45:27.007597+0900 Saydo[74302:64805490] [session] speak done chars=6 elapsed=1.167e-06 seconds
+2026-10-06 06:45:27.007633+0900 Saydo[74302:64805490] [session] listen begin step=noonStatus input=text silence=5s
+Test Case '-[SaydoTests.SessionViewModelTests testVoicelessCommitmentShowsTextAndIsNeverAskedToChoose]' passed (0.002 seconds).
+Test Suite 'SessionViewModelTests' failed at 2026-10-06 06:45:27.008.
+	 Executed 36 tests, with 16 failures (0 unexpected) in 0.271 (0.288) seconds
+Test Suite 'SilenceDetectorTests' started at 2026-10-06 06:45:27.008.
+Test Case '-[SaydoTests.SilenceDetectorTests testFinishesAfterRequiredSilenceFollowingSpeech]' started.
+Test Case '-[SaydoTests.SilenceDetectorTests testFinishesAfterRequiredSilenceFollowingSpeech]' passed (0.000 seconds).
+Test Case '-[SaydoTests.SilenceDetectorTests testFinishesExactlyAtBoundary]' started.
+Test Case '-[SaydoTests.SilenceDetectorTests testFinishesExactlyAtBoundary]' passed (0.000 seconds).
+Test Case '-[SaydoTests.SilenceDetectorTests testHasFinishedMatchesFeedResult]' started.
+Test Case '-[SaydoTests.SilenceDetectorTests testHasFinishedMatchesFeedResult]' passed (0.001 seconds).
+Test Case '-[SaydoTests.SilenceDetectorTests testInitFromDurationUsesSeconds]' started.
+Test Case '-[SaydoTests.SilenceDetectorTests testInitFromDurationUsesSeconds]' passed (0.000 seconds).
+Test Case '-[SaydoTests.SilenceDetectorTests testProgressIsClampedToOne]' started.
+Test Case '-[SaydoTests.SilenceDetectorTests testProgressIsClampedToOne]' passed (0.000 seconds).
+Test Case '-[SaydoTests.SilenceDetectorTests testProgressIsZeroWhenRequiredSilenceIsZero]' started.
+Test Case '-[SaydoTests.SilenceDetectorTests testProgressIsZeroWhenRequiredSilenceIsZero]' passed (0.000 seconds).
+Test Case '-[SaydoTests.SilenceDetectorTests testResetClearsStateButKeepsConfiguration]' started.
+Test Case '-[SaydoTests.SilenceDetectorTests testResetClearsStateButKeepsConfiguration]' passed (0.000 seconds).
+Test Case '-[SaydoTests.SilenceDetectorTests testSilenceBeforeAnySpeechNeverFinishes]' started.
+Test Case '-[SaydoTests.SilenceDetectorTests testSilenceBeforeAnySpeechNeverFinishes]' passed (0.000 seconds).
+Test Case '-[SaydoTests.SilenceDetectorTests testSilenceDurationChoicesMatchPlan]' started.
+Test Case '-[SaydoTests.SilenceDetectorTests testSilenceDurationChoicesMatchPlan]' passed (0.000 seconds).
+Test Case '-[SaydoTests.SilenceDetectorTests testSpeechResetsSilenceCounter]' started.
+Test Case '-[SaydoTests.SilenceDetectorTests testSpeechResetsSilenceCounter]' passed (0.000 seconds).
+Test Case '-[SaydoTests.SilenceDetectorTests testValueAtThresholdCountsAsSpeech]' started.
+Test Case '-[SaydoTests.SilenceDetectorTests testValueAtThresholdCountsAsSpeech]' passed (0.000 seconds).
+Test Case '-[SaydoTests.SilenceDetectorTests testValueJustBelowThresholdCountsAsSilence]' started.
+Test Case '-[SaydoTests.SilenceDetectorTests testValueJustBelowThresholdCountsAsSilence]' passed (0.000 seconds).
+Test Case '-[SaydoTests.SilenceDetectorTests testZeroDurationBufferIsIgnored]' started.
+Test Case '-[SaydoTests.SilenceDetectorTests testZeroDurationBufferIsIgnored]' passed (0.000 seconds).
+Test Suite 'SilenceDetectorTests' passed at 2026-10-06 06:45:27.020.
+	 Executed 13 tests, with 0 failures (0 unexpected) in 0.005 (0.012) seconds
+Test Suite 'SmokeTests' started at 2026-10-06 06:45:27.020.
+Test Case '-[SaydoTests.SmokeTests testBundleIdentifierIsSaydo]' started.
+Test Case '-[SaydoTests.SmokeTests testBundleIdentifierIsSaydo]' passed (0.000 seconds).
+Test Suite 'SmokeTests' passed at 2026-10-06 06:45:27.021.
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+Test Suite 'TimelineGroupingTests' started at 2026-10-06 06:45:27.021.
+Test Case '-[SaydoTests.TimelineGroupingTests testEmptyDayHasNoSection]' started.
+Test Case '-[SaydoTests.TimelineGroupingTests testEmptyDayHasNoSection]' passed (0.002 seconds).
+Test Case '-[SaydoTests.TimelineGroupingTests testEntriesWithinSectionAreOrderedByTime]' started.
+Test Case '-[SaydoTests.TimelineGroupingTests testEntriesWithinSectionAreOrderedByTime]' passed (0.000 seconds).
+Test Case '-[SaydoTests.TimelineGroupingTests testEntriesWithoutAudioAreKept]' started.
+Test Case '-[SaydoTests.TimelineGroupingTests testEntriesWithoutAudioAreKept]' passed (0.000 seconds).
+Test Case '-[SaydoTests.TimelineGroupingTests testNoEntriesProducesNoSections]' started.
+Test Case '-[SaydoTests.TimelineGroupingTests testNoEntriesProducesNoSections]' passed (0.000 seconds).
+Test Case '-[SaydoTests.TimelineGroupingTests testSectionsAreOrderedNewestDayFirst]' started.
+Test Case '-[SaydoTests.TimelineGroupingTests testSectionsAreOrderedNewestDayFirst]' passed (0.000 seconds).
+Test Case '-[SaydoTests.TimelineGroupingTests testSectionsCoverOnlyRecordedDays]' started.
+Test Case '-[SaydoTests.TimelineGroupingTests testSectionsCoverOnlyRecordedDays]' passed (0.000 seconds).
+Test Suite 'TimelineGroupingTests' passed at 2026-10-06 06:45:27.028.
+	 Executed 6 tests, with 0 failures (0 unexpected) in 0.004 (0.007) seconds
+Test Suite 'SaydoTests.xctest' failed at 2026-10-06 06:45:27.028.
+	 Executed 148 tests, with 16 failures (0 unexpected) in 0.697 (0.752) seconds
+Test Suite 'All tests' failed at 2026-10-06 06:45:27.028.
+	 Executed 148 tests, with 16 failures (0 unexpected) in 0.697 (0.753) seconds
+2026-10-06 06:45:47.597 xcodebuild[74051:64802800] [MT] IDETestOperationsObserverDebug: 50.984 elapsed -- Testing started completed.
+2026-10-06 06:45:47.598 xcodebuild[74051:64802800] [MT] IDETestOperationsObserverDebug: 0.000 sec, +0.000 sec -- start
+2026-10-06 06:45:47.598 xcodebuild[74051:64802800] [MT] IDETestOperationsObserverDebug: 50.984 sec, +50.984 sec -- end
+
+Test session results, code coverage, and logs:
+	/Users/noritakasawada/Library/Developer/Xcode/DerivedData/Saydo-dhushvmeubpcodgvjhrldpxifcoa/Logs/Test/Test-Saydo-2026.10.06_06-44-51-+0900.xcresult
+
+** TEST FAILED **
+
+Testing started
+EXIT=65

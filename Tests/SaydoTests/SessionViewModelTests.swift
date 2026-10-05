@@ -247,20 +247,96 @@ actor SpyNotificationScheduler: NotificationScheduling {
 
 // MARK: - 音声のモック
 
+/// 読み上げのモック。実物（`SpeechSynthesisService`）と同じ 2 つの性質を持つ。
+///
+/// - `holdsCompletion` が true のあいだ、`speak()` はテストが `completeNext()` で完了を解放するまで戻らない。
+/// - 呼び出し元のタスクが止められていると、完了を待たずにすぐ戻る（`for await` で待つため）。
+///   このとき音は鳴り続けている扱いにし、`unfinishedCount` には残す。
+///
+/// 既定（`holdsCompletion == false`）は呼ばれた時点で読み終えた扱いにする。
 @MainActor
 final class MockSynthesizer: Synthesizing {
     private(set) var spokenLines: [String] = []
     private(set) var stopCount = 0
-    var isSpeaking = false
+    var isSpeaking: Bool { !unfinished.isEmpty }
     var hasHighQualityJapaneseVoice = true
     var voiceQuality: SynthesisVoiceQuality = .enhanced
 
+    /// true にすると、読み上げの完了をテストが解放するまで遅らせる。
+    var holdsCompletion = false
+    /// まだ鳴り終わっていない読み上げ。
+    private var unfinished: [AsyncStream<Void>.Continuation] = []
+    var unfinishedCount: Int { unfinished.count }
+
     func speak(_ text: String, preferReceiver: Bool) async {
         spokenLines.append(text)
+        guard holdsCompletion else { return }
+        let (completion, continuation) = AsyncStream<Void>.makeStream()
+        unfinished.append(continuation)
+        for await _ in completion {}
+    }
+
+    /// いちばん古い読み上げを読み終えさせる。
+    func completeNext() {
+        guard !unfinished.isEmpty else { return }
+        unfinished.removeFirst().finish()
     }
 
     func stop() {
         stopCount += 1
+        releaseAll()
+    }
+
+    /// テストの後始末。待っているタスクを残さない。
+    func releaseAll() {
+        for continuation in unfinished {
+            continuation.finish()
+        }
+        unfinished = []
+    }
+}
+
+/// テストが開けるまで待たせる門。録音の準備や確定の `await` を途中で止めるのに使う。
+@MainActor
+final class Gate {
+    private var waiters: [CheckedContinuation<Void, Never>] = []
+    private var isOpen = false
+    var waitingCount: Int { waiters.count }
+
+    func wait() async {
+        if isOpen { return }
+        await withCheckedContinuation { waiters.append($0) }
+    }
+
+    func open() {
+        isOpen = true
+        for waiter in waiters {
+            waiter.resume()
+        }
+        waiters = []
+    }
+}
+
+/// テストが発火させるまで待ち続けるタイマー。止められたら実物と同じく投げる。
+actor ManualTimer {
+    private var sleepers: [(duration: Duration, wake: AsyncStream<Void>.Continuation)] = []
+
+    func sleep(_ duration: Duration) async throws {
+        let (woken, wake) = AsyncStream<Void>.makeStream()
+        sleepers.append((duration, wake))
+        for await _ in woken {}
+        try Task.checkCancellation()
+    }
+
+    func isWaiting(for duration: Duration) -> Bool {
+        sleepers.contains { $0.duration == duration }
+    }
+
+    func fire(_ duration: Duration) {
+        for sleeper in sleepers where sleeper.duration == duration {
+            sleeper.wake.finish()
+        }
+        sleepers.removeAll { $0.duration == duration }
     }
 }
 
@@ -269,6 +345,7 @@ final class MockPlayer: Playing {
     private(set) var playedURLs: [URL] = []
     /// 受話口で鳴らすよう頼まれたか（retention R8 の「耳に当てて聞く」）。
     private(set) var preferReceiverFlags: [Bool] = []
+    private(set) var stopCount = 0
     var isPlaying = false
     var currentURL: URL?
 
@@ -279,6 +356,7 @@ final class MockPlayer: Playing {
     }
 
     func stop() {
+        stopCount += 1
         isPlaying = false
     }
 }
@@ -335,28 +413,38 @@ final class InMemoryCopyHistoryStore: CopyHistoryStoring {
     }
 }
 
-/// 「話し始めて、無音で終わる」1 回分の RMS 列を流すだけの録音。
+/// 「話し始めて、無音で終わる」1 回分の RMS 列を流す録音。
 /// 実際の `AVAudioEngine` には触らない。
+///
+/// 既定では録音を始めるたびに自動で流す。`autoSilenceStarts` を決めると、その回数を超えた録音は
+/// 何も流さずに開いたままにする（テストが `speakThenFallSilent()` を呼ぶか、`stop()` されるまで）。
 @MainActor
 final class MockVoiceCapture: VoiceCapturing {
-    var isCapturing = false
+    private(set) var isCapturing = false
     var recordingURL: URL?
     var limit: VoiceCaptureLimit = .utterance
 
+    /// 何回目の録音まで自動で「話して、無音で終わる」を流すか。nil は毎回。
+    var autoSilenceStarts: Int?
+    /// 録音を始めた瞬間に呼ぶ。読み上げと重なっていないかを見るのに使う。
+    var onStart: (() -> Void)?
+
     private(set) var startCount = 0
+    private var eventContinuation: AsyncStream<VoiceCaptureEvent>.Continuation?
 
     func start(writingTo url: URL, analyzerFormat: AVAudioFormat?) throws -> VoiceCaptureSession {
+        // 実物と同じく、録音中の二重開始は失敗にする。
+        guard !isCapturing else { throw VoiceCaptureFault.alreadyCapturing }
         startCount += 1
         isCapturing = true
         recordingURL = url
+        onStart?()
 
         let (events, continuation) = AsyncStream<VoiceCaptureEvent>.makeStream()
-        // 発話 1 秒 → 無音 2.5 秒。`SilenceDetector` の 1.5 秒（宣言は 2.0 秒）を必ず越える。
-        for _ in 0..<10 {
-            continuation.yield(.level(rms: 0.4, duration: 0.1))
+        eventContinuation = continuation
+        if autoSilenceStarts.map({ startCount <= $0 }) ?? true {
+            speakThenFallSilent()
         }
-        continuation.yield(.level(rms: 0.0, duration: 2.5))
-        continuation.finish()
 
         let (analyzerInput, analyzerContinuation) = AsyncStream<AnalyzerInput>.makeStream()
         analyzerContinuation.finish()
@@ -371,8 +459,22 @@ final class MockVoiceCapture: VoiceCapturing {
         )
     }
 
+    /// 発話 1 秒 → 無音 2.5 秒。`SilenceDetector` の 1.5 秒（宣言は 2.0 秒）を必ず越える。
+    /// 止めた後の録音には何も流れない（実物も `stop()` でストリームを閉じる）。
+    func speakThenFallSilent() {
+        guard let continuation = eventContinuation else { return }
+        for _ in 0..<10 {
+            continuation.yield(.level(rms: 0.4, duration: 0.1))
+        }
+        continuation.yield(.level(rms: 0.0, duration: 2.5))
+        continuation.finish()
+        eventContinuation = nil
+    }
+
     func stop() {
         isCapturing = false
+        eventContinuation?.finish()
+        eventContinuation = nil
     }
 }
 
@@ -389,8 +491,14 @@ final class MockTranscriber: Transcribing {
         self.script = script
     }
 
+    /// 置くと、録音の準備（`prepare()`）がこの門が開くまで戻らない。
+    var prepareGate: Gate?
+    /// 置くと、確定（`finish()`）がこの門が開くまで戻らない。
+    var finishGate: Gate?
+
     func prepare() async throws -> AVAudioFormat {
-        AVAudioFormat(standardFormatWithSampleRate: 16_000, channels: 1)!
+        await prepareGate?.wait()
+        return AVAudioFormat(standardFormatWithSampleRate: 16_000, channels: 1)!
     }
 
     func start(inputSequence: AsyncStream<AnalyzerInput>) async throws {
@@ -399,16 +507,20 @@ final class MockTranscriber: Transcribing {
 
     func finish() async -> String {
         isRunning = false
+        await finishGate?.wait()
         finalText = script.isEmpty ? "" : script.removeFirst()
         return finalText
     }
 
     func cancel() {
         isRunning = false
+        volatileText = ""
+        finalText = ""
     }
 
     func reset() {
         volatileText = ""
+        finalText = ""
     }
 }
 
@@ -443,6 +555,8 @@ final class SessionViewModelTests: XCTestCase {
     }
 
     override func tearDown() async throws {
+        // 読み上げの完了を待ったままのタスクを残さない。
+        synthesizer?.releaseAll()
         if let root, FileManager.default.fileExists(atPath: root.path(percentEncoded: false)) {
             try FileManager.default.removeItem(at: root)
         }
@@ -1097,6 +1211,229 @@ final class SessionViewModelTests: XCTestCase {
         await viewModel.submit(text: "宛先だけ書く")
         XCTAssertEqual(viewModel.commitment?.microAction.text, "宛先だけ書く")
         XCTAssertEqual(viewModel.commitment?.microAction.shrinkCount, 1)
+    }
+
+    // MARK: - 会話の進行は 1 本の直列の流れ（task_031）
+
+    /// 無音検出で M0 から M4 まで進める。どの段階でも、読み上げの完了を解放する前に録音は始まらない。
+    func testRecordingNeverStartsBeforeSpeechCompletesThroughMorningFlow() async throws {
+        synthesizer.holdsCompletion = true
+        let (viewModel, _) = makeViewModel(transcript: [
+            "見積書を送るのが嫌だ",
+            "気まずいから",
+            "見積書のファイルを開く",
+            "14時に自宅で",
+            "今日、14時に見積書のファイルを開く",
+        ])
+        var overlaps: [String] = []
+        capture.onStart = { [synthesizer] in
+            if let synthesizer, synthesizer.unfinishedCount > 0 {
+                overlaps.append(String(describing: viewModel.currentStep))
+            }
+        }
+
+        let opening = Task { await viewModel.start(sessionType: .morning) }
+        var stepsWithHeldSpeech: Set<FlowStep> = []
+        for _ in 0..<40 where viewModel.completion == nil {
+            await settle(until: { self.synthesizer.unfinishedCount > 0 || viewModel.completion != nil })
+            guard synthesizer.unfinishedCount > 0 else { break }
+            let step = viewModel.currentStep
+            if let step { stepsWithHeldSpeech.insert(step) }
+
+            // 読み上げが終わっていないあいだは、どれだけ待っても録音は始まらない。
+            let startsBefore = capture.startCount
+            await drain()
+            XCTAssertEqual(capture.startCount, startsBefore, "読み上げの完了前に録音が始まった: \(String(describing: step))")
+            XCTAssertFalse(capture.isCapturing, "読み上げ中に録音している: \(String(describing: step))")
+
+            synthesizer.completeNext()
+        }
+        await settle(until: { viewModel.completion != nil })
+        opening.cancel()
+
+        XCTAssertEqual(overlaps, [])
+        XCTAssertEqual(viewModel.completion, .completed)
+        XCTAssertEqual(
+            stepsWithHeldSpeech,
+            [.morningAvoidance, .morningReason, .morningMicroAction, .morningPlannedTime, .morningDeclaration]
+        )
+        // M0〜M3 の聞き取り 4 回と、M4 の宣言の録音 1 回。
+        XCTAssertEqual(capture.startCount, 5)
+    }
+
+    /// 沈黙の見張りが発火した後の催促でも、読み上げの完了前に録音は始まらない。
+    func testRecordingWaitsForTheNudgeAfterSilenceWatchFires() async throws {
+        synthesizer.holdsCompletion = true
+        capture.autoSilenceStarts = 0
+        let manual = ManualTimer()
+        let (viewModel, _) = makeViewModel(timer: SessionTimer(sleep: { try await manual.sleep($0) }))
+        var overlaps = 0
+        capture.onStart = { [synthesizer] in
+            if let synthesizer, synthesizer.unfinishedCount > 0 { overlaps += 1 }
+        }
+
+        let opening = Task { await viewModel.start(sessionType: .morning) }
+        await settle(until: { self.synthesizer.unfinishedCount == 1 })
+        synthesizer.completeNext()
+        await settle(until: { self.capture.isCapturing })
+        XCTAssertEqual(capture.startCount, 1)
+
+        // 何も話さないまま 5 秒。沈黙の見張りが発火する。
+        let firstSilence = Duration.seconds(FlowMachine.firstSilenceSeconds)
+        for _ in 0..<2_000 {
+            if await manual.isWaiting(for: firstSilence) { break }
+            await Task.yield()
+        }
+        await manual.fire(firstSilence)
+        await settle(until: { self.synthesizer.unfinishedCount == 1 })
+
+        let nudges = Set(DialogueCopy.variants(.silenceNudge).map(\.text))
+        XCTAssertTrue(nudges.contains(synthesizer.spokenLines.last ?? ""))
+        // 催促を読み終えるまでは、聞き取りは止まったまま。
+        await drain()
+        XCTAssertEqual(capture.startCount, 1)
+        XCTAssertFalse(capture.isCapturing)
+
+        synthesizer.completeNext()
+        await settle(until: { self.capture.startCount == 2 })
+        XCTAssertEqual(capture.startCount, 2)
+        XCTAssertTrue(capture.isCapturing)
+        XCTAssertEqual(overlaps, 0)
+        XCTAssertEqual(viewModel.currentStep, .morningAvoidance)
+
+        opening.cancel()
+        await viewModel.interrupt()
+    }
+
+    /// 聞き取り中にチップを選んだら、その聞き取りの結果はもう使わない。聞き直しの文言は読まれない。
+    func testChoosingAChipWhileListeningDoesNotLeadToARetryPrompt() async throws {
+        // M0 だけ声で答える。M1 の聞き取りは開いたままにする。
+        capture.autoSilenceStarts = 1
+        let (viewModel, _) = makeViewModel(transcript: ["見積書を送るのが嫌だ"])
+        await viewModel.start(sessionType: .morning)
+        await settle(until: { viewModel.currentStep == .morningReason && self.capture.startCount == 2 })
+        XCTAssertTrue(capture.isCapturing)
+
+        synthesizer.holdsCompletion = true
+        let choosing = Task { await viewModel.select(Choice(.reason(.awkward))) }
+        await settle(until: { self.synthesizer.unfinishedCount == 1 })
+        // 選んだ後で、古い聞き取りの無音検出が届く。
+        capture.speakThenFallSilent()
+        await drain()
+        synthesizer.completeNext()
+        await settle(until: { self.capture.startCount == 3 })
+        choosing.cancel()
+
+        let retryPrompts = Set(DialogueCopy.variants(.retryPrompt).map(\.text))
+        XCTAssertTrue(synthesizer.spokenLines.allSatisfy { !retryPrompts.contains($0) })
+        XCTAssertEqual(viewModel.currentStep, .morningMicroAction)
+        XCTAssertEqual(capture.startCount, 3)
+
+        await viewModel.interrupt()
+    }
+
+    /// 文字起こしの確定を待っているあいだにチップを選んでも、確定した結果は流さない。
+    func testChoosingAChipWhileFinalizingDiscardsTheTranscript() async throws {
+        capture.autoSilenceStarts = 1
+        let (viewModel, transcriber) = makeViewModel(transcript: ["見積書を送るのが嫌だ"])
+        await viewModel.start(sessionType: .morning)
+        await settle(until: { viewModel.currentStep == .morningReason && self.capture.startCount == 2 })
+
+        // 無音を検出して確定に入ったところで止める。
+        let finalizing = Gate()
+        transcriber.finishGate = finalizing
+        capture.speakThenFallSilent()
+        await settle(until: { finalizing.waitingCount == 1 })
+
+        let choosing = Task { await viewModel.select(Choice(.reason(.awkward))) }
+        await drain()
+        finalizing.open()
+        await settle(until: { self.capture.startCount == 3 })
+        // 確定を待っていた側が、門が開いた後に動く分まで待つ。
+        await drain()
+        choosing.cancel()
+
+        let retryPrompts = Set(DialogueCopy.variants(.retryPrompt).map(\.text))
+        XCTAssertTrue(synthesizer.spokenLines.allSatisfy { !retryPrompts.contains($0) })
+        XCTAssertEqual(viewModel.currentStep, .morningMicroAction)
+
+        await viewModel.interrupt()
+    }
+
+    /// その質問に関係のないチップ（前の質問のものが残っていた場合）を押しても、聞き取りは止まったままにならない。
+    func testAnIgnoredChipResumesListening() async throws {
+        capture.autoSilenceStarts = 2
+        let (viewModel, _) = makeViewModel(transcript: ["見積書を送るのが嫌だ", "気まずいから"])
+        await viewModel.start(sessionType: .morning)
+        await settle(until: { viewModel.currentStep == .morningMicroAction && self.capture.startCount == 3 })
+        XCTAssertTrue(capture.isCapturing)
+
+        await viewModel.select(Choice(.reason(.awkward)))
+
+        XCTAssertEqual(viewModel.currentStep, .morningMicroAction)
+        XCTAssertTrue(capture.isCapturing)
+        XCTAssertEqual(viewModel.phase, .listening)
+
+        await viewModel.interrupt()
+    }
+
+    /// 録音の準備を待っているあいだに会話を閉じたら、録音は始まらない。
+    func testClosingWhileThePreparationIsPendingNeverStartsRecording() async throws {
+        let preparing = Gate()
+        let transcriber = MockTranscriber(script: [])
+        transcriber.prepareGate = preparing
+        let (viewModel, _) = makeViewModel(transcriber: transcriber)
+
+        let opening = Task { await viewModel.start(sessionType: .morning) }
+        await settle(until: { preparing.waitingCount == 1 })
+        XCTAssertEqual(capture.startCount, 0)
+
+        let closing = Task { await viewModel.interrupt() }
+        await drain()
+        preparing.open()
+        await settle(until: { viewModel.completion != nil })
+        await drain()
+        opening.cancel()
+        closing.cancel()
+
+        XCTAssertEqual(capture.startCount, 0)
+        XCTAssertFalse(capture.isCapturing)
+        XCTAssertEqual(viewModel.completion, .suspended)
+        XCTAssertEqual(viewModel.phase, .done)
+    }
+
+    /// 読み上げ中に時間切れになったら、その読み上げは止まり、録音は始まらない。
+    func testTimeboxDuringSpeechStopsTheSpeechAndNeverStartsRecording() async throws {
+        synthesizer.holdsCompletion = true
+        let (viewModel, _) = makeViewModel()
+
+        let opening = Task { await viewModel.start(sessionType: .morning) }
+        await settle(until: { self.synthesizer.unfinishedCount == 1 })
+        XCTAssertEqual(synthesizer.spokenLines.count, 1)
+
+        let expiring = Task { await viewModel.timeboxElapsed() }
+        // 途中だった質問の読み上げが止まり、時間切れの一言だけが残る。
+        await settle(until: { self.synthesizer.spokenLines.count == 2 })
+        XCTAssertGreaterThanOrEqual(synthesizer.stopCount, 1)
+        XCTAssertEqual(synthesizer.unfinishedCount, 1)
+        XCTAssertEqual(capture.startCount, 0)
+
+        synthesizer.completeNext()
+        await settle(until: { viewModel.completion != nil })
+        await drain()
+        opening.cancel()
+        expiring.cancel()
+
+        XCTAssertEqual(viewModel.completion, .timeboxExceeded)
+        XCTAssertEqual(viewModel.phase, .done)
+        XCTAssertEqual(capture.startCount, 0)
+        XCTAssertFalse(capture.isCapturing)
+        // 会話が終わった時点で、読み上げは残っていない。
+        XCTAssertEqual(synthesizer.unfinishedCount, 0)
+        XCTAssertFalse(synthesizer.isSpeaking)
+        // 再生も止めている。
+        XCTAssertGreaterThanOrEqual(player.stopCount, 1)
+        XCTAssertFalse(player.isPlaying)
     }
 
     // MARK: - 補助
