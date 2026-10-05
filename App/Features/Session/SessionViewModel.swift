@@ -1332,17 +1332,12 @@ final class SessionViewModel {
 
     /// 会話が出した通知命令を登録する。
     ///
-    /// 朝の行動時刻の通知はここを通らない（`commit` が約束の保存の後に登録する）。朝の会話から来るのは
-    /// 宣言の後回し（`.declarationReminder`）だけで、日時を持たない。
+    /// 朝の行動時刻の通知はここを通らない（`commit` が約束の保存の後に登録する）。朝の会話は、ほかの
+    /// 通知命令も出さない（宣言の後回し `.declarationReminder` は task_036 で一時停止した）。
+    /// 来るのは昼の「時間を変える」「1 時間後にもう一度」で、言い回しをここで解釈する。
     private func send(_ request: NotificationRequest) async {
-        let fireDate: Date?
-        if state?.step.sessionType == .morning {
-            fireDate = nil
-        } else {
-            // 昼の「時間を変える」「1 時間後にもう一度」は、言い回しをここで解釈する。
-            fireDate = request.timePhrase.flatMap {
-                JapaneseTimeParser().parse($0, now: now(), calendar: calendar).date
-            }
+        let fireDate = request.timePhrase.flatMap {
+            JapaneseTimeParser().parse($0, now: now(), calendar: calendar).date
         }
         await notifications.schedule(
             request,

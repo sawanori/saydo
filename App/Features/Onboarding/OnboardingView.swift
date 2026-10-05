@@ -21,8 +21,6 @@ struct OnboardingView: View {
     @State private var morningTime: Date
     @State private var noonTime: Date
     @State private var nightTime: Date
-    @State private var isAloneTimeSet: Bool
-    @State private var aloneTime: Date
 
     init(settings: AppSettings = .shared, onFinished: @escaping @MainActor () -> Void) {
         self.settings = settings
@@ -31,8 +29,6 @@ struct OnboardingView: View {
         _morningTime = State(initialValue: settings.morningTime.date())
         _noonTime = State(initialValue: settings.noonTime.date())
         _nightTime = State(initialValue: settings.nightTime.date())
-        _isAloneTimeSet = State(initialValue: settings.aloneTime != nil)
-        _aloneTime = State(initialValue: settings.effectiveAloneTime.date())
     }
 
     // MARK: - 段階
@@ -42,7 +38,6 @@ struct OnboardingView: View {
         case microphone
         case notifications
         case schedule
-        case aloneTime
         case assets
         case backup
 
@@ -91,7 +86,6 @@ struct OnboardingView: View {
         case .microphone: microphoneStep
         case .notifications: notificationStep
         case .schedule: scheduleStep
-        case .aloneTime: aloneTimeStep
         case .assets: AssetDownloadView()
         case .backup: backupStep
         }
@@ -202,24 +196,6 @@ struct OnboardingView: View {
         }
     }
 
-    private var aloneTimeStep: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            Text(OnboardingCopy.aloneTitle)
-                .saydoText(.screenTitle)
-            Text(OnboardingCopy.aloneBody)
-                .saydoText(.list)
-
-            Toggle(OnboardingCopy.aloneSetToggle, isOn: $isAloneTimeSet)
-                .saydoText(.list)
-            if isAloneTimeSet {
-                timeRow(OnboardingCopy.aloneTimeLabel, selection: $aloneTime)
-            } else {
-                Text(OnboardingCopy.aloneUnanswered)
-                    .saydoText(.status)
-            }
-        }
-    }
-
     private var backupStep: some View {
         VStack(alignment: .leading, spacing: 18) {
             Text(OnboardingCopy.backupTitle)
@@ -250,7 +226,6 @@ struct OnboardingView: View {
         settings.morningTime = TimeOfDay(date: morningTime)
         settings.noonTime = TimeOfDay(date: noonTime)
         settings.nightTime = TimeOfDay(date: nightTime)
-        settings.aloneTime = isAloneTimeSet ? TimeOfDay(date: aloneTime) : nil
         settings.hasCompletedOnboarding = true
 
         await NotificationScheduler.shared.reschedule(settings: settings.notificationSettings)

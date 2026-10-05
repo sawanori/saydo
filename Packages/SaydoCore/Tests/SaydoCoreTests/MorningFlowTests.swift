@@ -462,7 +462,7 @@ final class MorningFlowTests: XCTestCase {
         XCTAssertTrue(transition.scheduled.isEmpty)
     }
 
-    /// 文字で宣言した日（「後で声で」）に保存できなかったら、文字の入力待ちへ戻す。
+    /// 文字の経路で宣言して保存できなかったら、文字の入力待ちへ戻す。
     func testSaveFailedOnATypedDeclarationGoesBackToTextInput() {
         var transition = FlowMachine.start(morningEntry(mode: .text))
         transition = FlowMachine.handle(.transcript("上司への報告"), in: transition.state)
@@ -470,7 +470,6 @@ final class MorningFlowTests: XCTestCase {
         transition = FlowMachine.handle(.transcript("資料を開く"), in: transition.state)
         transition = FlowMachine.handle(.transcript("15時に会社で"), in: transition.state)
         transition = FlowMachine.handle(.timeResolved(twoPM), in: transition.state)
-        transition = FlowMachine.handle(.choice(.declareLater), in: transition.state)
         transition = FlowMachine.handle(.transcript("15時に資料を開きます"), in: transition.state)
 
         transition = FlowMachine.handle(.commitResult(.saveFailed), in: transition.state)
@@ -479,7 +478,7 @@ final class MorningFlowTests: XCTestCase {
         XCTAssertTrue(transition.records.isEmpty)
         XCTAssertEqual(transition.listens.map(\.input), [.text])
         XCTAssertEqual(transition.listens.first?.step, .morningDeclaration)
-        XCTAssertTrue(transition.scheduled.isEmpty, "保存できていないので、後の声かけも約束しない")
+        XCTAssertTrue(transition.scheduled.isEmpty, "保存できていないので、通知も頼まない")
     }
 
     /// 成立に必要な値が欠けていたら、受領文を読まず、未成立の締めで終える。
@@ -850,47 +849,79 @@ final class MorningFlowTests: XCTestCase {
         transition = FlowMachine.handle(.transcript("15時に会社で"), in: transition.state)
         transition = FlowMachine.handle(.timeResolved(twoPM), in: transition.state)
         XCTAssertEqual(transition.state.step, .morningDeclaration)
-        XCTAssertEqual(transition.choices, [.declareNow, .declareLater], "M4 だけ声に回せる")
+        XCTAssertTrue(transition.choiceGroups.isEmpty, "M4 も選択肢を出さない（task_036）")
+        XCTAssertEqual(transition.listens.map(\.input), [.text], "文字の宣言を待つ")
         XCTAssertTrue(transition.records.isEmpty)
     }
 
-    func testDeferredDeclarationSchedulesASingleReminder() {
+    // MARK: - 「後で声で」の一時停止（task_036）
+
+    /// 文字の経路で、M3 を答え終えて M4 の入口に着いた状態。
+    private func textModeAtDeclaration() -> FlowTransition {
         var transition = FlowMachine.start(morningEntry(mode: .text))
         transition = FlowMachine.handle(.transcript("上司への報告"), in: transition.state)
         transition = FlowMachine.handle(.choice(.reason(.anxious)), in: transition.state)
         transition = FlowMachine.handle(.transcript("資料を開く"), in: transition.state)
         transition = FlowMachine.handle(.transcript("15時に会社で"), in: transition.state)
         transition = FlowMachine.handle(.timeResolved(twoPM), in: transition.state)
+        XCTAssertEqual(transition.state.step, .morningDeclaration)
+        return transition
+    }
 
-        transition = FlowMachine.handle(.choice(.declareLater), in: transition.state)
-        XCTAssertTrue(transition.state.isDeclarationDeferred)
-        XCTAssertEqual(transition.listens.first?.input, .text)
+    /// 文字の経路の M4 は選択肢を出さず、文字の宣言を待つ。文字で書けば `commit` が出て、完了まで進む。
+    func testTextModeDeclarationOffersNoChoiceAndWaitsForTypedText() {
+        var transition = textModeAtDeclaration()
+        XCTAssertTrue(transition.choiceGroups.isEmpty, "「後で声で」も「今、声で言う」も出さない")
+        XCTAssertTrue(transition.records.isEmpty)
+        XCTAssertEqual(transition.listens.map(\.input), [.text])
+        XCTAssertEqual(transition.listens.first?.step, .morningDeclaration)
+        XCTAssertFalse(transition.spoken.contains { $0.contains("声に出して") || $0.contains("後で") }, "\(transition.spoken)")
 
         transition = FlowMachine.handle(.transcript("15時に資料を開きます"), in: transition.state)
         XCTAssertEqual(transition.saves.map(\.kind), [.declaration])
         XCTAssertEqual(transition.saves.first?.hasAudio, false)
-        XCTAssertEqual(transition.commits.map(\.isDeclarationDeferred), [true])
-        XCTAssertTrue(transition.scheduled.isEmpty, "保存の結果を受けるまで、後の声かけも約束しない")
+        XCTAssertEqual(transition.commits.map(\.declaration), ["15時に資料を開きます"])
+        XCTAssertEqual(transition.commits.map(\.isDeclarationDeferred), [false])
+        XCTAssertNil(transition.completion, "結果を受けるまで終えない")
 
         transition = FlowMachine.handle(.commitResult(.scheduled), in: transition.state)
-        XCTAssertTrue(transition.spoken.contains(DialogueCopy.variants(.morningDeclarationDeferred)[0].text))
-        let reminders = transition.scheduled.filter { $0.kind == .declarationReminder }
-        XCTAssertEqual(reminders.count, 1)
-        XCTAssertEqual(reminders.first?.onlyOnce, true)
         XCTAssertEqual(transition.completion, .completed)
+        XCTAssertTrue(transition.spoken.last?.hasPrefix(receiptOpening) == true, "\(transition.spoken)")
     }
 
-    func testDeclareNowInVoicelessModeStartsRecording() {
-        var transition = FlowMachine.start(morningEntry(mode: .text))
-        transition = FlowMachine.handle(.transcript("上司への報告"), in: transition.state)
-        transition = FlowMachine.handle(.choice(.reason(.anxious)), in: transition.state)
-        transition = FlowMachine.handle(.transcript("資料を開く"), in: transition.state)
-        transition = FlowMachine.handle(.transcript("15時に会社で"), in: transition.state)
-        transition = FlowMachine.handle(.timeResolved(twoPM), in: transition.state)
-        transition = FlowMachine.handle(.choice(.declareNow), in: transition.state)
+    /// どの経路でも、後回しの通知命令と、後回しを告げる一言を出さない。`declareLater` が万一届いても後回しにしない。
+    func testNoRouteSchedulesTheDeclarationReminderOrSpeaksTheDeferral() {
+        let results: [CommitResult] = [
+            .scheduled, .savedWithoutNotification(.noTime), .savedWithoutNotification(.notAuthorized),
+            .savedWithoutNotification(.schedulingFailed), .savedWithoutNotification(.temporaryStore),
+        ]
+        func assertNoDeferral(_ transition: FlowTransition, _ label: String) {
+            XCTAssertFalse(transition.scheduled.contains { $0.kind == .declarationReminder }, label)
+            XCTAssertFalse(transition.spoken.contains { $0.contains("一人になれる時間") || $0.contains("もう一度だけ声をかけ") }, "\(label) \(transition.spoken)")
+            XCTAssertFalse(transition.state.isDeclarationDeferred, label)
+        }
 
-        XCTAssertEqual(transition.records.map(\.step), [.morningDeclaration])
-        XCTAssertFalse(transition.state.isDeclarationDeferred)
+        // 声の経路。
+        let voice = declared(resolved: twoPM)
+        assertNoDeferral(voice, "voice declaration")
+        for result in results {
+            assertNoDeferral(FlowMachine.handle(.commitResult(result), in: voice.state), "voice \(result)")
+        }
+
+        // 文字の経路。`declareLater` が万一届いても、通常の文字の宣言待ちと同じで、後回しにしない。
+        var text = textModeAtDeclaration()
+        text = FlowMachine.handle(.choice(.declareLater), in: text.state)
+        assertNoDeferral(text, "stray declareLater")
+        XCTAssertNil(text.completion)
+        XCTAssertEqual(text.listens.map(\.input), [.text])
+        XCTAssertTrue(text.records.isEmpty)
+
+        text = FlowMachine.handle(.transcript("15時に資料を開きます"), in: text.state)
+        assertNoDeferral(text, "text declaration")
+        XCTAssertEqual(text.commits.map(\.isDeclarationDeferred), [false])
+        for result in results {
+            assertNoDeferral(FlowMachine.handle(.commitResult(result), in: text.state), "text \(result)")
+        }
     }
 
     // MARK: - 中断と再開

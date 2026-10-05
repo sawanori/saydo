@@ -53,12 +53,8 @@ public enum CopyKey: String, Sendable, Equatable, Hashable, Codable, CaseIterabl
     case morningCommitRetry
     /// M4 約束を 2 回とも保存できなかったときの締め。受け取ったとは言わない。
     case morningCommitFailed
-    /// M4「話せない時」モードの選択の促し。
-    case morningDeclarationChoice
-    /// M4「後で声で」を選んだときの文字入力の促し。
+    /// M4 文字の経路（「話せない時」・マイク拒否）での、文字入力の促し。
     case morningDeclarationTextPrompt
-    /// M4「後で声で」を受けたときの返事（retention R1）。
-    case morningDeclarationDeferred
     /// 5 秒沈黙したときの一言（1 回だけ）。
     case silenceNudge
     /// 文字起こしが短すぎたときの再入力。
@@ -239,17 +235,9 @@ public enum DialogueCopy {
             [
                 CopyLine("ごめん、今日は約束を残せなかった。また話したくなったら、いつでも。", .statement),
             ]
-        case .morningDeclarationChoice:
-            [
-                CopyLine("今、声で言う？ それとも後で？", .question),
-            ]
         case .morningDeclarationTextPrompt:
             [
                 CopyLine("今日やることを、文字で書いておこう。", .statement),
-            ]
-        case .morningDeclarationDeferred:
-            [
-                CopyLine("わかった。一人になれる時間に、もう一度だけ声をかけるね。", .statement),
             ]
         case .silenceNudge:
             [

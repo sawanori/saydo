@@ -45,8 +45,6 @@ struct SettingsView: View {
         var noonTime: Date
         var nightTime: Date
         var weekendEnabled: Bool
-        var isAloneTimeSet: Bool
-        var aloneTime: Date
         var speechVoiceIdentifier: String?
         var silenceThresholdSeconds: Double
         var quietModeEnabled: Bool
@@ -60,8 +58,6 @@ struct SettingsView: View {
             noonTime = settings.noonTime.date()
             nightTime = settings.nightTime.date()
             weekendEnabled = settings.weekendNotificationsEnabled
-            isAloneTimeSet = settings.aloneTime != nil
-            aloneTime = settings.effectiveAloneTime.date()
             speechVoiceIdentifier = settings.speechVoiceIdentifier
             silenceThresholdSeconds = settings.silenceThresholdSeconds
             quietModeEnabled = settings.quietModeScheduleEnabled
@@ -99,7 +95,6 @@ struct SettingsView: View {
         NavigationStack {
             List {
                 notificationSection
-                aloneTimeSection
                 voiceSection
                 quietModeSection
                 dataSection
@@ -152,22 +147,6 @@ struct SettingsView: View {
                 Text(SettingsCopy.weekendFootnote)
             }
             .saydoText(.status)
-        }
-        .listRowBackground(SaydoTheme.Palette.chipFill)
-    }
-
-    // MARK: - 一人で話せる時間
-
-    private var aloneTimeSection: some View {
-        Section {
-            Toggle(SettingsCopy.aloneToggle, isOn: $draft.isAloneTimeSet)
-            if draft.isAloneTimeSet {
-                timeRow(SettingsCopy.aloneTimeLabel, selection: $draft.aloneTime)
-            }
-        } header: {
-            Text(SettingsCopy.aloneSection).saydoText(.sectionLabel)
-        } footer: {
-            Text(SettingsCopy.aloneFootnote).saydoText(.status)
         }
         .listRowBackground(SaydoTheme.Palette.chipFill)
     }
@@ -380,7 +359,6 @@ struct SettingsView: View {
         settings.noonTime = TimeOfDay(date: draft.noonTime)
         settings.nightTime = TimeOfDay(date: draft.nightTime)
         settings.weekendNotificationsEnabled = draft.weekendEnabled
-        settings.aloneTime = draft.isAloneTimeSet ? TimeOfDay(date: draft.aloneTime) : nil
         settings.speechVoiceIdentifier = draft.speechVoiceIdentifier
         settings.silenceThresholdSeconds = draft.silenceThresholdSeconds
         settings.quietModeScheduleEnabled = draft.quietModeEnabled

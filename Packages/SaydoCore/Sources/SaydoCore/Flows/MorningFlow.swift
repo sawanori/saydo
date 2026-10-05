@@ -91,19 +91,12 @@ public enum MorningFlow {
             )
 
         case .morningDeclaration:
-            let line = state.picker.pickText(.morningDeclarationRequest)
-            // 声で言えない状況では「今、声で言う」か「後で声で」を選ぶ（retention R1）。
+            // 声で言えない状況（「話せない時」・マイク拒否）では、選択肢を出さずに文字の宣言を待つ。
+            // 「後で声で」は、通知の実装が整うまで出さない（task_036。retention R1 は一時停止中）。
             if state.mode == .text {
-                let prompt = state.picker.pickText(.morningDeclarationChoice)
-                return FlowTransition(
-                    state: state,
-                    commands: [
-                        .speak(line),
-                        .speak(prompt),
-                        .showChoices([Choice(.declareNow), Choice(.declareLater)]),
-                    ]
-                )
+                return textDeclarationWait(state)
             }
+            let line = state.picker.pickText(.morningDeclarationRequest)
             return FlowTransition(
                 state: state,
                 commands: [.speak(line), .record(RecordRequest(step: .morningDeclaration))]
@@ -374,26 +367,13 @@ public enum MorningFlow {
         let isAwaiting = state.commitStage == .awaitingFirst || state.commitStage == .awaitingSecond
 
         switch event {
-        case .choice(.declareNow):
-            guard !isAwaiting else {
-                return FlowTransition(state: state, commands: [])
-            }
-            return FlowTransition(state: state, commands: [.record(RecordRequest(step: .morningDeclaration))])
-
         case .choice(.declareLater):
-            guard !isAwaiting else {
+            // 選択肢としては出さない。万一届いても後回しにせず、通常の文字の宣言待ちと同じに扱う。
+            // 声の会話では、宣言の録音を邪魔しないよう受け流す。
+            guard !isAwaiting, state.mode == .text else {
                 return FlowTransition(state: state, commands: [])
             }
-            state.isDeclarationDeferred = true
-            state.isVoicelessDay = true
-            let prompt = state.picker.pickText(.morningDeclarationTextPrompt)
-            return FlowTransition(
-                state: state,
-                commands: [
-                    .speak(prompt),
-                    .listen(ListenRequest(step: .morningDeclaration, silenceSeconds: FlowMachine.firstSilenceSeconds, input: .text)),
-                ]
-            )
+            return textDeclarationWait(state)
 
         case .transcript(let raw):
             // 結果を待っているあいだの答えは受け流す。
@@ -408,7 +388,7 @@ public enum MorningFlow {
             state.commitStage = state.commitStage == .retrying ? .awaitingSecond : .awaitingFirst
 
             var commands: [FlowCommand] = []
-            let hasAudio = !state.isDeclarationDeferred && state.mode == .voice
+            let hasAudio = state.mode == .voice
             if let save = FlowMachine.save(.morningDeclaration, text: text, state: state, hasAudio: hasAudio) {
                 commands.append(save)
             }
@@ -433,6 +413,19 @@ public enum MorningFlow {
         }
     }
 
+    /// 文字の宣言を待つ。声で言うよう頼まず、選択肢も出さない。
+    private static func textDeclarationWait(_ state: FlowState) -> FlowTransition {
+        var state = state
+        let prompt = state.picker.pickText(.morningDeclarationTextPrompt)
+        return FlowTransition(
+            state: state,
+            commands: [
+                .speak(prompt),
+                .listen(ListenRequest(step: .morningDeclaration, silenceSeconds: FlowMachine.firstSilenceSeconds, input: .text)),
+            ]
+        )
+    }
+
     /// 約束の保存と通知の登録の結果に合う言葉を選ぶ。起きていないことは言わない。
     private static func receive(_ result: CommitResult, in state: FlowState) -> FlowTransition {
         var state = state
@@ -443,11 +436,6 @@ public enum MorningFlow {
             state.commitStage = nil
             state.isFinished = true
             var commands: [FlowCommand] = []
-            if state.isDeclarationDeferred {
-                // 一人になれる時刻に 1 回だけ声をかける（retention R1）。再通知はしない。
-                commands.append(.scheduleNotification(NotificationRequest(kind: .declarationReminder, onlyOnce: true)))
-                commands.append(.speak(state.picker.pickText(.morningDeclarationDeferred)))
-            }
             // 「◯時に届きます」と言うのは、通知を登録できたときだけ。時刻は整えた句を使い、生の発話は差し込まない。
             if result == .scheduled, let planned = state.plannedTime {
                 commands.append(.speak(state.picker.pickText(.morningDeclarationReceipt, time: planned.phrase)))
@@ -471,7 +459,7 @@ public enum MorningFlow {
             state.silenceCount = 0
             state.retryCount = 0
             let line = state.picker.pickText(.morningCommitRetry)
-            let again: FlowCommand = state.isDeclarationDeferred
+            let again: FlowCommand = state.mode == .text
                 ? .listen(ListenRequest(step: .morningDeclaration, silenceSeconds: FlowMachine.firstSilenceSeconds, input: .text))
                 : .record(RecordRequest(step: .morningDeclaration))
             return FlowTransition(state: state, commands: [.speak(line), again])

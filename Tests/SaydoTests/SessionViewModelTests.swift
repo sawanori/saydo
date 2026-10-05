@@ -669,7 +669,6 @@ final class SessionViewModelTests: XCTestCase {
     /// 文字の経路で、M4（宣言）を答えて会話を終える。
     private func declare(_ viewModel: SessionViewModel) async {
         XCTAssertEqual(viewModel.currentStep, .morningDeclaration)
-        await viewModel.select(Choice(.declareLater))
         await viewModel.submit(text: "今日、見積書のファイルを開く")
         XCTAssertEqual(viewModel.completion, .completed)
     }
@@ -742,6 +741,27 @@ final class SessionViewModelTests: XCTestCase {
         XCTAssertNotNil(scheduled.first?.fireDate)
     }
 
+    /// 文字だけで朝の会話を M0 から通すと、約束が 1 件保存される。選択肢（「後で声で」など）は使わない。
+    func testATextOnlyMorningFromM0SavesExactlyOneCommitment() async throws {
+        let (viewModel, _) = makeViewModel(at: moment(hour: 9))
+        await viewModel.start(sessionType: .morning, microphoneGranted: false)
+        await viewModel.submit(text: "見積書を送るのが嫌だ")
+        await viewModel.select(Choice(.reason(.awkward)))
+        await viewModel.submit(text: "見積書のファイルを開く")
+        await viewModel.submit(text: "16時に自宅で")
+        XCTAssertEqual(viewModel.currentStep, .morningDeclaration)
+        XCTAssertTrue(viewModel.choices.isEmpty, "M4 に選択肢は出ない")
+        XCTAssertTrue(viewModel.acceptsTextInput)
+        await viewModel.submit(text: "今日、見積書のファイルを開く")
+
+        XCTAssertEqual(viewModel.completion, .completed)
+        let saved = await store.commitments
+        XCTAssertEqual(saved.count, 1)
+        XCTAssertEqual(saved.first?.declarationTranscript, "今日、見積書のファイルを開く")
+        let scheduled = await notifications.scheduled
+        XCTAssertFalse(scheduled.contains { $0.kind == .declarationReminder })
+    }
+
     /// マイク拒否（テキストで完走）でも `VoiceEntry` は 3 件、`Commitment` は「声なし」。
     func testMorningFlowWithoutMicrophoneStillSavesThreeVoiceEntries() async throws {
         let (viewModel, _) = makeViewModel()
@@ -752,8 +772,7 @@ final class SessionViewModelTests: XCTestCase {
         await viewModel.select(Choice(.reason(.awkward)))
         await viewModel.submit(text: "請求書の雛形を開く")
         await viewModel.submit(text: "15時に会社で")
-        // 「話せない時」経路では M4 で「今、声で言う / 後で声で」を選ぶ。
-        await viewModel.select(Choice(.declareLater))
+        // 「話せない時」経路の M4 は選択肢を出さず、文字の宣言を待つ（task_036）。
         await viewModel.submit(text: "今日、15時に請求書の雛形を開く")
 
         XCTAssertEqual(viewModel.completion, .completed)
@@ -767,9 +786,9 @@ final class SessionViewModelTests: XCTestCase {
         XCTAssertEqual(Set(entries.map(\.kind)), [.avoidance, .reason, .declaration])
         XCTAssertTrue(entries.allSatisfy { $0.audioPath == nil })
 
-        // 宣言を後回しにしたので、1 回だけの再通知が登録される（retention R1）。
+        // 「後で声で」は一時停止中（task_036）。宣言の再通知は登録しない。
         let deferred = await notifications.scheduled
-        XCTAssertTrue(deferred.contains { $0.kind == .declarationReminder && $0.onlyOnce })
+        XCTAssertFalse(deferred.contains { $0.kind == .declarationReminder })
     }
 
     /// M0 の文字起こしは 1 行だけ出て、1 回だけ録り直せる（retention R7）。
@@ -806,7 +825,6 @@ final class SessionViewModelTests: XCTestCase {
         await viewModel.submit(text: "経費精算を出すのが嫌だ")
         // M1 を飛ばして M2 に来ている。
         await viewModel.submit(text: "経費精算の画面を開く")
-        await viewModel.select(Choice(.declareLater))
         await viewModel.submit(text: "今日、経費精算の画面を開く")
 
         XCTAssertEqual(viewModel.completion, .completed)
@@ -1505,7 +1523,6 @@ final class SessionViewModelTests: XCTestCase {
             await viewModel.select(Choice(.timeUndecided))
         }
         XCTAssertEqual(viewModel.currentStep, .morningDeclaration)
-        await viewModel.select(Choice(.declareLater))
         await viewModel.submit(text: "今日、見積書のファイルを開く")
     }
 
@@ -1707,7 +1724,6 @@ final class SessionViewModelTests: XCTestCase {
         await viewModel.start(sessionType: .morning, microphoneGranted: false, resume: broken)
         XCTAssertEqual(viewModel.currentStep, .morningDeclaration)
 
-        await viewModel.select(Choice(.declareLater))
         await viewModel.submit(text: "今日、見積書のファイルを開く")
 
         XCTAssertEqual(viewModel.completion, .abandoned)
@@ -1731,7 +1747,6 @@ final class SessionViewModelTests: XCTestCase {
         await viewModel.select(Choice(.reason(.awkward)))
         await viewModel.submit(text: "見積書のファイルを開く")
         await viewModel.submit(text: "14時に自宅で")
-        await viewModel.select(Choice(.declareLater))
         await viewModel.submit(text: "今日、14時に見積書のファイルを開く")
 
         XCTAssertEqual(viewModel.completion, .completed)
@@ -1748,7 +1763,6 @@ final class SessionViewModelTests: XCTestCase {
         await viewModel.select(Choice(.reason(.awkward)))
         await viewModel.submit(text: "見積書のファイルを開く")
         await viewModel.submit(text: "14時")
-        await viewModel.select(Choice(.declareLater))
         await viewModel.submit(text: "今日、14時に見積書のファイルを開く")
 
         XCTAssertNil(viewModel.commitment?.plannedPlace)
@@ -2291,7 +2305,7 @@ final class SessionViewModelTests: XCTestCase {
         let entries = try await store.entries(for: reference)
         XCTAssertEqual(entries.filter { $0.kind == .declaration }.count, 1)
         XCTAssertNil(entries.first { $0.kind == .declaration }?.audioPath)
-        // 「後で声で」を選んだわけではないので、宣言の再通知は登録しない。
+        // 宣言の再通知は登録しない（「後で声で」は task_036 で一時停止）。
         let scheduled = await notifications.scheduled
         XCTAssertFalse(scheduled.contains { $0.kind == .declarationReminder })
     }

@@ -49,14 +49,6 @@ enum OnboardingCopy {
     static let noonTimeLabel = "昼"
     static let nightTimeLabel = "夜"
 
-    // MARK: - 一人で話せる時間
-
-    static let aloneTitle = "一人で話せる時間"
-    static let aloneBody = "宣言を後回しにした日に、この時刻に 1 回だけ声をかけます。"
-    static let aloneTimeLabel = "時刻"
-    static let aloneUnanswered = "決めないままなら、夜の時刻を使います。"
-    static let aloneSetToggle = "時刻を決める"
-
     // MARK: - 日本語の音声
 
     static let assetTitle = "日本語の音声を用意します"
