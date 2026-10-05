@@ -975,17 +975,20 @@ final class SessionViewModelTests: XCTestCase {
 
     // MARK: - タイムアウト経路
 
-    /// 沈黙 5 秒で催促を 1 回だけ挟み、さらに 10 秒でその質問をスキップする（実装計画 §7.2）。
-    func testSilenceNudgesOnceThenSkipsTheQuestion() async throws {
+    /// 沈黙 5 秒で催促を 1 回だけ挟む。必須の M0 は、さらに 10 秒黙っても次へ進まず、
+    /// その質問だけ文字の入力待ちに落ちる（実装計画 §16.7）。
+    func testSilenceNudgesOnceThenARequiredQuestionFallsBackToText() async throws {
         let recorder = DurationRecorder()
         let timer = SessionTimer(sleep: { duration in
             await recorder.record(duration)
             // 待ち時間そのものは進めない。時間経過はテストが直接与える。
             throw CancellationError()
         })
+        capture.autoSilenceStarts = 0
         let (viewModel, _) = makeViewModel(timer: timer)
 
-        await viewModel.start(sessionType: .morning, microphoneGranted: false)
+        await viewModel.start(sessionType: .morning)
+        await settle(until: { self.capture.isCapturing })
         await drain()
 
         // タイムボックス（朝 3 分）と M0 の沈黙（5 秒）の 2 本が張られる。
@@ -996,6 +999,7 @@ final class SessionViewModelTests: XCTestCase {
         // 5 秒沈黙 → 催促を 1 回だけ挟み、次は 10 秒待つ。
         let linesBefore = synthesizer.spokenLines.count
         await viewModel.silenceElapsed()
+        await settle(until: { self.capture.startCount == 2 })
         await drain()
         durations = await recorder.durations
         XCTAssertTrue(durations.contains(.seconds(FlowMachine.secondSilenceSeconds)))
@@ -1003,10 +1007,248 @@ final class SessionViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.currentStep, .morningAvoidance)
         XCTAssertNil(viewModel.completion)
 
-        // さらに 10 秒沈黙 → この質問は飛ばして次のステップへ進む。
+        // さらに 10 秒沈黙 → 逃げたいことが空のまま M1 へは進まない。この質問だけ文字で待つ。
+        let watchesBefore = durations.count
         await viewModel.silenceElapsed()
-        XCTAssertEqual(viewModel.currentStep, .morningReason)
+        await drain()
+        XCTAssertEqual(viewModel.currentStep, .morningAvoidance)
         XCTAssertNil(viewModel.completion)
+        XCTAssertTrue(viewModel.acceptsTextInput)
+        XCTAssertEqual(viewModel.phase, .listening)
+        XCTAssertFalse(capture.isCapturing)
+        XCTAssertEqual(capture.startCount, 2)
+        XCTAssertFalse(viewModel.isVoiceless, "その日を声なしに固定しない")
+        let prompts = Set(DialogueCopy.variants(.requiredTextPrompt).map(\.text))
+        XCTAssertTrue(prompts.contains(synthesizer.spokenLines.last ?? ""))
+        // 文字の入力待ちでは沈黙の見張りを張らない。
+        durations = await recorder.durations
+        XCTAssertEqual(durations.count, watchesBefore)
+
+        // 文字で答えると次の質問へ進み、そこでは声に戻る。
+        await viewModel.submit(text: "見積書を送るのが嫌だ")
+        await settle(until: { self.capture.startCount == 3 })
+        XCTAssertEqual(viewModel.currentStep, .morningReason)
+        XCTAssertFalse(viewModel.acceptsTextInput)
+        XCTAssertTrue(capture.isCapturing)
+
+        await viewModel.interrupt()
+    }
+
+    /// 必須でない質問（M1）は、従来どおり沈黙 2 回で次へ進む。
+    func testSilenceTwiceOnAQuestionThatIsNotRequiredStillAdvances() async throws {
+        capture.autoSilenceStarts = 1
+        let (viewModel, _) = makeViewModel(transcript: ["見積書を送るのが嫌だ"])
+        await viewModel.start(sessionType: .morning)
+        await settle(until: { viewModel.currentStep == .morningReason && self.capture.startCount == 2 })
+
+        await viewModel.silenceElapsed()
+        await settle(until: { self.capture.startCount == 3 })
+        XCTAssertEqual(viewModel.currentStep, .morningReason)
+
+        await viewModel.silenceElapsed()
+        await settle(until: { self.capture.startCount == 4 })
+        XCTAssertEqual(viewModel.currentStep, .morningMicroAction)
+        XCTAssertNil(viewModel.completion)
+
+        await viewModel.interrupt()
+    }
+
+    /// M2 は沈黙 2 回でも M3 へ進まず、押せる例のチップを出す。押せばその行動で先へ進む。
+    func testSilenceTwiceAtMicroActionOffersTheActionChips() async throws {
+        capture.autoSilenceStarts = 2
+        let (viewModel, _) = makeViewModel(transcript: ["見積書を送るのが嫌だ", "気まずいから"])
+        await viewModel.start(sessionType: .morning)
+        await settle(until: { viewModel.currentStep == .morningMicroAction && self.capture.startCount == 3 })
+
+        await viewModel.silenceElapsed()
+        await settle(until: { self.capture.startCount == 4 })
+        await viewModel.silenceElapsed()
+        await drain()
+
+        XCTAssertEqual(viewModel.currentStep, .morningMicroAction)
+        XCTAssertEqual(viewModel.phase, .choosing)
+        XCTAssertEqual(viewModel.choices.map(\.id), DialogueCopy.exampleActionIDs)
+        XCTAssertFalse(capture.isCapturing)
+        XCTAssertNil(viewModel.completion)
+
+        await viewModel.select(Choice(.exampleOpen))
+        await settle(until: { viewModel.currentStep == .morningPlannedTime })
+        XCTAssertEqual(viewModel.currentStep, .morningPlannedTime)
+
+        await viewModel.interrupt()
+    }
+
+    /// 文字の入力待ちでは沈黙の見張りを起動しない。20 秒経っても催促は読まれず、段階も変わらない。
+    func testTextInputWaitIsNeverNudgedOrAdvanced() async throws {
+        let manual = ManualTimer()
+        let (viewModel, _) = makeViewModel(timer: SessionTimer(sleep: { try await manual.sleep($0) }))
+
+        await viewModel.start(sessionType: .morning, microphoneGranted: false)
+        await drain()
+        XCTAssertTrue(viewModel.acceptsTextInput)
+        XCTAssertEqual(viewModel.phase, .listening)
+        // タイマーそのものは配線されている（時間切れの見張りは待っている）。
+        for _ in 0..<2_000 {
+            if await manual.isWaiting(for: .seconds(180)) { break }
+            await Task.yield()
+        }
+        let timeboxIsArmed = await manual.isWaiting(for: .seconds(180))
+        XCTAssertTrue(timeboxIsArmed)
+
+        let linesBefore = synthesizer.spokenLines
+        let firstWatch = await manual.isWaiting(for: .seconds(FlowMachine.firstSilenceSeconds))
+        XCTAssertFalse(firstWatch, "文字の入力待ちで沈黙の見張りが張られている")
+
+        // 5 秒、10 秒、20 秒が過ぎる。
+        for seconds in [FlowMachine.firstSilenceSeconds, FlowMachine.secondSilenceSeconds, FlowMachine.listenMaxSeconds] {
+            await manual.fire(.seconds(seconds))
+            await drain()
+        }
+
+        XCTAssertEqual(synthesizer.spokenLines, linesBefore, "催促も次の質問も読まれない")
+        XCTAssertEqual(viewModel.currentStep, .morningAvoidance)
+        XCTAssertEqual(viewModel.phase, .listening)
+        XCTAssertTrue(viewModel.acceptsTextInput)
+        XCTAssertNil(viewModel.completion)
+
+        await viewModel.interrupt()
+    }
+
+    // MARK: - 成立しなかった会話（task_033）
+
+    /// 必須の質問を飛ばした会話は、約束を作らずに終わる。受け取ったとは言わず、SessionLog には未完で残る。
+    func testSkippingTheFirstRequiredQuestionEndsAbandonedWithoutACommitment() async throws {
+        let (viewModel, _) = makeViewModel()
+        await viewModel.start(sessionType: .morning, microphoneGranted: false)
+
+        await viewModel.skip()
+
+        XCTAssertEqual(viewModel.completion, .abandoned)
+        XCTAssertEqual(viewModel.phase, .done)
+        XCTAssertNil(viewModel.commitment)
+        let commitments = await store.commitments
+        XCTAssertEqual(commitments.count, 0)
+        let entries = try await store.entries(for: reference)
+        XCTAssertTrue(entries.isEmpty)
+        let scheduled = await notifications.scheduled
+        XCTAssertTrue(scheduled.isEmpty)
+
+        let closings = Set(DialogueCopy.variants(.sessionAbandoned).map(\.text))
+        XCTAssertTrue(closings.contains(synthesizer.spokenLines.last ?? ""))
+        XCTAssertTrue(synthesizer.spokenLines.allSatisfy { !$0.contains("受け取りました") })
+
+        let logs = await store.logs
+        XCTAssertEqual(logs.count, 1)
+        XCTAssertEqual(logs.first?.completed, false)
+        XCTAssertNotNil(logs.first?.endedAt)
+        XCTAssertEqual(logs.first?.lastStep, .morningAvoidance)
+    }
+
+    /// 行動（M2）を飛ばした会話も、時刻と宣言へは進まず、約束は 0 件のまま終わる。そこまでの声は残る。
+    func testSkippingTheMicroActionEndsAbandonedWithoutACommitment() async throws {
+        let (viewModel, _) = makeViewModel()
+        await viewModel.start(sessionType: .morning, microphoneGranted: false)
+        await viewModel.submit(text: "見積書を送るのが嫌だ")
+        await viewModel.select(Choice(.reason(.awkward)))
+        XCTAssertEqual(viewModel.currentStep, .morningMicroAction)
+
+        await viewModel.skip()
+
+        XCTAssertEqual(viewModel.completion, .abandoned)
+        XCTAssertEqual(viewModel.currentStep, .morningMicroAction)
+        let commitments = await store.commitments
+        XCTAssertEqual(commitments.count, 0)
+        XCTAssertNil(viewModel.commitment)
+        let scheduled = await notifications.scheduled
+        XCTAssertTrue(scheduled.isEmpty)
+        XCTAssertTrue(synthesizer.spokenLines.allSatisfy { !$0.contains("受け取りました") })
+        // 途中までの記録（逃げたいこと・理由）は消さない。
+        let entries = try await store.entries(for: reference)
+        XCTAssertEqual(Set(entries.map(\.kind)), [.avoidance, .reason])
+
+        let logs = await store.logs
+        XCTAssertEqual(logs.first?.completed, false)
+        XCTAssertEqual(logs.first?.lastStep, .morningMicroAction)
+    }
+
+    /// 完了画面の締めは、成立しなかった会話にも 1 文を持つ。受け取ったとは言わない。
+    func testClosingCopyCoversTheAbandonedSession() {
+        let closing = SessionCopy.closing(for: .abandoned)
+        XCTAssertFalse(closing.isEmpty)
+        XCTAssertFalse(closing.contains("受け取り"))
+        XCTAssertTrue(Guardrails.isClean(closing, form: .statement), closing)
+    }
+
+    // MARK: - 聞いている途中の時間切れ（task_033）
+
+    /// 聞き取り中に時間切れになっても、その場では打ち切らない。答えが確定してから、次の質問を始めずに終える。
+    func testTimeboxWhileListeningWaitsForTheAnswerToSettle() async throws {
+        capture.autoSilenceStarts = 0
+        let (viewModel, _) = makeViewModel(transcript: ["見積書を送るのが嫌だ"])
+        await viewModel.start(sessionType: .morning)
+        await settle(until: { self.capture.isCapturing })
+        XCTAssertEqual(viewModel.phase, .listening)
+
+        await viewModel.timeboxElapsed()
+        await drain()
+
+        // まだ聞いている。会話は終わっていない。
+        XCTAssertNil(viewModel.completion)
+        XCTAssertTrue(capture.isCapturing)
+        XCTAssertEqual(viewModel.phase, .listening)
+        XCTAssertEqual(viewModel.currentStep, .morningAvoidance)
+
+        // 話し終える。答えは保存され、そこで時間切れとして終わる。
+        capture.speakThenFallSilent()
+        await settle(until: { viewModel.completion != nil })
+        await drain()
+
+        XCTAssertEqual(viewModel.completion, .timeboxExceeded)
+        XCTAssertEqual(viewModel.phase, .done)
+        let entries = try await store.entries(for: reference)
+        XCTAssertEqual(entries.filter { $0.kind == .avoidance }.map(\.transcript), ["見積書を送るのが嫌だ"])
+        XCTAssertNotNil(entries.first { $0.kind == .avoidance }?.audioPath)
+        // 次の質問は読まず、聞き取りも始めない。
+        let nextQuestions = Set(DialogueCopy.variants(.morningReasonQuestion).map(\.text))
+        XCTAssertTrue(synthesizer.spokenLines.allSatisfy { !nextQuestions.contains($0) })
+        XCTAssertEqual(capture.startCount, 1)
+        XCTAssertFalse(capture.isCapturing)
+        let timeboxLines = Set(DialogueCopy.variants(.timeboxExceeded).map(\.text))
+        XCTAssertTrue(timeboxLines.contains(synthesizer.spokenLines.last ?? ""))
+
+        let logs = await store.logs
+        XCTAssertEqual(logs.first?.completed, false)
+        XCTAssertEqual(logs.first?.lastStep, .morningReason)
+    }
+
+    /// 宣言の録音中に時間切れになっても、録音を切らない。言い終えた宣言で約束が成立する。
+    func testTimeboxWhileRecordingTheDeclarationLetsThePromiseComplete() async throws {
+        capture.autoSilenceStarts = 4
+        let (viewModel, _) = makeViewModel(transcript: [
+            "見積書を送るのが嫌だ",
+            "気まずいから",
+            "見積書のファイルを開く",
+            "14時に自宅で",
+            "今日、14時に見積書のファイルを開く",
+        ])
+        await viewModel.start(sessionType: .morning)
+        await settle(until: { viewModel.phase == .recordingDeclaration })
+        XCTAssertTrue(capture.isCapturing)
+
+        await viewModel.timeboxElapsed()
+        await drain()
+
+        XCTAssertNil(viewModel.completion)
+        XCTAssertTrue(capture.isCapturing)
+        XCTAssertEqual(viewModel.phase, .recordingDeclaration)
+
+        capture.speakThenFallSilent()
+        await settle(until: { viewModel.completion != nil })
+
+        XCTAssertEqual(viewModel.completion, .completed)
+        let commitment = try XCTUnwrap(viewModel.commitment)
+        XCTAssertNotNil(commitment.declarationAudioPath)
+        XCTAssertEqual(commitment.declarationTranscript, "今日、14時に見積書のファイルを開く")
     }
 
     /// タイムボックス超過はそこまでの入力を保存して終わる。
@@ -1562,6 +1804,69 @@ final class SessionViewModelTests: XCTestCase {
         XCTAssertFalse(capture.isCapturing)
         XCTAssertFalse(transcriber.isRunning)
         XCTAssertNil(viewModel.notice)
+    }
+
+    // MARK: - 宣言の録音開始の失敗（task_033。task_032 の残り）
+
+    /// 宣言の録音の開始が 1 回失敗しても、やり直して声の宣言のまま成立する。
+    func testATemporaryDeclarationRecordingFailureIsRetried() async throws {
+        // 1〜4 回目は M0〜M3 の聞き取り。5 回目が宣言の録音。
+        capture.failingAttempts = [5]
+        let (viewModel, _) = makeViewModel(transcript: [
+            "見積書を送るのが嫌だ",
+            "気まずいから",
+            "見積書のファイルを開く",
+            "14時に自宅で",
+            "今日、14時に見積書のファイルを開く",
+        ])
+
+        await viewModel.start(sessionType: .morning)
+        await settle(until: { viewModel.completion != nil })
+
+        XCTAssertEqual(viewModel.completion, .completed)
+        XCTAssertEqual(capture.attemptCount, 6)
+        XCTAssertNil(viewModel.notice)
+        let commitment = try XCTUnwrap(viewModel.commitment)
+        XCTAssertNotNil(commitment.declarationAudioPath)
+        XCTAssertFalse(commitment.isVoiceless)
+        let scheduled = await notifications.scheduled
+        XCTAssertFalse(scheduled.contains { $0.kind == .declarationReminder })
+    }
+
+    /// 2 回とも失敗したら、宣言だけ文字で受ける。マイク拒否の掲示は出さず、声なしにも後回しにも固定しない。
+    func testTwoDeclarationRecordingFailuresFallBackToTextForTheDeclarationOnly() async throws {
+        capture.failingAttempts = [5, 6]
+        let (viewModel, _) = makeViewModel(transcript: [
+            "見積書を送るのが嫌だ",
+            "気まずいから",
+            "見積書のファイルを開く",
+            "14時に自宅で",
+        ])
+
+        await viewModel.start(sessionType: .morning)
+        await settle(until: { viewModel.acceptsTextInput })
+
+        XCTAssertEqual(viewModel.currentStep, .morningDeclaration)
+        XCTAssertEqual(viewModel.phase, .listening)
+        XCTAssertEqual(viewModel.notice, .captureFailed)
+        XCTAssertFalse(viewModel.isVoiceless)
+        XCTAssertFalse(capture.isCapturing)
+        XCTAssertEqual(capture.attemptCount, 6)
+        XCTAssertNil(viewModel.completion)
+
+        await viewModel.submit(text: "今日、14時に見積書のファイルを開く")
+
+        XCTAssertEqual(viewModel.completion, .completed)
+        let commitment = try XCTUnwrap(viewModel.commitment)
+        XCTAssertEqual(commitment.declarationTranscript, "今日、14時に見積書のファイルを開く")
+        // 文字で受けた宣言に、前の質問（M3）の録音を付けない。
+        XCTAssertNil(commitment.declarationAudioPath)
+        let entries = try await store.entries(for: reference)
+        XCTAssertEqual(entries.filter { $0.kind == .declaration }.count, 1)
+        XCTAssertNil(entries.first { $0.kind == .declaration }?.audioPath)
+        // 「後で声で」を選んだわけではないので、宣言の再通知は登録しない。
+        let scheduled = await notifications.scheduled
+        XCTAssertFalse(scheduled.contains { $0.kind == .declarationReminder })
     }
 
     // MARK: - 補助

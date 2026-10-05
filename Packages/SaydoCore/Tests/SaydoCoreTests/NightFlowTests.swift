@@ -116,7 +116,7 @@ final class NightFlowTests: XCTestCase {
         var transition = FlowMachine.start(nightEntry())
         transition = FlowMachine.handle(.timeout(.timebox), in: transition.state)
         XCTAssertEqual(transition.completion, .timeboxExceeded)
-        XCTAssertEqual(transition.spoken, ["続きは昼に聞くね。"])
+        XCTAssertEqual(transition.spoken, ["時間になったから、今日はここまでにしよう。"])
     }
 
     // MARK: - 「話せない時」モード

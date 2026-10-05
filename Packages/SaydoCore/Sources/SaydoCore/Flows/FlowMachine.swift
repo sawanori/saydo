@@ -224,6 +224,8 @@ public enum FlowCompletion: String, Sendable, Equatable, Hashable, Codable {
     case suspended
     /// タイムボックスを超えた。
     case timeboxExceeded
+    /// 成立しなかった。必須の質問（M0・M2・M4）を本人が飛ばした。`Commitment` は作らない。
+    case abandoned
 }
 
 /// 会話の外側に出す命令。FlowMachine 自身は副作用を持たない。
@@ -286,7 +288,7 @@ public struct FlowState: Sendable, Equatable, Hashable, Codable {
     /// 「声なし」の日か（マイク拒否・宣言の後回し）。
     public var isVoicelessDay: Bool
 
-    /// 現在のステップで沈黙した回数（0 → 催促、1 → スキップ）。
+    /// 現在のステップで沈黙した回数（0 → 催促、1 → 必須でなければスキップ、必須なら受け方を変える）。
     public var silenceCount: Int
     /// 現在のステップで聞き直した回数（上限 2 回）。
     public var retryCount: Int
@@ -447,7 +449,7 @@ public enum FlowMachine {
 
     /// 沈黙を待つ秒数（1 回目）。
     public static let firstSilenceSeconds = 5
-    /// 催促の後に沈黙を待つ秒数。この後はその質問をスキップする。
+    /// 催促の後に沈黙を待つ秒数。この後、必須でない質問はスキップする。
     public static let secondSilenceSeconds = 10
     /// 聞く区間の上限。
     public static let listenMaxSeconds = 20
@@ -490,7 +492,7 @@ public enum FlowMachine {
             return FlowTransition(state: state, commands: [.finish(.suspended)])
 
         case .timeout(.timebox):
-            let line = state.picker.pickText(.timeboxExceeded)
+            let line = state.picker.pickText(timeboxKey(for: state))
             state.isFinished = true
             return FlowTransition(state: state, commands: [.speak(line), .finish(.timeboxExceeded)])
 
@@ -503,9 +505,17 @@ public enum FlowMachine {
                     commands: [.speak(nudge), .listen(listenRequest(for: state, silenceSeconds: secondSilenceSeconds))]
                 )
             }
+            // 必須の質問は、黙ったままでも次へ進めない。答えやすい受け方に変えて待つ。
+            if state.step.isRequired {
+                return requiredFallback(state)
+            }
             return advance(from: state)
 
         case .skip:
+            // 必須の質問を飛ばしたら、欠けた約束は作らない。成立しなかった会話として終える。
+            if state.step.isRequired {
+                return abandon(state)
+            }
             return advance(from: state)
 
         default:
@@ -623,10 +633,49 @@ public enum FlowMachine {
         }
     }
 
+    /// 時間切れの一言。いまの質問が属する会話に合う文言を選ぶ（短縮版の朝フローは朝として扱う）。
+    static func timeboxKey(for state: FlowState) -> CopyKey {
+        switch state.step.sessionType ?? state.sessionType {
+        case .morning: .timeboxExceeded
+        case .noon, .adhoc: .timeboxExceededNoon
+        case .night: .timeboxExceededNight
+        }
+    }
+
+    /// 必須の質問で声の答えが得られなかったとき（沈黙 2 回・聞き直しの上限）の受け方。
+    ///
+    /// 次の質問へは進めない。M2 は押せる例のチップに落とし、M0 と M4 はその質問だけ文字で待つ。
+    /// `mode` は変えないので、次の質問は元の受け方（声）に戻る。
+    static func requiredFallback(_ state: FlowState) -> FlowTransition {
+        var state = state
+        // ここから先の使えない答えでも、聞き直しには戻らずこの受け方に留まる。
+        state.retryCount = maxRetries
+        if state.step == .morningMicroAction {
+            let line = state.picker.pickText(.morningMicroActionChipsPrompt)
+            return FlowTransition(state: state, commands: [.speak(line), .showChoices(examples(for: state.step))])
+        }
+        let line = state.picker.pickText(.requiredTextPrompt)
+        return FlowTransition(
+            state: state,
+            commands: [
+                .speak(line),
+                .listen(ListenRequest(step: state.step, silenceSeconds: firstSilenceSeconds, input: .text)),
+            ]
+        )
+    }
+
+    /// 必須の質問を本人が飛ばした。保存も通知も出さず、責めない 1 文で終える。
+    static func abandon(_ state: FlowState) -> FlowTransition {
+        var state = state
+        let line = state.picker.pickText(.sessionAbandoned)
+        state.isFinished = true
+        return FlowTransition(state: state, commands: [.speak(line), .finish(.abandoned)])
+    }
+
     /// 文字起こしが使えないときの聞き直し。
     ///
-    /// 最大 2 回まで聞き直し、その後は選択肢に落とす。選択肢が無いステップは
-    /// その質問をスキップして次へ進む（実装計画 §7.2 の沈黙時と同じ扱い）。
+    /// 最大 2 回まで聞き直す。その後、必須の質問は `requiredFallback` で受け方を変えて留まる。
+    /// 必須でない質問は選択肢に落とし、選択肢が無ければスキップして次へ進む。
     static func retryOrFallback(_ state: FlowState) -> FlowTransition {
         var state = state
         if state.retryCount < maxRetries {
@@ -637,6 +686,9 @@ public enum FlowMachine {
                 state: state,
                 commands: [.speak(line), .listen(listenRequest(for: state, silenceSeconds: firstSilenceSeconds))]
             )
+        }
+        if state.step.isRequired {
+            return requiredFallback(state)
         }
         let choices = answerChoices(for: state)
         guard !choices.isEmpty else { return advance(from: state) }

@@ -59,8 +59,18 @@ public enum CopyKey: String, Sendable, Equatable, Hashable, Codable, CaseIterabl
     case silenceNudge
     /// 文字起こしが短すぎたときの再入力。
     case retryPrompt
-    /// タイムボックス超過。
+    /// タイムボックス超過（朝。短縮版の朝フローを含む）。
     case timeboxExceeded
+    /// タイムボックス超過（昼）。
+    case timeboxExceededNoon
+    /// タイムボックス超過（夜）。
+    case timeboxExceededNight
+    /// M2 で声の答えが得られなかったとき、押せる例に落とす一言。
+    case morningMicroActionChipsPrompt
+    /// M0・M4 で声の答えが得られなかったとき、その質問だけ文字で受ける一言。
+    case requiredTextPrompt
+    /// 必須の質問を本人が飛ばして、約束を作らずに終えるときの締め。
+    case sessionAbandoned
     /// N0 朝の宣言を返す前の一言。
     case noonIntro
     /// 昼の入口: すでに done。
@@ -237,7 +247,27 @@ public enum DialogueCopy {
             ]
         case .timeboxExceeded:
             [
-                CopyLine("続きは昼に聞くね。", .statement),
+                CopyLine("時間になったから、今日はここまでにしよう。また話したくなったら、いつでも。", .statement),
+            ]
+        case .timeboxExceededNoon:
+            [
+                CopyLine("時間になったから、ここまでにしよう。", .statement),
+            ]
+        case .timeboxExceededNight:
+            [
+                CopyLine("時間になったから、今日はここまでにしよう。", .statement),
+            ]
+        case .morningMicroActionChipsPrompt:
+            [
+                CopyLine("押すだけでも大丈夫。近いものをひとつ選んで。", .statement),
+            ]
+        case .requiredTextPrompt:
+            [
+                CopyLine("声じゃなくても大丈夫。文字で書いてみて。", .statement),
+            ]
+        case .sessionAbandoned:
+            [
+                CopyLine("今日はここまでにしよう。また話したくなったら、いつでも。", .statement),
             ]
         case .noonIntro:
             [

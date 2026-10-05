@@ -226,25 +226,142 @@ final class MorningFlowTests: XCTestCase {
 
     // MARK: - 沈黙とスキップ
 
-    func testSilenceNudgesOnceThenSkipsTheQuestion() {
-        var transition = FlowMachine.start(morningEntry())
+    /// 朝の会話を、声で答えながら指定の質問まで進める。
+    private func morning(at step: FlowStep, short: Bool = false) -> FlowTransition {
+        var transition = short
+            ? FlowMachine.start(FlowEntry(sessionType: .noon, hasCommitmentToday: false))
+            : FlowMachine.start(morningEntry())
+        let answers: [(FlowStep, FlowEvent)] = [
+            (.morningAvoidance, .transcript("クライアントへの返信")),
+            (.morningReason, .choice(.reason(.awkward))),
+            (.morningMicroAction, .transcript("メールを開く")),
+            (.morningPlannedTime, .transcript("14時に自宅で")),
+        ]
+        for (answered, event) in answers where transition.state.step != step {
+            guard transition.state.step == answered else { continue }
+            transition = FlowMachine.handle(event, in: transition.state)
+        }
+        XCTAssertEqual(transition.state.step, step)
+        return transition
+    }
+
+    func testRequiredQuestionsAreAvoidanceMicroActionAndDeclaration() {
+        XCTAssertEqual(
+            FlowStep.allCases.filter(\.isRequired),
+            [.morningAvoidance, .morningMicroAction, .morningDeclaration]
+        )
+    }
+
+    /// 必須でない質問（M1）は、従来どおり催促を 1 回挟んでから次へ進む。
+    func testSilenceNudgesOnceThenSkipsAQuestionThatIsNotRequired() {
+        var transition = morning(at: .morningReason)
         XCTAssertEqual(transition.listens.first?.silenceSeconds, FlowMachine.firstSilenceSeconds)
 
         transition = FlowMachine.handle(.timeout(.silence), in: transition.state)
         XCTAssertEqual(transition.spoken, ["長く考えなくていい。10秒で答えて。"])
         XCTAssertEqual(transition.listens.first?.silenceSeconds, FlowMachine.secondSilenceSeconds)
-        XCTAssertEqual(transition.state.step, .morningAvoidance)
+        XCTAssertEqual(transition.state.step, .morningReason)
 
         transition = FlowMachine.handle(.timeout(.silence), in: transition.state)
-        XCTAssertEqual(transition.state.step, .morningReason, "2 回目の沈黙でその質問をスキップする")
+        XCTAssertEqual(transition.state.step, .morningMicroAction, "2 回目の沈黙でその質問をスキップする")
         XCTAssertEqual(transition.state.silenceCount, 0)
     }
 
-    func testSkipEventAdvancesWithoutSaving() {
+    /// 必須でない M3 も、沈黙 2 回で宣言へ進む。
+    func testSilenceTwiceAtPlannedTimeStillAdvances() {
+        var transition = morning(at: .morningPlannedTime)
+        transition = FlowMachine.handle(.timeout(.silence), in: transition.state)
+        transition = FlowMachine.handle(.timeout(.silence), in: transition.state)
+        XCTAssertEqual(transition.state.step, .morningDeclaration)
+        XCTAssertNil(transition.state.plannedAnswer)
+    }
+
+    /// M2 は沈黙 2 回でも M3 へ進まない。押せる例（行動のチップ）に落とす。
+    func testSilenceTwiceAtMicroActionShowsTheActionChipsInsteadOfAdvancing() {
+        var transition = morning(at: .morningMicroAction)
+
+        transition = FlowMachine.handle(.timeout(.silence), in: transition.state)
+        XCTAssertEqual(transition.spoken, ["長く考えなくていい。10秒で答えて。"])
+        XCTAssertEqual(transition.state.step, .morningMicroAction)
+
+        transition = FlowMachine.handle(.timeout(.silence), in: transition.state)
+        XCTAssertEqual(transition.state.step, .morningMicroAction, "行動が空のまま時刻の質問へ進まない")
+        XCTAssertNil(transition.state.microAction)
+        XCTAssertEqual(transition.choices, DialogueCopy.exampleActionIDs)
+        XCTAssertTrue(transition.listens.isEmpty)
+        XCTAssertNil(transition.completion)
+        XCTAssertEqual(transition.spoken, DialogueCopy.variants(.morningMicroActionChipsPrompt).prefix(1).map(\.text))
+
+        // チップを押せば、その行動で先へ進む。
+        transition = FlowMachine.handle(.choice(.exampleWriteOneLine), in: transition.state)
+        XCTAssertEqual(transition.state.microAction?.text, "1行だけ書く")
+        XCTAssertEqual(transition.state.step, .morningPlannedTime)
+    }
+
+    /// M0 は沈黙 2 回でも M1 へ進まない。その質問だけ文字の入力待ちに落とす。
+    func testSilenceTwiceAtAvoidanceWaitsForTextInsteadOfAdvancing() {
         var transition = FlowMachine.start(morningEntry())
-        transition = FlowMachine.handle(.skip, in: transition.state)
-        XCTAssertEqual(transition.state.step, .morningReason)
+        transition = FlowMachine.handle(.timeout(.silence), in: transition.state)
+        XCTAssertEqual(transition.state.step, .morningAvoidance)
+
+        transition = FlowMachine.handle(.timeout(.silence), in: transition.state)
+        XCTAssertEqual(transition.state.step, .morningAvoidance, "逃げたいことが空のまま理由の質問へ進まない")
+        XCTAssertEqual(transition.listens.map(\.input), [.text])
+        XCTAssertEqual(transition.listens.first?.step, .morningAvoidance)
         XCTAssertTrue(transition.saves.isEmpty)
+        XCTAssertNil(transition.completion)
+    }
+
+    /// 必須でない質問（M1 理由、M3 時刻）のスキップは従来どおり次へ進む。
+    func testSkipAdvancesOnQuestionsThatAreNotRequired() {
+        var transition = FlowMachine.handle(.skip, in: morning(at: .morningReason).state)
+        XCTAssertEqual(transition.state.step, .morningMicroAction)
+        XCTAssertTrue(transition.saves.isEmpty)
+        XCTAssertNil(transition.completion)
+
+        transition = FlowMachine.handle(.skip, in: morning(at: .morningPlannedTime).state)
+        XCTAssertEqual(transition.state.step, .morningDeclaration)
+        XCTAssertTrue(transition.saves.isEmpty)
+        XCTAssertNil(transition.completion)
+    }
+
+    /// 必須の質問（M0・M2・M4）のスキップは次へ進まず、約束を作らずに終える。保存命令も通知命令も出ない。
+    func testSkipOnARequiredQuestionEndsAsAbandonedWithoutSaving() {
+        let closings = Set(DialogueCopy.variants(.sessionAbandoned).map(\.text))
+        let receipts = DialogueCopy.variants(.morningDeclarationReceipt).map(\.text)
+            + DialogueCopy.variants(.morningDeclarationReceiptNoTime).map(\.text)
+
+        for step in [FlowStep.morningAvoidance, .morningMicroAction, .morningDeclaration] {
+            let transition = FlowMachine.handle(.skip, in: morning(at: step).state)
+
+            XCTAssertEqual(transition.completion, .abandoned, "\(step.code)")
+            XCTAssertEqual(transition.state.step, step, "\(step.code): 次の質問へ進まない")
+            XCTAssertTrue(transition.state.isFinished, "\(step.code)")
+            XCTAssertTrue(transition.saves.isEmpty, "\(step.code): 保存命令を出さない")
+            XCTAssertTrue(transition.scheduled.isEmpty, "\(step.code): 通知を登録しない")
+            XCTAssertTrue(transition.listens.isEmpty && transition.records.isEmpty, "\(step.code)")
+            XCTAssertEqual(transition.spoken.count, 1, "\(step.code): 締めは 1 文だけ")
+            XCTAssertTrue(closings.contains(transition.spoken.first ?? ""), "\(step.code): \(transition.spoken)")
+            for receipt in receipts {
+                XCTAssertFalse(transition.spoken.contains(receipt), "\(step.code): 受け取ったとは言わない")
+            }
+        }
+    }
+
+    /// 短縮版の朝フロー（M0 → M2 → M4）にも同じ規則を当てる。
+    func testRequiredQuestionsInTheShortMorningFlowFollowTheSameRule() {
+        for step in [FlowStep.morningAvoidance, .morningMicroAction, .morningDeclaration] {
+            let skipped = FlowMachine.handle(.skip, in: morning(at: step, short: true).state)
+            XCTAssertEqual(skipped.completion, .abandoned, "\(step.code)")
+            XCTAssertTrue(skipped.saves.isEmpty, "\(step.code)")
+        }
+
+        var transition = morning(at: .morningMicroAction, short: true)
+        XCTAssertTrue(transition.state.isShortMorning)
+        transition = FlowMachine.handle(.timeout(.silence), in: transition.state)
+        transition = FlowMachine.handle(.timeout(.silence), in: transition.state)
+        XCTAssertEqual(transition.state.step, .morningMicroAction)
+        XCTAssertEqual(transition.choices, DialogueCopy.exampleActionIDs)
     }
 
     // MARK: - 再入力の上限
@@ -269,12 +386,71 @@ final class MorningFlowTests: XCTestCase {
         XCTAssertEqual(transition.state.step, .morningReason)
     }
 
-    func testShortTranscriptSkipsWhenTheStepHasNoAnswerChoices() {
-        var transition = FlowMachine.start(morningEntry())
+    /// 必須でなく選択肢も無い質問（M3）は、聞き直しの上限でスキップする。
+    func testShortTranscriptSkipsWhenTheStepIsNotRequiredAndHasNoAnswerChoices() {
+        var transition = morning(at: .morningPlannedTime)
         for _ in 0..<(FlowMachine.maxRetries + 1) {
             transition = FlowMachine.handle(.transcript("あ"), in: transition.state)
         }
-        XCTAssertEqual(transition.state.step, .morningReason, "選択肢が無いステップはスキップする")
+        XCTAssertEqual(transition.state.step, .morningDeclaration, "選択肢が無いステップはスキップする")
+    }
+
+    /// M0 は聞き直しの上限に達しても M1 へ進まない。その質問だけ文字の入力待ちになる。
+    func testRetryLimitAtAvoidanceWaitsForTextInsteadOfAdvancing() {
+        var transition = FlowMachine.start(morningEntry())
+        for _ in 0..<FlowMachine.maxRetries {
+            transition = FlowMachine.handle(.transcript("あ"), in: transition.state)
+            XCTAssertEqual(transition.listens.map(\.input), [.voice])
+        }
+
+        transition = FlowMachine.handle(.transcript("あ"), in: transition.state)
+        XCTAssertEqual(transition.state.step, .morningAvoidance, "逃げたいことが空のまま理由の質問へ進まない")
+        XCTAssertTrue(transition.state.avoidance.isEmpty)
+        XCTAssertEqual(transition.listens.map(\.input), [.text])
+        XCTAssertEqual(transition.listens.first?.step, .morningAvoidance)
+        XCTAssertTrue(transition.saves.isEmpty)
+        XCTAssertNil(transition.completion)
+        XCTAssertEqual(transition.spoken, DialogueCopy.variants(.requiredTextPrompt).prefix(1).map(\.text))
+
+        // 文字で答えると先へ進む。会話全体は文字に固定されず、次の質問は声で聞く。
+        transition = FlowMachine.handle(.transcript("クライアントへの返信"), in: transition.state)
+        XCTAssertEqual(transition.state.step, .morningReason)
+        XCTAssertEqual(transition.state.avoidance, "クライアントへの返信")
+        XCTAssertEqual(transition.state.mode, .voice)
+        XCTAssertEqual(transition.listens.map(\.input), [.voice])
+    }
+
+    /// M4 も聞き直しの上限で終わらせない。宣言が空のまま会話を完了にせず、文字の入力待ちになる。
+    func testRetryLimitAtDeclarationWaitsForTextInsteadOfFinishing() {
+        var transition = morning(at: .morningDeclaration)
+        for _ in 0..<(FlowMachine.maxRetries + 1) {
+            transition = FlowMachine.handle(.transcript(""), in: transition.state)
+        }
+
+        XCTAssertEqual(transition.state.step, .morningDeclaration)
+        XCTAssertFalse(transition.state.isFinished)
+        XCTAssertNil(transition.completion, "宣言が空のまま完了にしない")
+        XCTAssertTrue(transition.saves.isEmpty)
+        XCTAssertEqual(transition.listens.map(\.input), [.text])
+        XCTAssertEqual(transition.listens.first?.step, .morningDeclaration)
+        XCTAssertEqual(transition.state.mode, .voice)
+        XCTAssertFalse(transition.state.isVoicelessDay, "その日を声なしに固定しない")
+
+        transition = FlowMachine.handle(.transcript("今日は14時にメールを開きます"), in: transition.state)
+        XCTAssertEqual(transition.completion, .completed)
+        XCTAssertEqual(transition.saves.map(\.kind), [.declaration])
+    }
+
+    /// M2 は聞き直しの上限でも M3 へ進まず、行動のチップに落とす。
+    func testRetryLimitAtMicroActionShowsTheActionChips() {
+        var transition = morning(at: .morningMicroAction)
+        for _ in 0..<(FlowMachine.maxRetries + 1) {
+            transition = FlowMachine.handle(.transcript("あ"), in: transition.state)
+        }
+        XCTAssertEqual(transition.state.step, .morningMicroAction)
+        XCTAssertNil(transition.state.microAction)
+        XCTAssertEqual(transition.choices, DialogueCopy.exampleActionIDs)
+        XCTAssertTrue(transition.listens.isEmpty)
     }
 
     // MARK: - 「話せない時」モード（retention R1）
@@ -375,10 +551,40 @@ final class MorningFlowTests: XCTestCase {
         transition = FlowMachine.handle(.transcript("クライアントへの返信"), in: transition.state)
         transition = FlowMachine.handle(.timeout(.timebox), in: transition.state)
 
-        XCTAssertEqual(transition.spoken, ["続きは昼に聞くね。"])
+        XCTAssertEqual(transition.spoken, DialogueCopy.variants(.timeboxExceeded).prefix(1).map(\.text))
         XCTAssertEqual(transition.completion, .timeboxExceeded)
         XCTAssertTrue(transition.saves.isEmpty)
         XCTAssertTrue(transition.state.isFinished)
+    }
+
+    /// 時間切れの一言は、実装されていない続きを約束しない。会話の種類に合う文言を選ぶ。
+    func testTimeboxLinePromisesNoContinuationInAnySession() {
+        let morning = FlowMachine.handle(.timeout(.timebox), in: FlowMachine.start(morningEntry()).state)
+        let shortMorning = FlowMachine.handle(
+            .timeout(.timebox),
+            in: FlowMachine.start(FlowEntry(sessionType: .noon, hasCommitmentToday: false)).state
+        )
+        let noon = FlowMachine.handle(
+            .timeout(.timebox),
+            in: FlowMachine.start(FlowEntry(sessionType: .noon, hasCommitmentToday: true)).state
+        )
+        let night = FlowMachine.handle(
+            .timeout(.timebox),
+            in: FlowMachine.start(FlowEntry(sessionType: .night, hasCommitmentToday: true)).state
+        )
+
+        XCTAssertEqual(morning.spoken, DialogueCopy.variants(.timeboxExceeded).prefix(1).map(\.text))
+        XCTAssertEqual(shortMorning.spoken, DialogueCopy.variants(.timeboxExceeded).prefix(1).map(\.text))
+        XCTAssertEqual(noon.spoken, DialogueCopy.variants(.timeboxExceededNoon).prefix(1).map(\.text))
+        XCTAssertEqual(night.spoken, DialogueCopy.variants(.timeboxExceededNight).prefix(1).map(\.text))
+
+        for transition in [morning, shortMorning, noon, night] {
+            XCTAssertEqual(transition.completion, .timeboxExceeded)
+            for line in transition.spoken {
+                XCTAssertFalse(line.contains("続き"), "続きを約束しない: \(line)")
+                XCTAssertFalse(line.contains("聞くね"), "後で聞くと約束しない: \(line)")
+            }
+        }
     }
 
     // MARK: - ユーザーの言葉には Guardrails をかけない
