@@ -30,9 +30,16 @@ actor InMemorySessionStore: SessionStore {
     private(set) var avoidanceStatuses: [UUID: AvoidanceStatus] = [:]
 
     private let calendar: Calendar
+    /// これから何回、約束の保存（`createCommitment`）を失敗させるか。
+    private var failingCreates = 0
 
     init(calendar: Calendar = .current) {
         self.calendar = calendar
+    }
+
+    /// 次の `count` 回の約束の保存を失敗させる。
+    func failCreates(_ count: Int) {
+        failingCreates = count
     }
 
     // MARK: 事前に積む
@@ -53,6 +60,10 @@ actor InMemorySessionStore: SessionStore {
     }
 
     func createCommitment(_ draft: CommitmentDraft) throws -> CommitmentSnapshot {
+        if failingCreates > 0 {
+            failingCreates -= 1
+            throw CocoaError(.fileWriteUnknown)
+        }
         let key = DayKey.make(from: draft.createdAt, calendar: calendar)
         if commitments.contains(where: { $0.dayKey == key }) {
             throw RepositoryError.commitmentAlreadyExists(dayKey: key)
@@ -226,19 +237,37 @@ actor SpyNotificationScheduler: NotificationScheduling {
         var commitmentID: UUID?
     }
 
+    /// 登録した通知。
     private(set) var scheduled: [Scheduled] = []
+    /// 登録を頼まれたが、登録しなかった通知（未許可・過去の時刻・失敗）。
+    private(set) var rejected: [Scheduled] = []
     private(set) var cancelled: [NotificationRequest.Kind] = []
+    /// 登録を頼まれたときに返す結果。`.scheduled` 以外では登録しない。
+    private var outcome: NotificationScheduleOutcome = .scheduled
 
-    func schedule(_ request: NotificationRequest, fireDate: Date?, commitmentID: UUID?, on day: Date) throws {
-        scheduled.append(
-            Scheduled(
-                kind: request.kind,
-                timePhrase: request.timePhrase,
-                onlyOnce: request.onlyOnce,
-                fireDate: fireDate,
-                commitmentID: commitmentID
-            )
+    func respond(with outcome: NotificationScheduleOutcome) {
+        self.outcome = outcome
+    }
+
+    func schedule(
+        _ request: NotificationRequest,
+        fireDate: Date?,
+        commitmentID: UUID?,
+        on day: Date
+    ) -> NotificationScheduleOutcome {
+        let record = Scheduled(
+            kind: request.kind,
+            timePhrase: request.timePhrase,
+            onlyOnce: request.onlyOnce,
+            fireDate: fireDate,
+            commitmentID: commitmentID
         )
+        if outcome == .scheduled {
+            scheduled.append(record)
+        } else {
+            rejected.append(record)
+        }
+        return outcome
     }
 
     func cancel(_ kind: NotificationRequest.Kind, on day: Date) throws {
@@ -558,14 +587,22 @@ final class SessionViewModelTests: XCTestCase {
     private var capture: MockVoiceCapture!
     private var player: MockPlayer!
 
-    private let reference = Date(timeIntervalSince1970: 1_757_000_000) // 2026-09-04 頃
+    private let reference = Date(timeIntervalSince1970: 1_757_000_000) // 日本時間 2025-09-05 0:33
+
+    /// テストの暦。端末の時間帯に依らないよう、日本時間に固定する（基準時刻の「今日」と
+    /// 「14時」がどの環境でも同じ日時になる）。
+    private static let tokyo: Calendar = {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "Asia/Tokyo")!
+        return calendar
+    }()
 
     override func setUp() async throws {
         try await super.setUp()
         root = FileManager.default.temporaryDirectory
             .appending(path: "SessionViewModelTests-\(UUID().uuidString)", directoryHint: .isDirectory)
         audioFiles = AudioFileStore(rootDirectory: root)
-        store = InMemorySessionStore()
+        store = InMemorySessionStore(calendar: Self.tokyo)
         notifications = SpyNotificationScheduler()
         synthesizer = MockSynthesizer()
         capture = MockVoiceCapture()
@@ -589,7 +626,8 @@ final class SessionViewModelTests: XCTestCase {
         audioSession: (any AudioSessionControlling)? = nil,
         copyHistory: (any CopyHistoryStoring)? = nil,
         at moment: Date? = nil,
-        clock: (@Sendable () -> Date)? = nil
+        clock: (@Sendable () -> Date)? = nil,
+        isStorePersistent: Bool = true
     ) -> (SessionViewModel, MockTranscriber) {
         let mock = transcriber ?? MockTranscriber(script: script)
         let now = moment ?? reference
@@ -607,15 +645,16 @@ final class SessionViewModelTests: XCTestCase {
             copyHistory: copyHistory ?? InMemoryCopyHistoryStore(),
             timer: timer,
             tier: .b,
-            calendar: .current,
-            now: clock ?? { now }
+            calendar: Self.tokyo,
+            now: clock ?? { now },
+            isStorePersistent: isStorePersistent
         )
         return (viewModel, mock)
     }
 
     /// `reference` と同じ日の、指定した時刻。
     private func moment(hour: Int, minute: Int = 0) -> Date {
-        Calendar.current.date(bySettingHour: hour, minute: minute, second: 0, of: reference)!
+        Self.tokyo.date(bySettingHour: hour, minute: minute, second: 0, of: reference)!
     }
 
     /// 文字の経路で、朝の会話を M3（時刻の質問）まで進める。
@@ -960,7 +999,7 @@ final class SessionViewModelTests: XCTestCase {
         XCTAssertEqual(entries.filter { $0.kind == .tomorrow }.count, 1)
 
         // 翌朝の M0 は引き継ぎ確認から始まる。
-        let tomorrow = try XCTUnwrap(Calendar.current.date(byAdding: .day, value: 1, to: reference))
+        let tomorrow = try XCTUnwrap(Self.tokyo.date(byAdding: .day, value: 1, to: reference))
         let saved = try await store.carryover(for: tomorrow)
         XCTAssertEqual(saved?.text, "午前中に送る")
 
@@ -976,7 +1015,7 @@ final class SessionViewModelTests: XCTestCase {
             copyHistory: InMemoryCopyHistoryStore(),
             timer: Self.frozenTimer,
             tier: .b,
-            calendar: .current,
+            calendar: Self.tokyo,
             now: { tomorrow }
         )
         await nextMorning.start(sessionType: .morning, microphoneGranted: false)
@@ -1445,6 +1484,240 @@ final class SessionViewModelTests: XCTestCase {
         XCTAssertTrue(synthesizer.spokenLines.allSatisfy { !declarationRequests.contains($0) })
         XCTAssertEqual(capture.startCount, 4, "宣言の録音を始めない")
         XCTAssertNil(viewModel.commitment)
+    }
+
+    // MARK: - 約束の保存と通知の結果に合う受領文（task_035）
+
+    /// 読み上げた行のうち、受領文（「受け取りました」で始まる行）。
+    private var spokenReceipts: [String] {
+        synthesizer.spokenLines.filter { $0.hasPrefix("受け取りました") }
+    }
+
+    /// 文字の経路で、M3 に `timeAnswer` と答え、宣言まで答える。完了は確かめない。
+    private func walkThroughDeclaration(
+        _ viewModel: SessionViewModel,
+        timeAnswer: String,
+        undecided: Bool = false
+    ) async {
+        await walkToPlannedTime(viewModel)
+        await viewModel.submit(text: timeAnswer)
+        if undecided {
+            await viewModel.select(Choice(.timeUndecided))
+        }
+        XCTAssertEqual(viewModel.currentStep, .morningDeclaration)
+        await viewModel.select(Choice(.declareLater))
+        await viewModel.submit(text: "今日、見積書のファイルを開く")
+    }
+
+    /// 約束は保存され、受領文は読まれるが、時刻にも「届きます」にも触れない。
+    private func assertSavedWithAReceiptThatNamesNoTime(
+        _ viewModel: SessionViewModel,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) async {
+        XCTAssertEqual(viewModel.completion, .completed, file: file, line: line)
+        let saved = await store.commitments
+        XCTAssertEqual(saved.count, 1, "約束は保存されている", file: file, line: line)
+        XCTAssertEqual(viewModel.commitment?.id, saved.first?.id, file: file, line: line)
+
+        XCTAssertEqual(spokenReceipts.count, 1, "\(synthesizer.spokenLines)", file: file, line: line)
+        let receipt = synthesizer.spokenLines.last ?? ""
+        XCTAssertEqual(receipt, spokenReceipts.first, "受領文で終わる", file: file, line: line)
+        XCTAssertFalse(receipt.contains("届きます"), receipt, file: file, line: line)
+        XCTAssertFalse(receipt.contains("16時"), receipt, file: file, line: line)
+        XCTAssertFalse(receipt.contains("時間になったら"), receipt, file: file, line: line)
+
+        let scheduled = await notifications.scheduled
+        XCTAssertFalse(scheduled.contains { $0.kind == .actionTime }, "\(scheduled)", file: file, line: line)
+    }
+
+    /// 通知を登録できた会話では、登録した発火時刻が約束の時刻と同じで、受領文がその時刻の句を言う。
+    func testAScheduledPromiseIsNotifiedAtItsPlannedTimeAndTheReceiptSaysThatTime() async throws {
+        let (viewModel, _) = makeViewModel(at: moment(hour: 9))
+        await walkThroughDeclaration(viewModel, timeAnswer: "16時から")
+
+        XCTAssertEqual(viewModel.completion, .completed)
+        let commitment = try XCTUnwrap(viewModel.commitment)
+        let saved = await store.commitments
+        XCTAssertEqual(saved.map(\.id), [commitment.id], "受領文が読まれた会話では約束が保存されている")
+        XCTAssertEqual(commitment.plannedAt, moment(hour: 16))
+
+        let scheduled = await notifications.scheduled
+        let actionTimes = scheduled.filter { $0.kind == .actionTime }
+        XCTAssertEqual(actionTimes.count, 1, "行動時刻の通知は 1 回だけ登録する")
+        XCTAssertEqual(actionTimes.first?.fireDate, commitment.plannedAt)
+        XCTAssertEqual(actionTimes.first?.commitmentID, commitment.id)
+
+        XCTAssertEqual(spokenReceipts, ["受け取りました。16時に、朝のあなたから届きます。"])
+        XCTAssertEqual(synthesizer.spokenLines.last, spokenReceipts.first)
+        XCTAssertFalse(synthesizer.spokenLines.joined().contains("16時から"), "生の発話を読み上げに差し込まない")
+    }
+
+    /// 約束の保存に失敗したら受領文を読まず、宣言の聞き取りへ 1 回だけ戻る。言い直した宣言が保存できれば成立する。
+    func testASaveFailureReadsNoReceiptAndAsksForTheDeclarationOnceMore() async throws {
+        await store.failCreates(1)
+        let (viewModel, _) = makeViewModel(at: moment(hour: 9))
+        await walkThroughDeclaration(viewModel, timeAnswer: "16時に自宅で")
+
+        XCTAssertNil(viewModel.completion)
+        XCTAssertEqual(viewModel.currentStep, .morningDeclaration)
+        XCTAssertTrue(viewModel.acceptsTextInput, "宣言をもう一度受ける")
+        XCTAssertTrue(spokenReceipts.isEmpty, "\(synthesizer.spokenLines)")
+        let retryLines = Set(DialogueCopy.variants(.morningCommitRetry).map(\.text))
+        XCTAssertTrue(retryLines.contains(synthesizer.spokenLines.last ?? ""), "\(synthesizer.spokenLines)")
+        var saved = await store.commitments
+        XCTAssertTrue(saved.isEmpty)
+        XCTAssertNil(viewModel.commitment)
+        var scheduled = await notifications.scheduled
+        XCTAssertTrue(scheduled.isEmpty, "保存できていない約束の通知は登録しない: \(scheduled)")
+
+        await viewModel.submit(text: "今日、16時に見積書のファイルを開く")
+
+        XCTAssertEqual(viewModel.completion, .completed)
+        saved = await store.commitments
+        XCTAssertEqual(saved.count, 1)
+        XCTAssertEqual(saved.first?.declarationTranscript, "今日、16時に見積書のファイルを開く")
+        XCTAssertEqual(saved.first?.plannedPlace, "自宅")
+        XCTAssertEqual(spokenReceipts, ["受け取りました。16時に、朝のあなたから届きます。"])
+        scheduled = await notifications.scheduled
+        XCTAssertEqual(scheduled.filter { $0.kind == .actionTime }.map(\.fireDate), [moment(hour: 16)])
+    }
+
+    /// 2 回目の保存も失敗したら、約束 0 件のまま、受領文を読まずに終える。
+    func testASecondSaveFailureEndsWithoutACommitmentOrAReceipt() async throws {
+        await store.failCreates(2)
+        let (viewModel, _) = makeViewModel(at: moment(hour: 9))
+        await walkThroughDeclaration(viewModel, timeAnswer: "16時に自宅で")
+        XCTAssertNil(viewModel.completion)
+
+        await viewModel.submit(text: "今日、16時に見積書のファイルを開く")
+
+        XCTAssertEqual(viewModel.completion, .abandoned)
+        XCTAssertEqual(viewModel.phase, .done)
+        let saved = await store.commitments
+        XCTAssertTrue(saved.isEmpty)
+        XCTAssertNil(viewModel.commitment)
+        XCTAssertTrue(spokenReceipts.isEmpty, "\(synthesizer.spokenLines)")
+        XCTAssertFalse(synthesizer.spokenLines.joined().contains("届きます"))
+        let failureLines = Set(DialogueCopy.variants(.morningCommitFailed).map(\.text))
+        XCTAssertTrue(failureLines.contains(synthesizer.spokenLines.last ?? ""), "\(synthesizer.spokenLines)")
+        let scheduled = await notifications.scheduled
+        XCTAssertTrue(scheduled.isEmpty, "\(scheduled)")
+        let logs = await store.logs
+        XCTAssertEqual(logs.first?.completed, false)
+    }
+
+    /// 声の会話で保存に失敗したら、宣言をもう一度録る。録り直した声と言葉で約束が成立する。
+    func testASaveFailureInAVoiceSessionRecordsTheDeclarationAgain() async throws {
+        await store.failCreates(1)
+        let (viewModel, _) = makeViewModel(transcript: [
+            "見積書を送るのが嫌だ",
+            "気まずいから",
+            "見積書のファイルを開く",
+            "14時に自宅で",
+            "今日、14時に見積書を開く",
+            "今日、14時に見積書のファイルを開く",
+        ])
+
+        await viewModel.start(sessionType: .morning)
+        await settle(until: { viewModel.completion != nil })
+
+        XCTAssertEqual(viewModel.completion, .completed)
+        XCTAssertEqual(capture.startCount, 6, "宣言を 2 回録る")
+        let commitment = try XCTUnwrap(viewModel.commitment)
+        XCTAssertEqual(commitment.declarationTranscript, "今日、14時に見積書のファイルを開く")
+        XCTAssertNotNil(commitment.declarationAudioPath)
+        XCTAssertFalse(commitment.isVoiceless)
+        let retryLines = Set(DialogueCopy.variants(.morningCommitRetry).map(\.text))
+        XCTAssertEqual(synthesizer.spokenLines.filter { retryLines.contains($0) }.count, 1)
+        XCTAssertEqual(spokenReceipts, ["受け取りました。14時に、朝のあなたから届きます。"])
+        let entries = try await store.entries(for: reference)
+        XCTAssertEqual(entries.filter { $0.kind == .declaration }.count, 1)
+    }
+
+    /// 通知が未許可の日も約束は保存する。受領文は時刻にも「届きます」にも触れない。
+    func testAnUnauthorizedNotificationSavesThePromiseAndTheReceiptNamesNoTime() async throws {
+        await notifications.respond(with: .notAuthorized)
+        let (viewModel, _) = makeViewModel(at: moment(hour: 9))
+        await walkThroughDeclaration(viewModel, timeAnswer: "16時から")
+
+        await assertSavedWithAReceiptThatNamesNoTime(viewModel)
+        XCTAssertEqual(viewModel.commitment?.plannedAt, moment(hour: 16), "決めた時刻は約束に残す")
+        let rejected = await notifications.rejected
+        XCTAssertEqual(rejected.filter { $0.kind == .actionTime }.map(\.fireDate), [moment(hour: 16)])
+    }
+
+    /// 通知の登録が失敗した日も同じ。
+    func testAFailedNotificationSavesThePromiseAndTheReceiptNamesNoTime() async throws {
+        await notifications.respond(with: .failed)
+        let (viewModel, _) = makeViewModel(at: moment(hour: 9))
+        await walkThroughDeclaration(viewModel, timeAnswer: "16時から")
+
+        await assertSavedWithAReceiptThatNamesNoTime(viewModel)
+        XCTAssertEqual(viewModel.commitment?.plannedAt, moment(hour: 16))
+    }
+
+    /// 登録の時点で時刻が過ぎていた日も同じ。
+    func testANotificationInThePastSavesThePromiseAndTheReceiptNamesNoTime() async throws {
+        await notifications.respond(with: .pastTime)
+        let (viewModel, _) = makeViewModel(at: moment(hour: 9))
+        await walkThroughDeclaration(viewModel, timeAnswer: "16時から")
+
+        await assertSavedWithAReceiptThatNamesNoTime(viewModel)
+    }
+
+    /// 時刻を決めなかった日は、通知の登録を頼まない。受領文に答えの言葉（「あとでやる」）も差し込まない。
+    func testAPromiseWithoutATimeIsSavedAndTheReceiptNamesNoTime() async throws {
+        let (viewModel, _) = makeViewModel(at: moment(hour: 9))
+        await walkThroughDeclaration(viewModel, timeAnswer: "あとでやる", undecided: true)
+
+        await assertSavedWithAReceiptThatNamesNoTime(viewModel)
+        XCTAssertNil(viewModel.commitment?.plannedAt)
+        XCTAssertFalse(synthesizer.spokenLines.joined().contains("あとでやる"))
+        let rejected = await notifications.rejected
+        XCTAssertTrue(rejected.isEmpty)
+    }
+
+    /// 保存先が一時的（メモリ内ストアで起動）な日は、保存できても通知を登録せず、「届きます」と言わない。
+    func testATemporaryStoreSavesThePromiseButPromisesNoDelivery() async throws {
+        let (viewModel, _) = makeViewModel(at: moment(hour: 9), isStorePersistent: false)
+        await walkThroughDeclaration(viewModel, timeAnswer: "16時から")
+
+        await assertSavedWithAReceiptThatNamesNoTime(viewModel)
+        let rejected = await notifications.rejected
+        XCTAssertTrue(rejected.isEmpty, "登録を頼みもしない")
+    }
+
+    /// 時刻は決まらなかったが場所は言った日。場所は約束に残す（task_034 で落ちていた）。
+    func testThePlaceIsSavedEvenWhenNoTimeWasDecided() async throws {
+        let (viewModel, _) = makeViewModel(at: moment(hour: 9))
+        await walkThroughDeclaration(viewModel, timeAnswer: "自宅で", undecided: true)
+
+        XCTAssertEqual(viewModel.completion, .completed)
+        let commitment = try XCTUnwrap(viewModel.commitment)
+        XCTAssertNil(commitment.plannedAt)
+        XCTAssertEqual(commitment.plannedPlace, "自宅")
+        XCTAssertEqual(viewModel.plannedPlace, "自宅")
+    }
+
+    /// 成立に必要な値（逃げたいこと・行動）が欠けたまま宣言まで来た会話は、約束を作らずに終える。
+    func testADeclarationWithoutTheRequiredValuesSavesNothing() async throws {
+        let (viewModel, _) = makeViewModel(at: moment(hour: 9))
+        let broken = FlowState(sessionType: .morning, step: .morningDeclaration, mode: .text)
+        await viewModel.start(sessionType: .morning, microphoneGranted: false, resume: broken)
+        XCTAssertEqual(viewModel.currentStep, .morningDeclaration)
+
+        await viewModel.select(Choice(.declareLater))
+        await viewModel.submit(text: "今日、見積書のファイルを開く")
+
+        XCTAssertEqual(viewModel.completion, .abandoned)
+        let saved = await store.commitments
+        XCTAssertTrue(saved.isEmpty)
+        XCTAssertTrue(spokenReceipts.isEmpty, "\(synthesizer.spokenLines)")
+        let closings = Set(DialogueCopy.variants(.sessionAbandoned).map(\.text))
+        XCTAssertTrue(closings.contains(synthesizer.spokenLines.last ?? ""), "\(synthesizer.spokenLines)")
+        let scheduled = await notifications.scheduled
+        XCTAssertTrue(scheduled.isEmpty, "\(scheduled)")
     }
 
     // MARK: - 場所の保存（統合判断 D1 / retention R11）
@@ -2033,7 +2306,7 @@ final class SessionViewModelTests: XCTestCase {
     ) -> CommitmentSnapshot {
         CommitmentSnapshot(
             id: UUID(),
-            dayKey: DayKey.make(from: reference),
+            dayKey: DayKey.make(from: reference, calendar: Self.tokyo),
             microAction: MicroAction(text: "見積書のファイルを開く"),
             plannedAt: plannedAt,
             plannedPlace: plannedPlace,

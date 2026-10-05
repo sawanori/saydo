@@ -45,10 +45,14 @@ public enum CopyKey: String, Sendable, Equatable, Hashable, Codable, CaseIterabl
     case morningReentry
     /// M0「特にない」の終わり方（retention R6）。
     case morningGoodDay
-    /// M4 受け取りの返事（時刻あり）。
+    /// M4 受け取りの返事（約束を保存でき、行動時刻の通知も登録できたとき）。`{{time}}` は整えた時刻の句。
     case morningDeclarationReceipt
-    /// M4 受け取りの返事（時刻なし）。
+    /// M4 受け取りの返事（約束は保存できたが通知が無いとき）。時刻にも「届きます」にも触れない。
     case morningDeclarationReceiptNoTime
+    /// M4 約束を保存できなかったとき（1 回目）。宣言をもう一度だけ聞く前の一言。
+    case morningCommitRetry
+    /// M4 約束を 2 回とも保存できなかったときの締め。受け取ったとは言わない。
+    case morningCommitFailed
     /// M4「話せない時」モードの選択の促し。
     case morningDeclarationChoice
     /// M4「後で声で」を選んだときの文字入力の促し。
@@ -225,7 +229,15 @@ public enum DialogueCopy {
             ]
         case .morningDeclarationReceiptNoTime:
             [
-                CopyLine("受け取りました。時間になったら、朝のあなたから届きます。", .statement),
+                CopyLine("受け取りました。今日の約束として残しました。", .statement),
+            ]
+        case .morningCommitRetry:
+            [
+                CopyLine("ごめん、いまの約束をうまく残せなかった。もう一度だけお願い。", .statement),
+            ]
+        case .morningCommitFailed:
+            [
+                CopyLine("ごめん、今日は約束を残せなかった。また話したくなったら、いつでも。", .statement),
             ]
         case .morningDeclarationChoice:
             [

@@ -16,7 +16,7 @@ struct SaydoApp: App {
     init() {
         let (container, isPersistent) = Self.makeModelContainer()
         modelContainer = container
-        router = AppRouter(modelContainer: container)
+        router = AppRouter(modelContainer: container, isStorePersistent: isPersistent)
         if Self.shouldSweepOrphanAudio(isPersistent: isPersistent) {
             Task { await Self.sweepOrphanAudioFiles(in: container) }
         } else {

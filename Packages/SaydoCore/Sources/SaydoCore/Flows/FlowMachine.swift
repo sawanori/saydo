@@ -18,6 +18,8 @@ public enum FlowEvent: Sendable, Equatable, Hashable, Codable {
     case interrupted
     /// `FlowCommand.resolveTime` の結果。解釈できなかった・もう過ぎた時刻だった場合は nil。
     case timeResolved(ResolvedTime?)
+    /// `FlowCommand.commit` の結果。約束の保存と行動時刻の通知の登録が、実際にどうなったか。
+    case commitResult(CommitResult)
 
     public enum TimeoutKind: String, Sendable, Equatable, Hashable, Codable {
         /// 聞く区間が沈黙のまま終わった。
@@ -52,6 +54,71 @@ public enum TimeResolutionStage: String, Sendable, Equatable, Hashable, Codable 
     /// 解釈できなかったので、時刻のチップを出して聞き直している（1 回だけ）。
     case reasking
     /// 聞き直しの答えの解釈を待っている。
+    case awaitingSecond
+}
+
+/// 約束の保存と、行動時刻の通知の登録の依頼（実装計画 §16.7）。
+///
+/// 保存も通知もアプリ側が持つ。`MorningFlow` は宣言を受けた時点でこれを出し、結果
+/// （`CommitResult`）を受けるまで「受け取りました」とも「届きます」とも言わない。
+public struct CommitRequest: Sendable, Equatable, Hashable, Codable {
+    /// 逃げたいこと（本人の言葉）。
+    public var avoidance: String
+    /// 5 分以下の行動。
+    public var microAction: MicroAction?
+    /// 宣言の言葉。
+    public var declaration: String
+    /// 解釈が済んだ行動時刻。決めなかった日は nil。通知の発火時刻にはこの日時を使う。
+    public var plannedTime: ResolvedTime?
+    /// 宣言を「後で声で」に回したか（retention R1）。
+    public var isDeclarationDeferred: Bool
+
+    public init(
+        avoidance: String,
+        microAction: MicroAction?,
+        declaration: String,
+        plannedTime: ResolvedTime? = nil,
+        isDeclarationDeferred: Bool = false
+    ) {
+        self.avoidance = avoidance
+        self.microAction = microAction
+        self.declaration = declaration
+        self.plannedTime = plannedTime
+        self.isDeclarationDeferred = isDeclarationDeferred
+    }
+}
+
+/// `FlowCommand.commit` の結果（実装計画 §16.7）。受領文はこの値で選ぶ。
+public enum CommitResult: Sendable, Equatable, Hashable, Codable {
+    /// 約束を保存でき、行動時刻の通知も登録できた。
+    case scheduled
+    /// 保存はできたが、行動時刻の通知は無い。
+    case savedWithoutNotification(NoNotificationReason)
+    /// 保存できなかった。
+    case saveFailed
+    /// 成立に必要な値（逃げたいこと・行動・宣言）が欠けている。保存していない。
+    case incomplete
+
+    /// 通知が無い理由。
+    public enum NoNotificationReason: String, Sendable, Equatable, Hashable, Codable, CaseIterable {
+        /// 時刻を決めなかった。
+        case noTime
+        /// 通知が許可されていない。
+        case notAuthorized
+        /// 登録できなかった（もう過ぎた時刻だった場合を含む）。
+        case schedulingFailed
+        /// 保存先が一時的（メモリ内ストアで起動している）。次の起動には残らない。
+        case temporaryStore
+    }
+}
+
+/// M4 の約束の保存がどこまで進んだか。
+public enum CommitStage: String, Sendable, Equatable, Hashable, Codable {
+    /// 1 回目の保存の結果を待っている。
+    case awaitingFirst
+    /// 保存できなかったので、宣言をもう一度聞いている（1 回だけ）。
+    case retrying
+    /// 聞き直した宣言の保存の結果を待っている。
     case awaitingSecond
 }
 
@@ -276,6 +343,9 @@ public enum FlowCommand: Sendable, Equatable, Hashable, Codable {
     /// 時刻の答え（生の発話、またはチップの文言）の解釈を頼む。結果は `FlowEvent.timeResolved` で受ける。
     /// 遷移の最後の命令として出す。
     case resolveTime(String)
+    /// 約束の保存と行動時刻の通知の登録を頼む。結果は `FlowEvent.commitResult` で受ける。
+    /// 遷移の最後の命令として出す。
+    case commit(CommitRequest)
     case finish(FlowCompletion)
 }
 
@@ -301,6 +371,8 @@ public struct FlowState: Sendable, Equatable, Hashable, Codable {
     public var plannedTime: ResolvedTime?
     /// M3 の時刻の解釈の途中か。途中でなければ nil。
     public var timeResolution: TimeResolutionStage?
+    /// M4 の約束の保存の途中か。途中でなければ nil。
+    public var commitStage: CommitStage?
     /// 宣言の言葉。
     public var declaration: String
     /// 宣言を「後で声で」に回したか（retention R1）。
@@ -350,6 +422,7 @@ public struct FlowState: Sendable, Equatable, Hashable, Codable {
         plannedAnswer: String? = nil,
         plannedTime: ResolvedTime? = nil,
         timeResolution: TimeResolutionStage? = nil,
+        commitStage: CommitStage? = nil,
         declaration: String = "",
         isDeclarationDeferred: Bool = false,
         blocker: String? = nil,
@@ -379,6 +452,7 @@ public struct FlowState: Sendable, Equatable, Hashable, Codable {
         self.plannedAnswer = plannedAnswer
         self.plannedTime = plannedTime
         self.timeResolution = timeResolution
+        self.commitStage = commitStage
         self.declaration = declaration
         self.isDeclarationDeferred = isDeclarationDeferred
         self.blocker = blocker
@@ -588,8 +662,9 @@ public enum FlowMachine {
         state.step = step
         state.silenceCount = 0
         state.retryCount = 0
-        // どの質問に入るときも、時刻の解釈の途中ではない。
+        // どの質問に入るときも、時刻の解釈の途中でも、約束の保存の途中でもない。
         state.timeResolution = nil
+        state.commitStage = nil
 
         if step == .finished {
             state.isFinished = true

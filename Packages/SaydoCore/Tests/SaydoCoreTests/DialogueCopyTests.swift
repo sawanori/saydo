@@ -171,6 +171,38 @@ final class DialogueCopyTests: XCTestCase {
         }
     }
 
+    // MARK: - 受領文は起きたことだけを言う（task_035）
+
+    /// 「届きます」と言うのは、通知を登録できたときの受領文だけ。時刻の差し込みもそこだけ。
+    func testOnlyTheScheduledReceiptPromisesADelivery() {
+        for line in DialogueCopy.variants(.morningDeclarationReceipt) {
+            XCTAssertTrue(line.text.contains("届きます"), line.text)
+            XCTAssertTrue(line.text.contains(DialogueCopy.timeToken), line.text)
+        }
+        let withoutNotification = DialogueCopy.variants(.morningDeclarationReceiptNoTime)
+        XCTAssertFalse(withoutNotification.isEmpty)
+        for line in withoutNotification {
+            XCTAssertTrue(line.text.hasPrefix("受け取りました"), line.text)
+            XCTAssertFalse(line.text.contains("届きます"), line.text)
+            XCTAssertFalse(line.text.contains("時間になったら"), line.text)
+            XCTAssertFalse(line.hasPlaceholder, line.text)
+        }
+    }
+
+    /// 保存できなかったときの文言は、受け取ったとも届くとも言わず、本人のせいにもしない。
+    func testSaveFailureLinesDoNotClaimAReceiptOrBlame() {
+        for key in [CopyKey.morningCommitRetry, .morningCommitFailed] {
+            let lines = DialogueCopy.variants(key)
+            XCTAssertFalse(lines.isEmpty, key.rawValue)
+            for line in lines {
+                XCTAssertFalse(line.text.contains("受け取り"), line.text)
+                XCTAssertFalse(line.text.contains("届きます"), line.text)
+                XCTAssertFalse(line.text.contains("失敗"), line.text)
+                XCTAssertFalse(line.hasPlaceholder, line.text)
+            }
+        }
+    }
+
     // MARK: - 選択肢の集合
 
     func testSixOptionsMatchTheConceptDocument() {

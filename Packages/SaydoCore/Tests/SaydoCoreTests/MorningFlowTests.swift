@@ -55,6 +55,12 @@ extension FlowTransition {
         }
     }
 
+    var commits: [CommitRequest] {
+        commands.compactMap { command in
+            if case .commit(let request) = command { request } else { nil }
+        }
+    }
+
     var completion: FlowCompletion? {
         commands.compactMap { command in
             if case .finish(let completion) = command { completion } else { nil }
@@ -119,11 +125,16 @@ final class MorningFlowTests: XCTestCase {
         XCTAssertEqual(transition.state.plannedTime, twoPM)
         XCTAssertEqual(transition.records.first?.maxSeconds, FlowMachine.declarationMaxSeconds)
 
+        // M4 の宣言は、アプリに約束の保存と通知の登録を頼んで結果を待つ（task_035）。会話はその結果で終わる。
         transition = FlowMachine.handle(.transcript("今日は14時にメールを開きます"), in: transition.state)
         saved += transition.saves.map(\.kind)
+        XCTAssertNil(transition.completion)
+        XCTAssertEqual(transition.commits.map(\.plannedTime), [twoPM])
+        XCTAssertTrue(transition.scheduled.isEmpty, "行動時刻の通知は commit の中でアプリが登録する")
+
+        transition = FlowMachine.handle(.commitResult(.scheduled), in: transition.state)
+        saved += transition.saves.map(\.kind)
         XCTAssertEqual(transition.completion, .completed)
-        XCTAssertEqual(transition.scheduled.map(\.kind), [.actionTime])
-        XCTAssertEqual(transition.scheduled.first?.timePhrase, "14時に自宅で")
 
         XCTAssertEqual(saved, [.avoidance, .reason, .declaration])
     }
@@ -307,6 +318,215 @@ final class MorningFlowTests: XCTestCase {
 
         let after = morning(at: .morningDeclaration).state
         XCTAssertEqual(try JSONDecoder().decode(FlowState.self, from: JSONEncoder().encode(after)).plannedTime, twoPM)
+    }
+
+    // MARK: - M4 の約束の保存と受領文（task_035）
+
+    /// 朝の会話を M4 の宣言まで答えた直後の遷移。時刻の答えと解釈結果は引数で変える。
+    private func declared(
+        timeAnswer: String = "14時に自宅で",
+        resolved: ResolvedTime?,
+        declaration: String = "今日はメールを開きます"
+    ) -> FlowTransition {
+        var transition = FlowMachine.handle(.transcript(timeAnswer), in: morning(at: .morningPlannedTime).state)
+        transition = FlowMachine.handle(.timeResolved(resolved), in: transition.state)
+        if resolved == nil {
+            // 聞き直しで「決めない」を選んで、時刻なしで宣言へ進む。
+            transition = FlowMachine.handle(.choice(.timeUndecided), in: transition.state)
+        }
+        XCTAssertEqual(transition.state.step, .morningDeclaration)
+        return FlowMachine.handle(.transcript(declaration), in: transition.state)
+    }
+
+    /// どの受領文も、この言葉で始まる。
+    private var receiptOpening: String { "受け取りました" }
+
+    /// 宣言を受けたら、宣言の保存と `commit` だけを出す。この時点では受領文も読まず、会話も終えない。
+    func testDeclarationAsksTheAppToCommitAndSaysNothingYet() {
+        let transition = declared(resolved: twoPM)
+
+        XCTAssertEqual(
+            transition.commands,
+            [
+                .save(SaveInstruction(kind: .declaration, step: .morningDeclaration, text: "今日はメールを開きます", hasAudio: true)),
+                .commit(CommitRequest(
+                    avoidance: "クライアントへの返信",
+                    microAction: MicroAction(text: "メールを開く"),
+                    declaration: "今日はメールを開きます",
+                    plannedTime: twoPM,
+                    isDeclarationDeferred: false
+                )),
+            ]
+        )
+        XCTAssertTrue(transition.spoken.isEmpty, "結果を受けるまで「受け取りました」と言わない")
+        XCTAssertNil(transition.completion)
+        XCTAssertFalse(transition.state.isFinished)
+        XCTAssertEqual(transition.state.step, .morningDeclaration)
+        XCTAssertEqual(transition.state.commitStage, .awaitingFirst)
+    }
+
+    /// 保存でき、通知も登録できたときだけ「◯時に…届きます」と言う。時刻は整えた句を使う。
+    func testScheduledResultReadsTheReceiptWithTheResolvedPhrase() {
+        let transition = FlowMachine.handle(.commitResult(.scheduled), in: declared(resolved: twoPM).state)
+
+        XCTAssertEqual(transition.spoken, ["受け取りました。14時に、朝のあなたから届きます。"])
+        XCTAssertEqual(transition.completion, .completed)
+        XCTAssertTrue(transition.state.isFinished)
+        XCTAssertNil(transition.state.commitStage)
+        XCTAssertTrue(transition.scheduled.isEmpty)
+    }
+
+    /// 「16時から」と答えた日の受領文に、生の発話を差し込まない（「16時から 16時から。に…」を作らない）。
+    func testReceiptNeverInsertsTheRawAnswer() {
+        let fourPM = ResolvedTime(date: Date(timeIntervalSince1970: 1_790_007_200), phrase: "16時", place: "から")
+        for rawAnswer in ["16時から", "16時から 16時から。"] {
+            let asked = declared(timeAnswer: rawAnswer, resolved: fourPM)
+            XCTAssertEqual(asked.state.plannedAnswer, rawAnswer)
+            let transition = FlowMachine.handle(.commitResult(.scheduled), in: asked.state)
+
+            XCTAssertEqual(transition.spoken.count, 1)
+            let receipt = transition.spoken.first ?? ""
+            XCTAssertTrue(receipt.contains("16時に"), receipt)
+            XCTAssertFalse(receipt.contains("16時から"), receipt)
+            XCTAssertFalse(receipt.contains("。に"), receipt)
+            XCTAssertFalse(receipt.contains(rawAnswer), receipt)
+        }
+    }
+
+    /// 保存はできたが通知が無い日は、理由が何であっても、時刻にも「届きます」にも触れない。
+    func testSavedWithoutNotificationNeverMentionsATimeOrADelivery() {
+        for reason in CommitResult.NoNotificationReason.allCases {
+            // 時刻なしは時刻を決めなかった会話、ほかは時刻を決めた会話で起きる。
+            let asked = declared(resolved: reason == .noTime ? nil : twoPM)
+            let transition = FlowMachine.handle(.commitResult(.savedWithoutNotification(reason)), in: asked.state)
+
+            XCTAssertEqual(transition.completion, .completed, reason.rawValue)
+            XCTAssertTrue(transition.state.isFinished, reason.rawValue)
+            XCTAssertEqual(transition.spoken.count, 1, reason.rawValue)
+            let receipt = transition.spoken.first ?? ""
+            XCTAssertTrue(receipt.hasPrefix(receiptOpening), "\(reason.rawValue): \(receipt)")
+            XCTAssertFalse(receipt.contains("届きます"), "\(reason.rawValue): \(receipt)")
+            XCTAssertFalse(receipt.contains("14時"), "\(reason.rawValue): \(receipt)")
+            XCTAssertFalse(receipt.contains("時間になったら"), "\(reason.rawValue): \(receipt)")
+            XCTAssertFalse(receipt.contains("あとでやる"), "\(reason.rawValue): \(receipt)")
+        }
+    }
+
+    /// 時刻が決まらなかった日（「あとでやる」→「決めない」）の受領文に、答えの言葉を差し込まない。
+    func testUndecidedTimeReceiptDoesNotQuoteTheAnswer() {
+        let asked = declared(timeAnswer: "あとでやる", resolved: nil)
+        XCTAssertEqual(asked.commits.map(\.plannedTime), [nil])
+        let transition = FlowMachine.handle(.commitResult(.savedWithoutNotification(.noTime)), in: asked.state)
+
+        XCTAssertEqual(transition.spoken, DialogueCopy.variants(.morningDeclarationReceiptNoTime).prefix(1).map(\.text))
+        XCTAssertFalse(transition.spoken.joined().contains("あとでやる"))
+        XCTAssertFalse(transition.spoken.joined().contains("届きます"))
+    }
+
+    /// 保存できなかったら受領文を読まない。1 回目は責めずに伝えて、宣言の聞き取りへ戻す。
+    func testSaveFailedOnceGoesBackToTheDeclarationWithoutAReceipt() {
+        let transition = FlowMachine.handle(.commitResult(.saveFailed), in: declared(resolved: twoPM).state)
+
+        XCTAssertNil(transition.completion)
+        XCTAssertFalse(transition.state.isFinished)
+        XCTAssertEqual(transition.state.step, .morningDeclaration)
+        XCTAssertEqual(transition.state.commitStage, .retrying)
+        XCTAssertEqual(transition.spoken, DialogueCopy.variants(.morningCommitRetry).prefix(1).map(\.text))
+        XCTAssertFalse(transition.spoken.joined().contains(receiptOpening))
+        XCTAssertEqual(transition.records.map(\.step), [.morningDeclaration], "宣言をもう一度録る")
+        XCTAssertTrue(transition.saves.isEmpty && transition.scheduled.isEmpty)
+
+        // 言い直した宣言で、もう一度保存を頼む。
+        let again = FlowMachine.handle(.transcript("今日はメールを開く"), in: transition.state)
+        XCTAssertEqual(again.commits.map(\.declaration), ["今日はメールを開く"])
+        XCTAssertEqual(again.state.commitStage, .awaitingSecond)
+        XCTAssertTrue(again.spoken.isEmpty)
+
+        let saved = FlowMachine.handle(.commitResult(.scheduled), in: again.state)
+        XCTAssertEqual(saved.completion, .completed)
+        XCTAssertEqual(saved.spoken, ["受け取りました。14時に、朝のあなたから届きます。"])
+    }
+
+    /// 2 回目も保存できなかったら、保存できなかったことを伝えて、成立しなかった会話として終える。
+    func testSaveFailedTwiceEndsAbandonedWithoutAReceipt() {
+        var transition = FlowMachine.handle(.commitResult(.saveFailed), in: declared(resolved: twoPM).state)
+        transition = FlowMachine.handle(.transcript("今日はメールを開く"), in: transition.state)
+        transition = FlowMachine.handle(.commitResult(.saveFailed), in: transition.state)
+
+        XCTAssertEqual(transition.completion, .abandoned)
+        XCTAssertTrue(transition.state.isFinished)
+        XCTAssertEqual(transition.spoken, DialogueCopy.variants(.morningCommitFailed).prefix(1).map(\.text))
+        XCTAssertFalse(transition.spoken.joined().contains(receiptOpening))
+        XCTAssertFalse(transition.spoken.joined().contains("届きます"))
+        XCTAssertTrue(transition.records.isEmpty && transition.listens.isEmpty, "3 回目は聞かない")
+        XCTAssertTrue(transition.scheduled.isEmpty)
+    }
+
+    /// 文字で宣言した日（「後で声で」）に保存できなかったら、文字の入力待ちへ戻す。
+    func testSaveFailedOnATypedDeclarationGoesBackToTextInput() {
+        var transition = FlowMachine.start(morningEntry(mode: .text))
+        transition = FlowMachine.handle(.transcript("上司への報告"), in: transition.state)
+        transition = FlowMachine.handle(.choice(.reason(.anxious)), in: transition.state)
+        transition = FlowMachine.handle(.transcript("資料を開く"), in: transition.state)
+        transition = FlowMachine.handle(.transcript("15時に会社で"), in: transition.state)
+        transition = FlowMachine.handle(.timeResolved(twoPM), in: transition.state)
+        transition = FlowMachine.handle(.choice(.declareLater), in: transition.state)
+        transition = FlowMachine.handle(.transcript("15時に資料を開きます"), in: transition.state)
+
+        transition = FlowMachine.handle(.commitResult(.saveFailed), in: transition.state)
+
+        XCTAssertNil(transition.completion)
+        XCTAssertTrue(transition.records.isEmpty)
+        XCTAssertEqual(transition.listens.map(\.input), [.text])
+        XCTAssertEqual(transition.listens.first?.step, .morningDeclaration)
+        XCTAssertTrue(transition.scheduled.isEmpty, "保存できていないので、後の声かけも約束しない")
+    }
+
+    /// 成立に必要な値が欠けていたら、受領文を読まず、未成立の締めで終える。
+    func testIncompleteResultEndsAbandonedWithTheAbandonedClosing() {
+        let transition = FlowMachine.handle(.commitResult(.incomplete), in: declared(resolved: twoPM).state)
+
+        XCTAssertEqual(transition.completion, .abandoned)
+        XCTAssertTrue(transition.state.isFinished)
+        XCTAssertEqual(transition.spoken, DialogueCopy.variants(.sessionAbandoned).prefix(1).map(\.text))
+        XCTAssertFalse(transition.spoken.joined().contains(receiptOpening))
+        XCTAssertTrue(transition.scheduled.isEmpty)
+    }
+
+    /// 頼んでいない結果は受け流す。結果を待っているあいだの答えも受け流す。
+    func testCommitResultIsIgnoredUnlessItWasAskedFor() {
+        let waitingForTheDeclaration = morning(at: .morningDeclaration)
+        let early = FlowMachine.handle(.commitResult(.scheduled), in: waitingForTheDeclaration.state)
+        XCTAssertTrue(early.commands.isEmpty)
+        XCTAssertFalse(early.state.isFinished)
+
+        let asked = declared(resolved: twoPM)
+        let second = FlowMachine.handle(.transcript("別の宣言です"), in: asked.state)
+        XCTAssertTrue(second.commands.isEmpty)
+        XCTAssertEqual(second.state.declaration, "今日はメールを開きます")
+    }
+
+    /// 短縮版の朝フローは時刻を聞かないので、`commit` に時刻が無い。
+    func testShortMorningCommitsWithoutATime() {
+        var transition = morning(at: .morningDeclaration, short: true)
+        transition = FlowMachine.handle(.transcript("今日はメールを開きます"), in: transition.state)
+        XCTAssertEqual(transition.commits.map(\.plannedTime), [nil])
+
+        transition = FlowMachine.handle(.commitResult(.savedWithoutNotification(.noTime)), in: transition.state)
+        XCTAssertEqual(transition.completion, .completed)
+        XCTAssertFalse(transition.spoken.joined().contains("届きます"))
+    }
+
+    /// 追加したプロパティ（`commitStage`）を持たない保存済みの状態も読める。
+    func testFlowStateWithoutTheCommitStageStillDecodes() throws {
+        let state = morning(at: .morningDeclaration).state
+        let encoded = try JSONEncoder().encode(state)
+        var object = try XCTUnwrap(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+        XCTAssertNil(object["commitStage"], "nil のときは符号化されない")
+        object.removeValue(forKey: "commitStage")
+        let decoded = try JSONDecoder().decode(FlowState.self, from: JSONSerialization.data(withJSONObject: object))
+        XCTAssertNil(decoded.commitStage)
+        XCTAssertEqual(decoded.step, .morningDeclaration)
     }
 
     // MARK: - M0 の分岐
@@ -593,8 +813,10 @@ final class MorningFlowTests: XCTestCase {
         XCTAssertFalse(transition.state.isVoicelessDay, "その日を声なしに固定しない")
 
         transition = FlowMachine.handle(.transcript("今日は14時にメールを開きます"), in: transition.state)
-        XCTAssertEqual(transition.completion, .completed)
         XCTAssertEqual(transition.saves.map(\.kind), [.declaration])
+        XCTAssertEqual(transition.commits.map(\.declaration), ["今日は14時にメールを開きます"])
+        transition = FlowMachine.handle(.commitResult(.scheduled), in: transition.state)
+        XCTAssertEqual(transition.completion, .completed)
     }
 
     /// M2 は聞き直しの上限でも M3 へ進まず、行動のチップに落とす。
@@ -647,6 +869,11 @@ final class MorningFlowTests: XCTestCase {
         transition = FlowMachine.handle(.transcript("15時に資料を開きます"), in: transition.state)
         XCTAssertEqual(transition.saves.map(\.kind), [.declaration])
         XCTAssertEqual(transition.saves.first?.hasAudio, false)
+        XCTAssertEqual(transition.commits.map(\.isDeclarationDeferred), [true])
+        XCTAssertTrue(transition.scheduled.isEmpty, "保存の結果を受けるまで、後の声かけも約束しない")
+
+        transition = FlowMachine.handle(.commitResult(.scheduled), in: transition.state)
+        XCTAssertTrue(transition.spoken.contains(DialogueCopy.variants(.morningDeclarationDeferred)[0].text))
         let reminders = transition.scheduled.filter { $0.kind == .declarationReminder }
         XCTAssertEqual(reminders.count, 1)
         XCTAssertEqual(reminders.first?.onlyOnce, true)
