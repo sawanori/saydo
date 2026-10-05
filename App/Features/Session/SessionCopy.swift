@@ -1,7 +1,7 @@
 import Foundation
 import SaydoCore
 
-/// 会話画面（`SessionView` / `ChoiceChipsView` / `TextFallbackSheet`）でしか使わない文言。
+/// 会話画面（`SessionView` / `ChoiceChipsView` / `TextAnswerField`）でしか使わない文言。
 ///
 /// 会話の中身（質問・返事）は `SaydoCore.DialogueCopy` が持つ。ここに置くのは
 /// ボタンのラベル・状態行・アクセシビリティ文言といった **画面固有の言葉** だけ
@@ -16,8 +16,10 @@ enum SessionCopy {
     // MARK: 状態行
 
     /// いまの状態を 1 行で伝える。読み上げ中と選択待ちは何も出さない（画面を静かに保つ）。
-    static func status(for phase: SessionPhase) -> String? {
+    /// `awaitsText` は、いまの質問が文字の答えを待っているか。声を聞いていないのに「聞いています」と言わない。
+    static func status(for phase: SessionPhase, awaitsText: Bool) -> String? {
         switch phase {
+        case .listening where awaitsText: "入力を待っています"
         case .listening: "聞いています…"
         case .thinking: "考えています…"
         case .recordingDeclaration: "録音しています…"
@@ -60,10 +62,14 @@ enum SessionCopy {
 
     /// M0 の文字起こしが違うときの録り直し（retention R7）。
     static let retakeAvoidance = "録り直す"
-    /// 右下のキーボードボタン。
-    static let keyboardButton = "キーボードで答える"
-    /// 「話せない時」モードへの切り替え（retention R1）。
-    static let voicelessToggle = "話せない時"
+    /// 右下のキーボードボタン（VoiceOver ラベル）。その質問だけを文字で受ける。次の質問は声に戻る。
+    static let keyboardButton = "この質問だけ文字で答える"
+    /// 左下の切り替え。読み上げを鳴らさず、文字とチップで答える（retention R1）。
+    static let voiceOffToggle = "声を出さない"
+    static let voiceOffToggleAccessibilityLabel = "声を出さずに、文字で答える"
+    /// 「声を出さない」の間に出す、戻す操作。次の質問から読み上げと声の聞き取りに戻る。
+    static let voiceOnToggle = "声に戻す"
+    static let voiceOnToggleAccessibilityLabel = "次の質問から、声で答える"
 
     // MARK: マイクが使えないとき
 
@@ -72,14 +78,15 @@ enum SessionCopy {
     /// マイクの権限はあるのに、声を始められなかったとき。設定の話はしない。
     static let captureFailedNotice = "声をうまく拾えませんでした。この質問は文字で答えられます。"
 
-    // MARK: 例示と短文入力
+    // MARK: 文字の入力
 
-    /// 例示（チップではない）の区切り。
-    static let exampleSeparator = "　／　"
     static let textFieldPrompt = "短い言葉で"
+    /// 入力欄の VoiceOver ラベル。
+    static let textFieldLabel = "文字で答える"
     static let send = "送る"
+    /// 必須でない質問（理由・時刻）にだけ出す。
     static let skip = "スキップ"
-    static let textSheetTitle = "文字で答える"
+    static let skipAccessibilityLabel = "この質問をスキップする"
 
     // MARK: アクセシビリティ
 

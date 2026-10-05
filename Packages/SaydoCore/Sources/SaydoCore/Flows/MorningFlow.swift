@@ -91,7 +91,7 @@ public enum MorningFlow {
             )
 
         case .morningDeclaration:
-            // 声で言えない状況（「話せない時」・マイク拒否）では、選択肢を出さずに文字の宣言を待つ。
+            // 「声を出さない」の間（マイク拒否を含む）は、選択肢を出さずに文字の宣言を待つ。
             // 「後で声で」は、通知の実装が整うまで出さない（task_036。retention R1 は一時停止中）。
             if state.mode == .text {
                 return textDeclarationWait(state)
@@ -388,7 +388,10 @@ public enum MorningFlow {
             state.commitStage = state.commitStage == .retrying ? .awaitingSecond : .awaitingFirst
 
             var commands: [FlowCommand] = []
-            let hasAudio = state.mode == .voice
+            // その日が「声なし」かは、ここで決める。それまでに文字を使ったかどうかは見ない。
+            // 声で頼んだ宣言を文字で受けた場合は録音が無いので、アプリが録音の有無で確定する。
+            let hasAudio = FlowMachine.hasAudio(state)
+            state.isVoicelessDay = !hasAudio
             if let save = FlowMachine.save(.morningDeclaration, text: text, state: state, hasAudio: hasAudio) {
                 commands.append(save)
             }

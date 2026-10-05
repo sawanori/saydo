@@ -23,8 +23,8 @@ extension View {
 /// 会話画面（実装計画 §8、意匠は `docs/design/Main.dc.html` / `SessionReason.dc.html`）。
 ///
 /// 吹き出し・履歴・進捗率・チェックボックスは作らない（企画原則 §22-8）。
-/// 画面にあるのは上から順に、ロゴ / 1 行の質問 / 波形 / 状態行 / （あれば）チップ、
-/// そして右下のキーボードボタンと「話せない時」トグルだけ。
+/// 画面にあるのは上から順に、ロゴ / 1 行の質問 / 波形 / 状態行 / （あれば）チップと答えの例 /
+/// （文字で答える間だけ）入力欄、そして右下のキーボードボタンと左下の「声を出さない」だけ。
 ///
 /// 会話の開始（`SessionViewModel.start`）は `AppRouter` が担う。この View は
 /// 状態を映して入力を返すだけで、フローの判断をしない。
@@ -34,7 +34,10 @@ struct SessionView: View {
     /// 会話を閉じる。`AppRouter.dismissSession()` を渡す。
     let onClose: () -> Void
 
-    @State private var isTextSheetPresented = false
+    /// 入力欄にフォーカスがあるか。
+    @FocusState private var isTextFieldFocused: Bool
+    /// キーボードのボタンを押した。入力欄が出たら、そのままキーボードを上げる。
+    @State private var focusesFieldWhenItAppears = false
     @Environment(\.openURL) private var openURL
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -46,9 +49,6 @@ struct SessionView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .saydoGround()
-        .sheet(isPresented: $isTextSheetPresented) {
-            TextFallbackSheet(viewModel: viewModel)
-        }
         // 再生前の配慮（retention R8）。イヤホン未接続で音量が大きいとき、音を出す前に聞き方を選ばせる。
         .sheet(isPresented: listenModePrompt) {
             ListenModeSheet { mode in
@@ -73,8 +73,10 @@ struct SessionView: View {
             WaveformView(sampler: viewModel.waveform, style: waveformStyle)
             statusLine
             avoidanceLine
-            examplesLine
             chips
+            exampleChips
+            textAnswer
+            skipButton
             playbackLine
             closing
             Spacer(minLength: Layout.minimumGap)
@@ -158,9 +160,9 @@ struct SessionView: View {
             .accessibilityAddTraits(.isHeader)
     }
 
-    /// チップが出ている質問では波形を小さくする（design-notes の M1）。
+    /// チップや答えの例が出ている質問では波形を小さくする（design-notes の M1）。
     private var waveformStyle: WaveformStyle {
-        viewModel.choices.isEmpty ? .large : .compact
+        viewModel.choices.isEmpty && viewModel.examples.isEmpty ? .large : .compact
     }
 
     /// 「聞いています…」は 2.8 秒で呼吸する（opacity 0.5 ↔ 1.0）。
@@ -169,7 +171,7 @@ struct SessionView: View {
     /// 聞き終わったあとも呼吸が止まらないため）。Reduce Motion では止める。
     @ViewBuilder
     private var statusLine: some View {
-        if let status = SessionCopy.status(for: viewModel.phase) {
+        if let status = SessionCopy.status(for: viewModel.phase, awaitsText: viewModel.acceptsTextInput) {
             Group {
                 if shouldBreathe {
                     TimelineView(.animation) { timeline in
@@ -185,8 +187,9 @@ struct SessionView: View {
         }
     }
 
+    /// 呼吸するのは声を聞いている間だけ。文字の入力待ちでは動かさない。
     private var shouldBreathe: Bool {
-        !reduceMotion && viewModel.phase == .listening
+        !reduceMotion && viewModel.phase == .listening && !viewModel.acceptsTextInput
     }
 
     private static func breathOpacity(at date: Date) -> Double {
@@ -216,19 +219,6 @@ struct SessionView: View {
         }
     }
 
-    /// 答えに詰まったときの例示。チップではないので押せない（実装計画 §7.2）。
-    @ViewBuilder
-    private var examplesLine: some View {
-        if !viewModel.examples.isEmpty {
-            Text(viewModel.examples.map(\.label).joined(separator: SessionCopy.exampleSeparator))
-                .saydoText(.list)
-                .foregroundStyle(SaydoTheme.Palette.ink3)
-                .multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
-                .padding(.top, Layout.blockSpacing)
-        }
-    }
-
     @ViewBuilder
     private var chips: some View {
         if !viewModel.choices.isEmpty {
@@ -236,6 +226,59 @@ struct SessionView: View {
                 Task { await viewModel.select(choice) }
             }
             .padding(.top, Layout.chipsTopSpacing)
+        }
+    }
+
+    /// 答えの例。押すと、その文言が答えになる（実装計画 §16.8）。
+    @ViewBuilder
+    private var exampleChips: some View {
+        if !viewModel.examples.isEmpty {
+            ChoiceChipsView(choices: viewModel.examples) { choice in
+                Task { await viewModel.select(choice) }
+            }
+            .padding(.top, viewModel.choices.isEmpty ? Layout.chipsTopSpacing : Layout.blockSpacing)
+        }
+    }
+
+    /// 文字の答えの入力欄。「声を出さない」の間は出たままになり、その質問だけ文字で答える場合と、
+    /// アプリが文字に落とした質問では、その質問の間だけ出る。
+    @ViewBuilder
+    private var textAnswer: some View {
+        if viewModel.showsTextField {
+            TextAnswerField(
+                acceptsAnswer: viewModel.acceptsTextInput,
+                isFocused: $isTextFieldFocused
+            ) { answer in
+                Task { await viewModel.submit(text: answer) }
+            }
+            .padding(.top, Layout.blockSpacing)
+            .onAppear {
+                guard focusesFieldWhenItAppears else { return }
+                focusesFieldWhenItAppears = false
+                isTextFieldFocused = true
+            }
+        }
+    }
+
+    /// スキップ。必須でない質問（理由・時刻）にだけ、入力欄の下に控えめに出す。
+    @ViewBuilder
+    private var skipButton: some View {
+        if viewModel.canSkip {
+            Button {
+                Task { await viewModel.skip() }
+            } label: {
+                Text(SessionCopy.skip)
+                    .saydoText(.status)
+                    .foregroundStyle(SaydoTheme.Palette.ink3)
+                    .frame(
+                        minWidth: SaydoTheme.Metric.minimumTapTarget,
+                        minHeight: SaydoTheme.Metric.minimumTapTarget
+                    )
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(SessionCopy.skipAccessibilityLabel)
+            .frame(maxWidth: .infinity, alignment: .trailing)
         }
     }
 
@@ -328,26 +371,76 @@ struct SessionView: View {
         .accessibilityLabel(accessibilityLabel)
     }
 
-    // MARK: - 右下の補助（常時）
+    // MARK: - 下の補助
 
+    /// 左下に「声を出さない」（戻すときは「声に戻す」）、右下に「この質問だけ文字で答える」。
+    /// 会話が終わったら出さない。
     private var assistBar: some View {
         HStack(alignment: .center) {
-            Button(action: switchToTextMode) {
-                Text(SessionCopy.voicelessToggle)
-                    .saydoText(.status)
-                    .foregroundStyle(
-                        viewModel.isVoiceless ? SaydoTheme.Palette.accent : SaydoTheme.Palette.ink3
-                    )
-                    .frame(height: SaydoTheme.Metric.keyboardButtonSize)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel(SessionCopy.voicelessToggle)
-
+            voiceToggle
             Spacer(minLength: 0)
+            keyboardButton
+        }
+        .padding(.horizontal, Layout.assistBarMargin)
+        .padding(.bottom, Layout.assistBarBottom)
+    }
 
+    /// 「声を出さない」の切り替え。マイクが拒否されている端末では声に戻せないので、戻す操作を出さない。
+    @ViewBuilder
+    private var voiceToggle: some View {
+        if viewModel.canSwitchToVoice {
+            assistTextButton(
+                SessionCopy.voiceOnToggle,
+                color: SaydoTheme.Palette.accent,
+                accessibilityLabel: SessionCopy.voiceOnToggleAccessibilityLabel
+            ) {
+                Task { await viewModel.switchToVoiceMode() }
+            }
+        } else if !viewModel.isVoiceOff, viewModel.completion == nil {
+            assistTextButton(
+                SessionCopy.voiceOffToggle,
+                color: SaydoTheme.Palette.ink3,
+                accessibilityLabel: SessionCopy.voiceOffToggleAccessibilityLabel
+            ) {
+                Task { await viewModel.switchToTextMode() }
+            }
+        }
+    }
+
+    private func assistTextButton(
+        _ title: String,
+        color: Color,
+        accessibilityLabel: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Text(title)
+                .saydoText(.status)
+                .foregroundStyle(color)
+                .frame(
+                    minWidth: SaydoTheme.Metric.minimumTapTarget,
+                    minHeight: SaydoTheme.Metric.minimumTapTarget
+                )
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(accessibilityLabel)
+    }
+
+    /// この質問だけ文字で答える。進行中の聞き取りを止め、入力欄を出してキーボードを上げる。
+    /// 次の質問は声に戻る。
+    @ViewBuilder
+    private var keyboardButton: some View {
+        if viewModel.canAnswerByTextOnce {
             Button {
-                switchToTextMode()
-                isTextSheetPresented = true
+                focusesFieldWhenItAppears = true
+                Task {
+                    await viewModel.answerByTextOnce()
+                    // 文字で受けられない段階（チップだけが答え）では入力欄は出ない。持ち越さない。
+                    if !viewModel.showsTextField {
+                        focusesFieldWhenItAppears = false
+                    }
+                }
             } label: {
                 Image(systemName: Layout.keyboardSymbol)
                     .font(.system(size: Layout.keyboardGlyphSize, weight: .light))
@@ -368,13 +461,6 @@ struct SessionView: View {
             .buttonStyle(.plain)
             .accessibilityLabel(SessionCopy.keyboardButton)
         }
-        .padding(.horizontal, Layout.assistBarMargin)
-        .padding(.bottom, Layout.assistBarBottom)
-    }
-
-    /// 読み上げを即座に止め、以降を選択肢 + テキスト経路に切り替える（実装計画 §8）。
-    private func switchToTextMode() {
-        Task { await viewModel.switchToTextMode() }
     }
 
     // MARK: - 寸法（docs/design/Main.dc.html の実測値）
