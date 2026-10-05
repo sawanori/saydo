@@ -130,6 +130,10 @@ final class AppRouterTests: XCTestCase {
 
     // MARK: 閉じる
 
+    /// 音声スタック（録音・読み上げ）が止まることと SessionLog が未完で残ることは、`AppRouter` が実物の
+    /// 音声スタックを自分で作りモックを差せないため、ここでは見ない。`dismissSession()` が呼ぶ
+    /// `SessionViewModel.interrupt()` を `SessionViewModelTests` の `testClosingDuringSpeech…` と
+    /// `testClosingWhileListening…` で見る（task_037）。ここでは閉じた後の持ち物が空になることだけ確かめる。
     func testDismissClearsActiveSession() throws {
         let router = makeRouter(now: try date(2026, 9, 4, 13))
         router.launch(DeepLink(sessionType: .noon, slot: .noon, action: .open))

@@ -39,6 +39,8 @@ enum SessionCopy {
     }
 
     static let close = "閉じる"
+    /// 左上に常にある「閉じる」の VoiceOver ラベル。完了画面の「閉じる」と区別して、会話をやめることを伝える。
+    static let closeAccessibilityLabel = "会話を閉じる"
 
     // MARK: 操作
 

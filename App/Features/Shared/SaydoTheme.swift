@@ -65,6 +65,8 @@ enum SaydoTheme {
         static let chipCornerRadius: CGFloat = 15
         static let primaryButtonHeight: CGFloat = 64
         static let keyboardButtonSize: CGFloat = 44
+        /// 押せるものの最小の大きさ（HIG の 44pt）。
+        static let minimumTapTarget: CGFloat = 44
         static let cardCornerRadius: CGFloat = 22
     }
 

@@ -87,11 +87,30 @@ struct SessionView: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: Layout.blockSpacing) {
+            closeButton
             Text(SessionCopy.logo)
                 .saydoText(.logo)
                 .frame(maxWidth: .infinity, alignment: .leading)
             micDeniedNotice
         }
+    }
+
+    /// 左上の「閉じる」。会話のどの段階でも出し、1 タップで閉じる（task_037）。
+    /// 控えめな見た目のまま、タップ領域は 44pt 以上にする。
+    private var closeButton: some View {
+        Button(action: onClose) {
+            Text(SessionCopy.close)
+                .saydoText(.status)
+                .foregroundStyle(SaydoTheme.Palette.ink3)
+                .frame(
+                    minWidth: SaydoTheme.Metric.minimumTapTarget,
+                    minHeight: SaydoTheme.Metric.minimumTapTarget,
+                    alignment: .leading
+                )
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(SessionCopy.closeAccessibilityLabel)
     }
 
     /// マイクが使えない日、または声を始められなかった質問の掲示。会話は文字で続く（fix-decisions P2.3）。
