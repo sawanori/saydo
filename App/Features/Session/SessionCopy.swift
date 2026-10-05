@@ -34,6 +34,7 @@ enum SessionCopy {
         case .completed: "今日はここまで。"
         case .goodDay: "良い日を。"
         case .suspended, .timeboxExceeded: "続きは、また。"
+        case .abandoned: "今日は約束を作らずに、ここまで。"
         }
     }
 

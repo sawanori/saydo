@@ -68,6 +68,21 @@ public enum FlowStep: String, Sendable, Codable, Hashable, CaseIterable {
         }
     }
 
+    /// 答えが無いと約束が成立しない質問か（実装計画 §16.7）。
+    ///
+    /// 朝の M0（逃げたいこと）・M2（5 分の行動）・M4（宣言）。短縮版の朝フローでも同じ。
+    /// 必須の質問は、沈黙・聞き直しの上限・スキップのどれでも次へ進めない。
+    public var isRequired: Bool {
+        switch self {
+        case .morningAvoidance, .morningMicroAction, .morningDeclaration:
+            true
+        case .morningReason, .morningPlannedTime,
+             .noonPlayback, .noonStatus, .noonBlocker, .noonShrink,
+             .nightProgress, .nightTomorrow, .finished:
+            false
+        }
+    }
+
     /// このステップが属するセッション。`finished` はどのセッションにも属さない。
     public var sessionType: SessionType? {
         switch self {

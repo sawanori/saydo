@@ -2670,3 +2670,133 @@ task_031 の未解決「`transcriber.start()` が失敗したとき、録音を�
 ### 人間の確認待ち
 
 - 実機で、通話中などマイクを他が使っている状態から朝フローを開き、「設定を開く」の出ない掲示で文字に落ち、次の質問で声に戻ることを確かめる（task_039 の実機確認に含めてよい）。
+
+## task_033 — 必須の質問を飛ばさず、成立しない会話は成立しなかったと言って終える
+
+- 日時: 2026-10-06
+- 状態: done（macOS の `swift test` とシミュレータの単体テストまで。実機では確かめていない）
+- ブランチ / コミット: task/033-required-questions / このエントリを含むコミット（ハッシュは `git log` の `task_033:` 行）
+
+### 証拠
+
+| コマンド | exit code | ログ |
+|---|---|---|
+| `scripts/test-core.sh`（修正前の挙動。型の宣言と文言だけ足した状態: `FlowStep.isRequired`、`FlowCompletion.abandoned`、新しい `CopyKey` 5 つ、`SessionCopy.closing` の 1 行。`FlowMachine` と `SessionViewModel` の処理は未変更。時間切れの文言も旧のまま） | **1**（SaydoCore: Executed 221 tests, 58 failures。10 件が失敗。`set -e` のため SaydoAI と lint は走っていない） | `docs/logs/task_033-1.txt` |
+| `scripts/test-ios.sh`（同じ修正前の状態） | **65**（Executed 162 tests, 41 failures。9 件が失敗） | `docs/logs/task_033-2.txt` |
+| `scripts/test-core.sh`（修正後。コミットした内容） | 0（SaydoCore: Executed 221 tests, 0 failures。SaydoAI: Executed 33 tests, 0 failures。lint-principles: OK） | `docs/logs/task_033-3.txt` |
+| `scripts/test-ios.sh`（修正後。コミットした内容） | 0（`** TEST SUCCEEDED **`、Executed 162 tests, 0 failures、lint-principles: OK） | `docs/logs/task_033-4.txt` |
+
+変更の中身:
+
+- `FlowStep.isRequired` を足した。true は M0（`morningAvoidance`）・M2（`morningMicroAction`）・M4（`morningDeclaration`）。短縮版の朝フローも同じステップを通るので、同じ規則が掛かる。
+- `FlowMachine`: 沈黙 2 回目と聞き直しの上限で、必須の質問は `requiredFallback` に入り、次へ進まない。M2 は一言（`morningMicroActionChipsPrompt`）と既存の例示 4 つを `showChoices` で出す。M0 と M4 は一言（`requiredTextPrompt`）と、その質問だけの文字の入力待ち（`ListenRequest(input: .text)`）を出す。`state.mode` と `isVoicelessDay` は変えないので、次の質問は声に戻る。
+- `FlowMachine`: 必須の質問で `.skip` を受けたら `abandon` に入り、`speak(sessionAbandoned)` と `finish(.abandoned)` だけを出す。保存命令も通知命令も出さない。必須でない質問（M1・M3、昼、夜）の沈黙とスキップは従来どおり次へ進む。
+- `FlowMachine`: 時間切れの一言は、いまの質問が属する会話で選ぶ（朝と短縮版の朝は `timeboxExceeded`、昼と手動は `timeboxExceededNoon`、夜は `timeboxExceededNight`）。「続きは昼に聞くね。」は削除した。
+- `SessionViewModel`: 文字の入力待ちでは沈黙の見張りを張らない（`beginListening` の文字の経路と、録音開始に失敗して文字に落ちる経路の両方）。
+- `SessionViewModel`: 時間切れは、声を聞いている途中（録音中、または録り終えて文字起こしの確定を待つあいだ。宣言の録音を含む）なら割り込まず、`timeboxIsDue` に覚える。その聞き取りが答え・沈黙・聞き直しのどれで終わっても、その入力を `FlowMachine` に渡して保存の命令だけを実行し、次の発話と聞き取りは始めずに時間切れで終える。宣言を言い終えて会話が成立した場合は、そのまま成立として終える。読み上げ中・選択待ち・文字の入力待ちの時間切れは従来どおりその場で終える。
+- `SessionViewModel`: `finish` は `completion == .completed` のときだけ約束を保存する。`SessionLog` は `completed == false` で残る（従来の式のまま）。
+- `SessionViewModel`: 宣言の録音開始（`beginDeclarationRecording`）は聞き取りと同じ `startCapture`（1 回やり直す）を使う。2 回失敗したら `captureFailed` の掲示を出し、宣言だけ文字で受ける。`micDenied` の掲示・`isVoiceless`・`mode`・`isVoicelessDay`・`isDeclarationDeferred` は触らない。あわせて、宣言の録音を始めるときに `lastRecording` を空にした（空にしないと、文字で受けた宣言に M3 の答えの録音が付く）。
+- `SessionCopy.closing(for:)` に `.abandoned` の 1 文を足した。
+
+done_definition との対応（MFT = `Packages/SaydoCore/Tests/SaydoCoreTests/MorningFlowTests.swift`、VMT = `Tests/SaydoTests/SessionViewModelTests.swift`）:
+
+| done_definition | 証拠（テスト名） | 修正前 | 修正後 |
+|---|---|---|---|
+| 必須の質問が、沈黙・聞き直しの上限・スキップのどれでも次へ進まない（MFT） | 沈黙: `testSilenceTwiceAtMicroActionShowsTheActionChipsInsteadOfAdvancing`、`testSilenceTwiceAtAvoidanceWaitsForTextInsteadOfAdvancing`。上限: `testRetryLimitAtAvoidanceWaitsForTextInsteadOfAdvancing`、`testRetryLimitAtDeclarationWaitsForTextInsteadOfFinishing`、`testRetryLimitAtMicroActionShowsTheActionChips`。スキップ: `testSkipOnARequiredQuestionEndsAsAbandonedWithoutSaving`（M0・M2・M4）。短縮版: `testRequiredQuestionsInTheShortMorningFlowFollowTheSameRule` | 7 件とも failed | 7 件とも passed |
+| 必須でない質問は従来どおり進む（scope 4） | `testSkipAdvancesOnQuestionsThatAreNotRequired`（M1・M3）、`testSilenceNudgesOnceThenSkipsAQuestionThatIsNotRequired`、`testSilenceTwiceAtPlannedTimeStillAdvances`、`testShortTranscriptSkipsWhenTheStepIsNotRequiredAndHasNoAnswerChoices`、VMT `testSilenceTwiceOnAQuestionThatIsNotRequiredStillAdvances` | passed（挙動を変えていない） | passed |
+| 必須の質問を抜けた会話で約束が保存されない（VMT） | `testSkippingTheFirstRequiredQuestionEndsAbandonedWithoutACommitment`（Commitment 0 件、VoiceEntry 0 件、通知 0 件、締めは `sessionAbandoned`、「受け取りました」を読まない、SessionLog は completed false）、`testSkippingTheMicroActionEndsAbandonedWithoutACommitment`（Commitment 0 件、M0 と M1 の記録は残る） | failed / failed | passed / passed |
+| 文字の入力待ちで催促も質問の送りも起きない（VMT） | `testTextInputWaitIsNeverNudgedOrAdvanced`（`ManualTimer` で 5 秒・10 秒・20 秒を発火。沈黙の見張りは張られておらず、読み上げは増えず、段階は M0 のまま）、`testSilenceNudgesOnceThenARequiredQuestionFallsBackToText`（文字に落ちた後、見張りが増えない） | failed / failed | passed / passed |
+| 聞き取り中に時間切れになっても、その答えが確定するまで打ち切られない（VMT） | `testTimeboxWhileListeningWaitsForTheAnswerToSettle`（時間切れの後も録音中のまま。話し終えると M0 の答えが音声付きで保存され、M1 の質問は読まれず、録音開始は 1 回のまま、`timeboxExceeded` で終わる）、`testTimeboxWhileRecordingTheDeclarationLetsThePromiseComplete`（宣言の録音中の時間切れ。言い終えた宣言で `completed`、約束に音声が付く） | failed / failed | passed / passed |
+| 新しい文言が Guardrails のテストを通り、既存の禁止語とテストケースが削られていない | `GuardrailsTests.testRequiredQuestionAndClosingLinesPassGuardrails`（新しい 6 キーを名指し）、既存の `testEveryDialogueCopyLinePassesGuardrails`（全キー）、`DialogueCopyTests.testTimeboxLinesDoNotPromiseAContinuation`、`testAbandonedClosingDoesNotClaimAReceiptOrLabelTheDay`、VMT `testClosingCopyCoversTheAbandonedSession`。`Guardrails.swift` は無変更（`git diff --stat` に出ない）。`GuardrailsTests.swift` は 22 行の追加だけで削除なし | `testTimeboxLinesDoNotPromiseAContinuation` が failed（旧文言のため） | passed |
+| `scripts/test-core.sh` と `scripts/test-ios.sh` が exit 0 | `docs/logs/task_033-3.txt`、`docs/logs/task_033-4.txt` | 1 / 65 | 0 / 0 |
+| 宣言の録音開始の失敗（依頼で足された分。task_032 の残り） | VMT `testATemporaryDeclarationRecordingFailureIsRetried`（1 回失敗 → やり直して声の宣言で成立）、`testTwoDeclarationRecordingFailuresFallBackToTextForTheDeclarationOnly`（掲示は `captureFailed`、`isVoiceless` は false、宣言の再通知は登録されず、宣言に M3 の録音が付かない） | failed / failed | passed / passed |
+
+修正前でも passed だったテスト（先に書いたが、失敗を確かめられていないもの）: 上の表の「必須でない質問は従来どおり進む」の 5 件、`testRequiredQuestionsAreAvoidanceMicroActionAndDeclaration`（修正前の実行の時点で `isRequired` の宣言を足してあった）、`testAbandonedClosingDoesNotClaimAReceiptOrLabelTheDay`、`testRequiredQuestionAndClosingLinesPassGuardrails`、`testClosingCopyCoversTheAbandonedSession`（文言は修正前の実行の時点で足してあった）。
+
+修正前（`docs/logs/task_033-1.txt` の SaydoCore、`docs/logs/task_033-2.txt` の Saydo）で failed だったテスト:
+
+```
+SaydoCoreTests.DialogueCopyTests testTimeboxLinesDoNotPromiseAContinuation
+SaydoCoreTests.MorningFlowTests testRequiredQuestionsInTheShortMorningFlowFollowTheSameRule
+SaydoCoreTests.MorningFlowTests testRetryLimitAtAvoidanceWaitsForTextInsteadOfAdvancing
+SaydoCoreTests.MorningFlowTests testRetryLimitAtDeclarationWaitsForTextInsteadOfFinishing
+SaydoCoreTests.MorningFlowTests testRetryLimitAtMicroActionShowsTheActionChips
+SaydoCoreTests.MorningFlowTests testSilenceTwiceAtAvoidanceWaitsForTextInsteadOfAdvancing
+SaydoCoreTests.MorningFlowTests testSilenceTwiceAtMicroActionShowsTheActionChipsInsteadOfAdvancing
+SaydoCoreTests.MorningFlowTests testSkipOnARequiredQuestionEndsAsAbandonedWithoutSaving
+SaydoCoreTests.MorningFlowTests testTimeboxLinePromisesNoContinuationInAnySession
+SaydoCoreTests.NightFlowTests testTimeboxClosesTheNightSession
+	 Executed 221 tests, with 58 failures (0 unexpected) in 0.504 (0.514) seconds
+EXIT=1
+
+SaydoTests.SessionViewModelTests testATemporaryDeclarationRecordingFailureIsRetried
+SaydoTests.SessionViewModelTests testSilenceNudgesOnceThenARequiredQuestionFallsBackToText
+SaydoTests.SessionViewModelTests testSilenceTwiceAtMicroActionOffersTheActionChips
+SaydoTests.SessionViewModelTests testSkippingTheFirstRequiredQuestionEndsAbandonedWithoutACommitment
+SaydoTests.SessionViewModelTests testSkippingTheMicroActionEndsAbandonedWithoutACommitment
+SaydoTests.SessionViewModelTests testTextInputWaitIsNeverNudgedOrAdvanced
+SaydoTests.SessionViewModelTests testTimeboxWhileListeningWaitsForTheAnswerToSettle
+SaydoTests.SessionViewModelTests testTimeboxWhileRecordingTheDeclarationLetsThePromiseComplete
+SaydoTests.SessionViewModelTests testTwoDeclarationRecordingFailuresFallBackToTextForTheDeclarationOnly
+	 Executed 162 tests, with 41 failures (0 unexpected) in 0.743 (0.794) seconds
+** TEST FAILED **
+EXIT=65
+```
+
+修正後（`docs/logs/task_033-3.txt`、`docs/logs/task_033-4.txt`）:
+
+```
+task_033-3.txt:504:	 Executed 221 tests, with 0 failures (0 unexpected) in 0.043 (0.051) seconds
+task_033-3.txt:616:	 Executed 33 tests, with 0 failures (0 unexpected) in 17.512 (17.514) seconds
+task_033-3.txt:743:lint-principles: OK
+task_033-3.txt:744:EXIT=0
+task_033-4.txt:1379:	 Executed 162 tests, with 0 failures (0 unexpected) in 0.560 (0.605) seconds
+task_033-4.txt:1389:** TEST SUCCEEDED **
+task_033-4.txt:1512:lint-principles: OK
+task_033-4.txt:1513:EXIT=0
+```
+
+書き換えた既存テスト（仕様の変更による。旧テスト名 → 新テスト名、理由）:
+
+| ファイル | 旧 | 新 | 理由 |
+|---|---|---|---|
+| MorningFlowTests | `testSilenceNudgesOnceThenSkipsTheQuestion`（M0 で沈黙 2 回 → M1） | `testSilenceNudgesOnceThenSkipsAQuestionThatIsNotRequired`（M1 で沈黙 2 回 → M2） | M0 は必須になり、沈黙 2 回で進まなくなった。催促 1 回と「必須でなければ進む」は M1 で固定し直した。M0 の新しい挙動は `testSilenceTwiceAtAvoidanceWaitsForTextInsteadOfAdvancing` |
+| MorningFlowTests | `testSkipEventAdvancesWithoutSaving`（M0 で skip → M1） | `testSkipAdvancesOnQuestionsThatAreNotRequired`（M1 → M2、M3 → M4） | M0 のスキップは `abandoned` になった。進むのは必須でない質問だけ |
+| MorningFlowTests | `testShortTranscriptSkipsWhenTheStepHasNoAnswerChoices`（M0 で聞き直しの上限 → M1） | `testShortTranscriptSkipsWhenTheStepIsNotRequiredAndHasNoAnswerChoices`（M3 → M4） | M0 は上限で文字の入力待ちになった。「選択肢が無ければ進む」は必須でない M3 で固定し直した |
+| MorningFlowTests | `testTimeboxSavesNothingMoreAndClosesTheSession` の文言の期待値「続きは昼に聞くね。」 | 同名。期待値を `DialogueCopy.variants(.timeboxExceeded)` の先頭に変更 | 時間切れの文言を変えた。他の確認（終了の種類、保存なし、終了済み）は変えていない |
+| NightFlowTests | `testTimeboxClosesTheNightSession` の文言の期待値「続きは昼に聞くね。」 | 同名。期待値を「時間になったから、今日はここまでにしよう。」に変更 | 夜の会話の時間切れで昼の続きを約束していた |
+| SessionViewModelTests | `testSilenceNudgesOnceThenSkipsTheQuestion`（文字の経路の M0 で、沈黙の見張りが 5 秒と 10 秒で張られ、2 回目で M1 へ進む） | `testSilenceNudgesOnceThenARequiredQuestionFallsBackToText`（声の経路の M0。5 秒と 10 秒の見張り、催促 1 回までは同じ。2 回目は M0 のまま文字の入力待ちになり、見張りは増えず、文字で答えると次の質問は声に戻る） | 旧テストは「文字の入力待ちでも沈黙の見張りを回す」と「M0 を沈黙で飛ばす」の 2 つを固定していて、どちらも今回やめた仕様である |
+
+モック（`MockSynthesizer` ほか）は変えていない。
+
+新しく足した文言:
+
+| 置き場所 | キー | 文言 |
+|---|---|---|
+| `DialogueCopy` | `sessionAbandoned` | 今日はここまでにしよう。また話したくなったら、いつでも。 |
+| `DialogueCopy` | `timeboxExceeded`（朝。旧「続きは昼に聞くね。」を置き換え） | 時間になったから、今日はここまでにしよう。また話したくなったら、いつでも。 |
+| `DialogueCopy` | `timeboxExceededNoon` | 時間になったから、ここまでにしよう。 |
+| `DialogueCopy` | `timeboxExceededNight` | 時間になったから、今日はここまでにしよう。 |
+| `DialogueCopy` | `morningMicroActionChipsPrompt` | 押すだけでも大丈夫。近いものをひとつ選んで。 |
+| `DialogueCopy` | `requiredTextPrompt` | 声じゃなくても大丈夫。文字で書いてみて。 |
+| `SessionCopy` | `closing(for: .abandoned)` | 今日は約束を作らずに、ここまで。 |
+
+変更: `Packages/SaydoCore/Sources/SaydoCore/Domain/FlowStep.swift`（`isRequired`。task-list.json の files_to_modify には無いが、`FlowStep` の定義がこのファイルにある）、`Flows/FlowMachine.swift`、`Dialogue/DialogueCopy.swift`、`App/Features/Session/SessionViewModel.swift`、`App/Features/Session/SessionCopy.swift`、テスト 5 ファイル（`MorningFlowTests`、`NightFlowTests`、`DialogueCopyTests`、`GuardrailsTests`、`SessionViewModelTests`）。`MorningFlow.swift` は変えていない（必須の扱いはすべて `FlowMachine` の共通の入口で済んだ）。
+
+### 未解決
+
+- 画面には、必須の質問でも「スキップ」のボタン（`TextFallbackSheet`）が出たままである。押すと会話は `abandoned` で終わる。出し分けは task_040。
+- 右下のキーボードのボタンは `switchToTextMode()` を呼ぶので、M0・M4 が文字の入力待ちに落ちた後でそれを押すと、会話全体が文字の経路になり、その日が声なしに固定される（修正前からの画面の挙動。`FlowMachine` と `SessionViewModel` は固定しないが、文字を入力する入口がこのボタンしか無い）。「この質問だけ文字で答える」への変更は task_040。
+- M0・M4 が文字の入力待ちに落ちたことは、読み上げの 1 文（`requiredTextPrompt`）と質問文の表示でしか伝わらない。入力欄は自動では開かない（入力欄の常設は task_040）。
+- 文字の入力待ちの状態行は「聞いています…」のままである（`SessionCopy.status` は `phase == .listening` で決まる。状態行は task_041）。
+- 声の経路のまま M0・M4 を文字で答えた場合、`FlowMachine` の保存命令は `hasAudio: true` で出る（`mode == .voice` で決めているため）。`SessionViewModel` は録音が無ければ音声なしで保存するので保存結果は正しいが、命令の値は実態と合っていない。音声ありの判定は実装計画 §16.11 で `MorningFlow` の task_034〜040 の範囲。task_032 の「その質問だけ文字」の経路にも同じ点がある。
+- M2 で成立しなかった会話は、M0 と M1 の `VoiceEntry` が残る（消していない。時間切れと同じ扱い）。約束の無い日の記録として Timeline に出る。
+- 待たせた時間切れは、その聞き取りが終わるまで延びる。延びる長さの上限は、聞き取りなら録音の上限 20 秒、宣言なら 30 秒と、文字起こしの確定にかかる時間である。確定が戻らない場合の打ち切りは入れていない。
+- 時間切れを待たせているあいだに「話せない時」やキーボードのボタンで文字へ切り替えた場合と、M0 の録り直しを押した場合は、その場で時間切れとして終える（答えを受けないまま聞き取りが止まるため）。この 2 つの経路にはテストを書いていない。
+- 昼・夜の時間切れの文言は、それぞれ 1 種類だけである。
+- 実機では何も確かめていない。
+
+### 人間の確認待ち
+
+- 新しい文言 7 つ（上の表）の言い回しの確認。特に、成立しなかった会話の締め（読み上げと完了画面）と、時間切れの 3 つ。
+- 実機で、朝フローの M2 で黙り続けて例のチップが出ること、M0 で黙り続けて文字の入力待ちになること、聞き取り中に 3 分を越えても話し終えるまで切られないことを確かめる（task_039 の実機確認に含めてよい）。

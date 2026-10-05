@@ -359,11 +359,18 @@ final class SessionViewModel {
     /// `FlowMachine` がその入力を受け流したときに聞き取りを戻すために持つ。
     private var waiting: FlowCommand?
 
+    /// 声を聞いている聞き取り（宣言の録音を含む）の世代。文字の入力待ちでは進めない。
+    private var hearingGeneration: Int?
+    /// 時間切れが来たが、聞いている途中だったので、その答えが確定するまで待たせているか。
+    private var timeboxIsDue = false
+
     /// いま処理している入力の後から割り込まれたか。割り込まれた入力の残りの
     /// 発話・聞き取り・再生は実行しない。
     private var isInterrupted: Bool { turnMark != interruptions }
-    /// 聞き取り（短文入力の待ちを含む）が動いているか。
+    /// 声の聞き取りが動いているか。文字の入力待ちは見張りを持たないので含まない。
     private var isListening: Bool { captureTask != nil || silenceTask != nil }
+    /// 本人の声を聞いている途中か（録音中、または録り終えて文字起こしの確定を待っている）。
+    private var isHearingAnAnswer: Bool { hearingGeneration == listenGeneration && completion == nil }
 
     // MARK: 定数
 
@@ -635,16 +642,36 @@ final class SessionViewModel {
         await deliver(.event(.interrupted))
     }
 
-    /// 沈黙の待ち時間が尽きた。1 回目は催促、2 回目はその質問をスキップする
-    /// （分岐は `FlowMachine` が `silenceCount` で持つ）。
+    /// 沈黙の待ち時間が尽きた。1 回目は催促。2 回目は、必須でない質問ならスキップし、
+    /// 必須の質問なら受け方を変えて留まる（分岐は `FlowMachine` が持つ）。
     func silenceElapsed() async {
         await deliver(.silence(generation: listenGeneration))
     }
 
     /// タイムボックス（朝 3 分 / 昼 1 分 / 夜 1 分）を超えた。読み上げ中でもその場で止める。
+    /// 聞き取り中と宣言の録音中だけは打ち切らず、その答えが確定してから終える。
     func timeboxElapsed() async {
-        cutIn(stoppingSound: true)
+        guard expireTimebox() else { return }
         await deliver(.event(.timeout(.timebox)))
+    }
+
+    /// 時間切れを進行に割り込ませる。声を聞いている途中なら割り込まずに覚えておき、false を返す。
+    private func expireTimebox() -> Bool {
+        guard !isHearingAnAnswer else {
+            logger.info("timebox deferred until the answer settles")
+            timeboxIsDue = true
+            return false
+        }
+        cutIn(stoppingSound: true)
+        return true
+    }
+
+    /// 待たせていた時間切れを、答えを受けないまま聞き取りが止まった場面（文字への切り替え・録り直し）で実行する。
+    private func endIfTimeboxIsDue() async -> Bool {
+        guard timeboxIsDue else { return false }
+        timeboxIsDue = false
+        await handle(.timeout(.timebox))
+        return true
     }
 
     /// M0 の文字起こしが違うときの再録音（retention R7）。1 回だけ。
@@ -658,6 +685,7 @@ final class SessionViewModel {
 
     private func restartAvoidance() async {
         guard let base = stateAtAvoidance else { return }
+        if await endIfTimeboxIsDue() { return }
         if let avoidanceEntryID {
             try? await store.deleteVoiceEntry(id: avoidanceEntryID)
             self.avoidanceEntryID = nil
@@ -680,6 +708,7 @@ final class SessionViewModel {
 
     private func enterTextMode() async {
         stopListening()
+        if await endIfTimeboxIsDue() { return }
         isVoiceless = true
         guard var current = state else { return }
         current.mode = .text
@@ -698,6 +727,16 @@ final class SessionViewModel {
         guard let current = state else { return }
         let transition = FlowMachine.handle(event, in: current)
         logger.info("event \(Self.describe(event), privacy: .public) step \(String(describing: current.step), privacy: .public) -> \(String(describing: transition.state.step), privacy: .public) retry=\(transition.state.retryCount, privacy: .public)")
+        if timeboxIsDue, !transition.state.isFinished {
+            // 待たせていた時間切れ。答えは受け取って保存し、次の発話も聞き取りも始めずに終える。
+            timeboxIsDue = false
+            await apply(FlowTransition(
+                state: transition.state,
+                commands: transition.commands.filter { !Self.needsTheFloor($0) }
+            ))
+            await handle(.timeout(.timebox))
+            return
+        }
         await apply(transition)
         if transition.commands.isEmpty {
             await resumeWaiting()
@@ -884,9 +923,8 @@ final class SessionViewModel {
         detector = SilenceDetector(duration: .standard)
 
         guard request.input == .voice else {
-            // 短文入力を待つ。沈黙の見張りだけは同じ規則で回す。
+            // 短文入力を待つ。沈黙の見張りは張らない（書いている途中で催促も質問の送りもしない）。
             phase = .listening
-            startSilenceWatch(seconds: request.silenceSeconds, generation: generation)
             return
         }
 
@@ -902,7 +940,7 @@ final class SessionViewModel {
                 logger.info("listen dropped stage=prepare")
                 return
             }
-            guard let started = try await startCapture(format: format, generation: generation) else { return }
+            guard let started = try await startCapture(format: format, limit: .utterance, generation: generation) else { return }
             phase = .listening
             observe(started.session, relativePath: started.relativePath, generation: generation)
             startSilenceWatch(seconds: request.silenceSeconds, generation: generation)
@@ -917,7 +955,6 @@ final class SessionViewModel {
             pendingListen = fallback
             waiting = .listen(fallback)
             phase = .listening
-            startSilenceWatch(seconds: fallback.silenceSeconds, generation: generation)
         }
     }
 
@@ -928,20 +965,28 @@ final class SessionViewModel {
 
     /// 録音と認識を始める。失敗したら後始末をして 1 回だけやり直す。
     /// 待っているあいだに世代が進んだ（止められた）ときは、始めずに nil を返す。
-    private func startCapture(format: AVAudioFormat, generation: Int) async throws -> StartedCapture? {
+    private func startCapture(
+        format: AVAudioFormat,
+        limit: VoiceCaptureLimit,
+        generation: Int
+    ) async throws -> StartedCapture? {
         do {
-            return try await startCaptureOnce(format: format, generation: generation)
+            return try await startCaptureOnce(format: format, limit: limit, generation: generation)
         } catch {
             guard isCurrent(generation) else { return nil }
             logger.error("listen start failed: \(error.localizedDescription, privacy: .public) -> retry")
         }
-        return try await startCaptureOnce(format: format, generation: generation)
+        return try await startCaptureOnce(format: format, limit: limit, generation: generation)
     }
 
-    private func startCaptureOnce(format: AVAudioFormat, generation: Int) async throws -> StartedCapture? {
+    private func startCaptureOnce(
+        format: AVAudioFormat,
+        limit: VoiceCaptureLimit,
+        generation: Int
+    ) async throws -> StartedCapture? {
         do {
             let allocation = try audioFiles.allocate(recordedAt: now())
-            capture.limit = .utterance
+            capture.limit = limit
             let session = try capture.start(writingTo: allocation.url, analyzerFormat: format)
             try await transcriber.start(inputSequence: session.analyzerInput)
             guard isCurrent(generation) else {
@@ -983,6 +1028,7 @@ final class SessionViewModel {
     /// 聞き取りの終わりを見つけたら進行に渡して終わる。確定も次の発話もここでは実行しない
     /// （このタスクは聞き取りを止めるときに止められるので、進行を載せると読み上げを待てなくなる）。
     private func observe(_ session: VoiceCaptureSession, relativePath: String, generation: Int) {
+        hearingGeneration = generation
         captureTask?.cancel()
         captureTask = Task { [weak self] in
             var elapsed: TimeInterval = 0
@@ -1046,8 +1092,8 @@ final class SessionViewModel {
         transcriber.cancel()
     }
 
-    /// 沈黙 5 秒で催促を 1 回、さらに 10 秒でその質問をスキップする（実装計画 §7.2）。
-    /// 実際の分岐は `FlowMachine` が `silenceCount` で持つ。ここは時間を計って進行に渡すだけ。
+    /// 声の聞き取りの沈黙を計る。5 秒で催促を 1 回、さらに 10 秒で次の扱いへ（実装計画 §7.2 / §16.7）。
+    /// 実際の分岐は `FlowMachine` が持つ。ここは時間を計って進行に渡すだけ。文字の入力待ちでは使わない。
     private func startSilenceWatch(seconds: Int, generation: Int) {
         silenceTask?.cancel()
         let sleep = timer.sleep
@@ -1082,8 +1128,9 @@ final class SessionViewModel {
                 return
             }
             guard let self, !Task.isCancelled else { return }
-            // 読み上げ中でも待たせない。音と聞き取りをその場で止めてから、進行に渡す。
-            self.cutIn(stoppingSound: true)
+            // 読み上げ中でも待たせない。音をその場で止めてから、進行に渡す。
+            // 声を聞いている途中だけは、その答えが確定するまで待つ。
+            guard self.expireTimebox() else { return }
             self.post(.event(.timeout(.timebox)))
         }
     }
@@ -1094,36 +1141,29 @@ final class SessionViewModel {
         listenGeneration += 1
         let generation = listenGeneration
         waiting = .record(request)
+        // 前の質問の録音を、宣言の音声として持ち越さない。
+        lastRecording = nil
+        if notice == .captureFailed {
+            notice = nil
+        }
         do {
             let format = try await prepareTranscriber()
             guard isCurrent(generation) else {
                 logger.info("record dropped stage=prepare")
                 return
             }
-            let allocation = try audioFiles.allocate(recordedAt: now())
-            capture.limit = .declaration
-            let session = try capture.start(writingTo: allocation.url, analyzerFormat: format)
-            try await transcriber.start(inputSequence: session.analyzerInput)
-            guard isCurrent(generation) else {
-                logger.info("record dropped stage=start")
-                capture.stop()
-                transcriber.cancel()
+            guard let started = try await startCapture(format: format, limit: .declaration, generation: generation) else {
                 return
             }
             detector = SilenceDetector(duration: .long)
             phase = .recordingDeclaration
-            observe(session, relativePath: allocation.relativePath, generation: generation)
+            observe(started.session, relativePath: started.relativePath, generation: generation)
         } catch {
             guard isCurrent(generation) else { return }
-            // 声で宣言できない日は「声なし」の宣言として文字で受ける。
-            notice = .micDenied
-            isVoiceless = true
-            if var current = state {
-                current.mode = .text
-                current.isVoicelessDay = true
-                current.isDeclarationDeferred = true
-                state = current
-            }
+            // 聞き取りの開始と同じ扱い。マイクの権限はあるので、拒否の掲示は出さず、その日を声なしにも
+            // 宣言の後回しにもしない。宣言だけ文字で受ける。
+            logger.error("record start failed: \(error.localizedDescription, privacy: .public) -> text for the declaration")
+            notice = .captureFailed
             let fallback = ListenRequest(
                 step: request.step,
                 silenceSeconds: FlowMachine.firstSilenceSeconds,
@@ -1298,7 +1338,10 @@ final class SessionViewModel {
             suspendedState = state
         }
 
-        await persistCommitmentIfNeeded()
+        // 約束を作るのは成立した会話だけ。成立しなかった会話（`abandoned`）や途中で終えた会話では作らない。
+        if completion == .completed {
+            await persistCommitmentIfNeeded()
+        }
         await persistShrinkIfNeeded()
         await persistCarryoverIfNeeded()
         await persistAvoidanceStatusIfNeeded(completion)

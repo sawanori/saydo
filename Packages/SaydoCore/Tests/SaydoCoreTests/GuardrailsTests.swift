@@ -117,6 +117,28 @@ final class GuardrailsTests: XCTestCase {
         }
     }
 
+    /// task_033 で足した文言（未成立の締め、時間切れ、必須の質問の受け直し）を名指しで通す。
+    func testRequiredQuestionAndClosingLinesPassGuardrails() {
+        let keys: [CopyKey] = [
+            .sessionAbandoned,
+            .timeboxExceeded,
+            .timeboxExceededNoon,
+            .timeboxExceededNight,
+            .morningMicroActionChipsPrompt,
+            .requiredTextPrompt,
+        ]
+        for key in keys {
+            let lines = DialogueCopy.variants(key)
+            XCTAssertFalse(lines.isEmpty, "\(key.rawValue) の文言が空")
+            for line in lines {
+                XCTAssertEqual(line.form, .statement, "\(key.rawValue)")
+                XCTAssertFalse(line.hasPlaceholder, "\(key.rawValue): 差し込みを持たない")
+                let violations = Guardrails.check(line.text, form: line.form)
+                XCTAssertTrue(violations.isEmpty, "\(key.rawValue): 「\(line.text)」→ \(violations)")
+            }
+        }
+    }
+
     func testEveryChoiceLabelPassesGuardrails() {
         let ids: [ChoiceID] =
             DialogueCopy.sixOptionIDs

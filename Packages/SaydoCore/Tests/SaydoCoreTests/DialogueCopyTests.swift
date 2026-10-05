@@ -145,6 +145,32 @@ final class DialogueCopyTests: XCTestCase {
         XCTAssertTrue(texts.contains("今日はそういう日。明日、もっと小さくしよう。"))
     }
 
+    // MARK: - 成立しなかった会話と時間切れ（task_033）
+
+    /// 時間切れの文言は、実装されていない続き（「続きは昼に聞くね。」）を約束しない。
+    func testTimeboxLinesDoNotPromiseAContinuation() {
+        let keys: [CopyKey] = [.timeboxExceeded, .timeboxExceededNoon, .timeboxExceededNight]
+        for key in keys {
+            for line in DialogueCopy.variants(key) {
+                XCTAssertFalse(line.text.contains("続き"), "\(key.rawValue): \(line.text)")
+                XCTAssertFalse(line.text.contains("聞くね"), "\(key.rawValue): \(line.text)")
+                XCTAssertFalse(line.text.contains("昼に"), "\(key.rawValue): \(line.text)")
+            }
+        }
+        XCTAssertFalse(DialogueCopy.allLines.map(\.text).contains("続きは昼に聞くね。"))
+    }
+
+    /// 約束を作らずに終える締めは、受け取ったとも、できなかったとも言わない。
+    func testAbandonedClosingDoesNotClaimAReceiptOrLabelTheDay() {
+        let lines = DialogueCopy.variants(.sessionAbandoned)
+        XCTAssertFalse(lines.isEmpty)
+        for line in lines {
+            XCTAssertFalse(line.text.contains("受け取り"), line.text)
+            XCTAssertFalse(line.text.contains("できな"), line.text)
+            XCTAssertFalse(line.text.contains("届きます"), line.text)
+        }
+    }
+
     // MARK: - 選択肢の集合
 
     func testSixOptionsMatchTheConceptDocument() {
