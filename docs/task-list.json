@@ -1,6 +1,6 @@
 {
   "feature": "SAYDO — 音声主体の現実逃避伴走アプリ（iOS ネイティブ / 機種依存ストレージ / オンデバイス AI）",
-  "version": 2,
+  "version": 3,
   "notes": [
     "Phase 0 = task_001〜004、Phase 1 = task_005・005b・006〜013・013b、Phase 2 = task_014〜017、Phase 3 = task_018〜021。",
     "2026-09-04 の敵対的レビュー採否（docs/review/fix-decisions-2026-09-04.md）を反映。task_005 を task_005 / task_005b に、task_013 を task_013 / task_013b に分割した。",
@@ -8,7 +8,9 @@
     "project.yml の 4 ターゲットは task_001 が作る。packages の登録は SaydoCore が task_002、SaydoAI が task_014。project.yml を変えたタスクだけが main で xcodegen generate を実行し、worktree では .xcodeproj を再生成しない。",
     "各タスクは 1 Claude Code セッションで完了できる粒度を目標にする。",
     "optional: true のタスク（task_017 / task_021）は前提が満たされない場合スキップしてよい。",
-    "risk_level は high = 実機や Apple の新 API の挙動に依存 / medium = 設計判断を含む / low = 定型。ただし実装はすべて Opus が行う（risk_level で担当を変えない）。"
+    "risk_level は high = 実機や Apple の新 API の挙動に依存 / medium = 設計判断を含む / low = 定型。ただし実装はすべて Opus が行う（risk_level で担当を変えない）。",
+    "task_030〜task_052 は 2026-10-06 に追加した UI/UX 改善（実装計画 §16、入力は docs/review/ux-weak-areas-2026-10-05.md。GPT-6 と Gemini のレビューを反映して同日に改訂）。番号順に 1 つずつ進める。並行してよいのは、task_030（どれとでも）と、task_045（task_036 の後、task_037〜044 と）だけである。",
+    "task_030〜task_052 の各タスクは、最初の手順で苦手分野リストの該当行をコードで確かめる。食い違っていたら実装せず、docs/PROGRESS.md に書いて止まる。"
   ],
   "tasks": [
     {
@@ -1347,6 +1349,1351 @@
         "scripts/build-ios.sh"
       ],
       "risk_level": "high"
+    },
+    {
+      "task_id": "task_030",
+      "title": "録音が消える経路を塞ぐ（メモリ内ストアで起動したときは音声ファイルを掃除しない）",
+      "goal": "永続ストアを開けなかった起動で、端末上の録音が削除されないようにする",
+      "scope": [
+        "SaydoApp.makeModelContainer が「永続ストアで開けたか」を一緒に返す",
+        "メモリ内ストアで起動したときは sweepOrphanAudioFiles を呼ばない",
+        "掃除をするかどうかの判定を、テストできる静的関数に切り出す"
+      ],
+      "non_scope": [
+        "孤児掃除の規則そのものの変更",
+        "保存先が一時的な日の受領文（task_035）"
+      ],
+      "files_to_read": [
+        "docs/implementation-plan.md（§16）",
+        "docs/review/ux-weak-areas-2026-10-05.md",
+        "App/SaydoApp.swift",
+        "App/Data/Repository.swift",
+        "App/Data/AudioFileStore.swift"
+      ],
+      "files_to_create": [
+        "Tests/SaydoTests/LaunchSafetyTests.swift"
+      ],
+      "files_to_modify": [
+        "App/SaydoApp.swift"
+      ],
+      "dependencies": [],
+      "implementation_steps": [
+        "SaydoApp.swift:17-44 と Repository.swift:284-291 を読んで確かめる",
+        "makeModelContainer の戻り値を (container, isPersistent) にする",
+        "isPersistent が false のときは掃除を行わず、logger.error に 1 行残す",
+        "LaunchSafetyTests に、isPersistent=false で判定が false、true で true になるテストを書く"
+      ],
+      "done_definition": [
+        "メモリ内ストアで起動した場合に掃除が呼ばれない（LaunchSafetyTests）",
+        "永続ストアで起動した場合の掃除は従来どおり動く（既存の AudioFileStoreTests と RepositoryTests が緑）",
+        "scripts/test-ios.sh が exit 0"
+      ],
+      "verify_commands": [
+        "scripts/test-ios.sh"
+      ],
+      "risk_level": "low"
+    },
+    {
+      "task_id": "task_031",
+      "title": "会話の進行を 1 本の直列の流れにし、聞き取りを世代で管理する",
+      "goal": "読み上げが終わる前に聞き取りが始まらず、止めた後や段階が進んだ後に古い処理が動かないようにする",
+      "scope": [
+        "会話の進行（イベントを受けて命令を順に実行する処理）を SessionViewModel の 1 本の直列の流れにまとめる。録音の見張り・沈黙の見張り・時間切れの見張り・画面の操作は、進行を自分のタスクの中で実行せず、イベントをこの流れに渡すだけにする",
+        "聞き取りに世代番号を付ける。準備（prepareTranscriber）・開始・確定（transcriber.finish）・停止のそれぞれで、await から戻るたびに世代と会話の終了を確かめ、古ければ録音を始めず後始末だけする",
+        "SpeechSynthesisService.speak(): 完了通知を utterance の同一性で照合する。発話中の再入は前の発話の終了を待つ。待っているタスクがキャンセルされたら音声も止める",
+        "TranscriptionService.cancel() で確定済みの文字列も消す",
+        "select() / skip() / retakeAvoidance() / timeboxElapsed() は、進行中の聞き取りを止めて世代を進める",
+        "finish() は読み上げと再生を止める。命令のループは会話が終了済みなら残りを実行しない",
+        "テスト用に、読み上げの完了をテストから遅らせられるモックを用意する"
+      ],
+      "non_scope": [
+        "エコーキャンセルの導入（task_052）",
+        "認識器の作り直しをやめる改修",
+        "画面の変更",
+        "録音開始の失敗の区別（task_032）"
+      ],
+      "files_to_read": [
+        "docs/implementation-plan.md（§16）",
+        "docs/review/ux-weak-areas-2026-10-05.md",
+        "App/Features/Session/SessionViewModel.swift",
+        "App/Audio/SpeechSynthesisService.swift",
+        "App/Audio/TranscriptionService.swift",
+        "App/Audio/VoiceCapture.swift",
+        "docs/device/device-log-analysis-2026-09-04.md",
+        "Tests/SaydoTests/SessionViewModelTests.swift"
+      ],
+      "files_to_create": [],
+      "files_to_modify": [
+        "App/Features/Session/SessionViewModel.swift",
+        "App/Audio/SpeechSynthesisService.swift",
+        "App/Audio/TranscriptionService.swift",
+        "Tests/SaydoTests/SessionViewModelTests.swift"
+      ],
+      "dependencies": [],
+      "implementation_steps": [
+        "SessionViewModel.swift:506-522, 598-610, 692-830 と SpeechSynthesisService.swift:120-161 と TranscriptionService.swift:190-205 を読み、自己キャンセルの経路が録音の見張りと沈黙の見張りの 2 か所にあることを確かめる",
+        "VMT の MockSynthesizer を、speak() が呼び出し元のタスクのキャンセルで早く戻る実物と同じ性質を持ち、完了をテストから解放できる形に作り替える（実物と同じく for await で待つ）",
+        "先に失敗するテストを書く: 無音検出で M0 から M4 まで進め、各段階で「読み上げの完了を解放する前に録音が開始されていない」ことを確かめる",
+        "先に失敗するテストを書く: 沈黙の見張りが発火した後の催促の読み上げでも、完了の前に録音が開始されない",
+        "先に失敗するテストを書く: 聞き取り中にチップを選ぶと、その後に聞き直しの文言が読まれない",
+        "先に失敗するテストを書く: 録音の準備の await の間に会話を閉じると、録音が開始されない",
+        "先に失敗するテストを書く: 読み上げ中に時間切れになった後、録音が開始されず、読み上げが止まる",
+        "進行の直列化と世代管理を実装し、5 つのテストを通す",
+        "OSLog の category=tts と category=session の行が従来どおり出ることを確かめる（task_039 で使う）"
+      ],
+      "done_definition": [
+        "読み上げの完了を遅らせたテストで、全段階とも完了の前に録音が開始されない（VMT）",
+        "沈黙の見張りを経た読み上げでも同じである（VMT）",
+        "聞き取り中のチップ選択の後に、聞き直しの文言が読まれない（VMT）",
+        "録音の準備中に閉じても録音が始まらない（VMT）",
+        "会話の終了後に録音が開始されず、読み上げも再生も止まっている（VMT）",
+        "@unchecked Sendable と nonisolated(unsafe) を足していない（scripts/lint-principles.sh が OK）",
+        "scripts/test-ios.sh が exit 0"
+      ],
+      "verify_commands": [
+        "scripts/test-ios.sh",
+        "scripts/lint-principles.sh"
+      ],
+      "risk_level": "high"
+    },
+    {
+      "task_id": "task_032",
+      "title": "録音開始の一時的な失敗を、マイクの拒否と区別する",
+      "goal": "設定が正しいのに「マイクを使えない設定」と表示され、その日が声なしに固定されることを無くす",
+      "scope": [
+        "SessionFailure に captureFailed を足し、micDenied と分ける",
+        "マイクの権限があるのに録音の開始に失敗した場合は、1 回だけ再試行する",
+        "再試行も失敗したら、その質問だけ文字の入力に落とす。その日を声なしに固定しない（isVoicelessDay を立てない）",
+        "掲示の文言を失敗の種類で分ける。captureFailed では「設定を開く」を出さない"
+      ],
+      "non_scope": [
+        "音声モデル取得中の掲示（task_046）",
+        "文字の経路の画面（task_040）"
+      ],
+      "files_to_read": [
+        "docs/implementation-plan.md（§16）",
+        "docs/review/ux-weak-areas-2026-10-05.md",
+        "App/Features/Session/SessionViewModel.swift",
+        "App/Features/Session/SessionView.swift",
+        "App/Features/Session/SessionCopy.swift",
+        "App/Audio/VoiceCapture.swift",
+        "App/AppRouter.swift"
+      ],
+      "files_to_create": [],
+      "files_to_modify": [
+        "App/Features/Session/SessionViewModel.swift",
+        "App/Features/Session/SessionView.swift",
+        "App/Features/Session/SessionCopy.swift",
+        "App/Audio/VoiceCapture.swift",
+        "Tests/SaydoTests/SessionViewModelTests.swift"
+      ],
+      "dependencies": [
+        "task_031"
+      ],
+      "implementation_steps": [
+        "SessionViewModel.swift:706-731 を読んで確かめる",
+        "先に失敗するテストを書く: 権限ありで録音の開始が 1 回失敗し 2 回目に成功する場合、聞き取りが始まり掲示が出ない",
+        "先に失敗するテストを書く: 2 回とも失敗した場合、その質問は文字の入力待ちになり、次の質問では再び声の聞き取りを試みる",
+        "実装する"
+      ],
+      "done_definition": [
+        "権限ありの一時的な失敗で micDenied の掲示が出ない（VMT）",
+        "再試行で成功すれば声のまま進む（VMT）",
+        "2 回失敗しても、次の質問で声に戻る（VMT）",
+        "scripts/test-ios.sh が exit 0"
+      ],
+      "verify_commands": [
+        "scripts/test-ios.sh"
+      ],
+      "risk_level": "medium"
+    },
+    {
+      "task_id": "task_033",
+      "title": "必須の質問を飛ばさず、成立しない会話は成立しなかったと言って終える",
+      "goal": "欠けた約束を作らず、作れなかった日に「受け取りました」と言わない",
+      "scope": [
+        "FlowStep に isRequired を足す。必須は朝の M0（逃げたいこと）・M2（行動）・M4（宣言）",
+        "必須の質問は、沈黙 2 回でも聞き直しの上限でも次へ進めない。M2 は押せる例のチップに落とす。M0 と M4 は文字の入力に落とす",
+        "必須の質問で .skip を受けたら、次へ進まず FlowCompletion.abandoned で終える。締めは責めない 1 文にする",
+        "必須でない質問（M1 理由、M3 時刻）のスキップは従来どおり次へ進む",
+        "文字の入力待ちでは沈黙の見張りを起動しない（催促もしない、質問も送らない）",
+        "時間切れの文言から「続きは昼に聞くね。」を外し、事実に合う文言にする。聞き取り中と録音中は時間切れで打ち切らず、その答えが確定してから終える",
+        "abandoned で終えた会話は約束を保存せず、SessionLog には未完として残す"
+      ],
+      "non_scope": [
+        "時刻の確定（task_034）",
+        "約束の保存と受領（task_035）",
+        "スキップのボタンの出し分け（task_040）",
+        "中断からの再開（task_044）"
+      ],
+      "files_to_read": [
+        "docs/implementation-plan.md（§16）",
+        "docs/review/ux-weak-areas-2026-10-05.md",
+        "Packages/SaydoCore/Sources/SaydoCore/Flows/FlowMachine.swift",
+        "Packages/SaydoCore/Sources/SaydoCore/Flows/MorningFlow.swift",
+        "Packages/SaydoCore/Sources/SaydoCore/Dialogue/DialogueCopy.swift",
+        "Packages/SaydoCore/Sources/SaydoCore/Dialogue/Guardrails.swift",
+        "Packages/SaydoCore/Sources/SaydoCore/Dialogue/ShrinkLadder.swift",
+        "App/Features/Session/SessionViewModel.swift",
+        "docs/review/fix-decisions-2026-09-04.md"
+      ],
+      "files_to_create": [],
+      "files_to_modify": [
+        "Packages/SaydoCore/Sources/SaydoCore/Flows/FlowMachine.swift",
+        "Packages/SaydoCore/Sources/SaydoCore/Flows/MorningFlow.swift",
+        "Packages/SaydoCore/Sources/SaydoCore/Dialogue/DialogueCopy.swift",
+        "App/Features/Session/SessionViewModel.swift",
+        "Packages/SaydoCore/Tests/SaydoCoreTests/MorningFlowTests.swift",
+        "Packages/SaydoCore/Tests/SaydoCoreTests/DialogueCopyTests.swift",
+        "Packages/SaydoCore/Tests/SaydoCoreTests/GuardrailsTests.swift",
+        "Tests/SaydoTests/SessionViewModelTests.swift"
+      ],
+      "dependencies": [
+        "task_032"
+      ],
+      "implementation_steps": [
+        "FlowMachine.swift:488-510, 626-645 と SessionViewModel.swift:700-705 を読んで確かめる",
+        "MorningFlowTests に先に失敗するテストを書く: M2 で沈黙 2 回の後に M3 へ進まず、行動のチップが出る",
+        "MorningFlowTests に先に失敗するテストを書く: M0 で聞き直しの上限に達すると文字の入力待ちになり、M1 へ進まない",
+        "MorningFlowTests に先に失敗するテストを書く: M0・M2・M4 のそれぞれで .skip を受けると abandoned で終わり、保存命令が出ない",
+        "VMT に先に失敗するテストを書く: 文字の入力待ちで 20 秒経っても催促が読まれず、段階が変わらない",
+        "VMT に先に失敗するテストを書く: abandoned で終えた会話で Commitment が 0 件である",
+        "実装する。旧仕様（沈黙 2 回で飛ばす）を固定している既存テストを新仕様に書き換え、変えたテスト名を PROGRESS に列挙する",
+        "新しい文言（未成立の締め、時間切れ）を Guardrails に通すテストを足す"
+      ],
+      "done_definition": [
+        "必須の質問が、沈黙・聞き直しの上限・スキップのどれでも次へ進まない（MorningFlowTests）",
+        "必須の質問を抜けた会話で約束が保存されない（VMT）",
+        "文字の入力待ちで催促も質問の送りも起きない（VMT）",
+        "聞き取り中に時間切れになっても、その答えが確定するまで打ち切られない（VMT）",
+        "新しい文言が Guardrails のテストを通り、既存の禁止語とテストケースが削られていない",
+        "scripts/test-core.sh と scripts/test-ios.sh が exit 0"
+      ],
+      "verify_commands": [
+        "scripts/test-core.sh",
+        "scripts/test-ios.sh"
+      ],
+      "risk_level": "high"
+    },
+    {
+      "task_id": "task_034",
+      "title": "時刻を 1 回だけ解釈し、保存・通知・受領文で共用する",
+      "goal": "言った時刻と、保存される時刻と、通知が鳴る時刻と、読み上げる時刻を一致させる",
+      "scope": [
+        "FlowCommand.resolveTime(String) と FlowEvent.timeResolved(ResolvedTime?) を足す。ResolvedTime は日時・読み上げ用の句・場所を持つ",
+        "MorningFlow は M3 の答えを受けると resolveTime を出す。SessionViewModel が JapaneseTimeParser と現在時刻で解釈し、timeResolved を返す",
+        "解釈できなかった場合と、今日の過ぎた時刻だった場合は、時刻のチップ（30 分後 / 昼 / 夕方 / 決めない）で 1 回だけ聞き直す。チップも同じ resolveTime の経路で解釈する",
+        "確定した値を FlowState.plannedTime に入れる。通知の登録と約束の保存はこの値を使い、解釈し直さない（SessionViewModel.swift:987-990 と 1066-1068 の再解釈を無くす）",
+        "生の発話（plannedAnswer）は記録用に残す"
+      ],
+      "non_scope": [
+        "受領文の出し分け（task_035）",
+        "時刻の例を押せるチップにする画面の変更（task_040）",
+        "翌日以降の日付の指定"
+      ],
+      "files_to_read": [
+        "docs/implementation-plan.md（§16）",
+        "docs/review/ux-weak-areas-2026-10-05.md",
+        "Packages/SaydoCore/Sources/SaydoCore/Flows/FlowMachine.swift",
+        "Packages/SaydoCore/Sources/SaydoCore/Flows/MorningFlow.swift",
+        "Packages/SaydoCore/Sources/SaydoCore/Dialogue/JapaneseTimeParser.swift",
+        "Packages/SaydoCore/Sources/SaydoCore/Dialogue/DialogueCopy.swift",
+        "App/Features/Session/SessionViewModel.swift"
+      ],
+      "files_to_create": [],
+      "files_to_modify": [
+        "Packages/SaydoCore/Sources/SaydoCore/Flows/FlowMachine.swift",
+        "Packages/SaydoCore/Sources/SaydoCore/Flows/MorningFlow.swift",
+        "Packages/SaydoCore/Sources/SaydoCore/Dialogue/DialogueCopy.swift",
+        "App/Features/Session/SessionViewModel.swift",
+        "Packages/SaydoCore/Tests/SaydoCoreTests/MorningFlowTests.swift",
+        "Packages/SaydoCore/Tests/SaydoCoreTests/JapaneseTimeParserTests.swift",
+        "Tests/SaydoTests/SessionViewModelTests.swift"
+      ],
+      "dependencies": [
+        "task_033"
+      ],
+      "implementation_steps": [
+        "MorningFlow.swift:295-320 と JapaneseTimeParser.swift:40-60 と SessionViewModel.swift:985-996, 1064-1070 を読んで確かめる",
+        "MorningFlowTests に先に失敗するテストを書く: M3 の答えで resolveTime が出て、timeResolved(nil) を返すと時刻のチップが出る。2 回目も nil なら時刻なしで M4 へ進む",
+        "MorningFlowTests に先に失敗するテストを書く: 「決めない」を選ぶと plannedTime が nil のまま M4 へ進む",
+        "VMT に先に失敗するテストを書く: 「16時から」と答えた会話で、保存された plannedAt と通知に渡る fireDate が同じ日時である",
+        "VMT に先に失敗するテストを書く: 現在時刻より前の時刻を答えると、時刻のチップで聞き直される",
+        "実装する"
+      ],
+      "done_definition": [
+        "時刻の解釈が 1 回の会話で 1 回だけ行われ、保存と通知が同じ日時を使う（VMT）",
+        "解釈できない答えと過ぎた時刻は、チップで 1 回だけ聞き直される（MorningFlowTests / VMT）",
+        "「決めない」で時刻なしのまま宣言へ進める（MorningFlowTests）",
+        "scripts/test-core.sh と scripts/test-ios.sh が exit 0"
+      ],
+      "verify_commands": [
+        "scripts/test-core.sh",
+        "scripts/test-ios.sh"
+      ],
+      "risk_level": "high"
+    },
+    {
+      "task_id": "task_035",
+      "title": "約束の保存と通知の登録の結果を会話に返し、結果に合う受領文だけを読む",
+      "goal": "「受け取りました」「届きます」が、必ず実際に起きたことと一致する",
+      "scope": [
+        "FlowCommand.commit(CommitRequest) と FlowEvent.commitResult(CommitResult) を足す。CommitResult は scheduled / savedWithoutNotification(理由) / saveFailed / incomplete",
+        "MorningFlow は宣言を受けると commit を出し、この時点では受領文を出さない",
+        "SessionViewModel が commit を受けて約束を保存し（会話の終了処理から移す）、行動時刻の通知を登録し、結果を返す。try? で失敗を捨てない",
+        "NotificationScheduling.schedule が成否と理由（登録した / 未許可 / 過去の時刻 / 失敗）を返す",
+        "MorningFlow は結果に合う受領文を選んで会話を終える。scheduled は整えた時刻の句（task_034 の ResolvedTime）で「◯時に届きます」、savedWithoutNotification は時刻に触れない受領文、saveFailed は宣言の段階へ 1 回だけ戻し、2 回目も失敗したら保存できなかったことを伝えて終える",
+        "成立に必要な値（逃げたいこと・行動・宣言）が欠けた commit は incomplete を返し、保存しない",
+        "保存先が一時的（メモリ内ストア）な起動では savedWithoutNotification として扱い、「届きます」と言わない",
+        "受領文に生の発話を差し込まない"
+      ],
+      "non_scope": [
+        "通知が未許可の日に許可を求める画面（task_045 と task_047）",
+        "宣言の言い直し（task_038）"
+      ],
+      "files_to_read": [
+        "docs/implementation-plan.md（§16）",
+        "docs/review/ux-weak-areas-2026-10-05.md",
+        "Packages/SaydoCore/Sources/SaydoCore/Flows/FlowMachine.swift",
+        "Packages/SaydoCore/Sources/SaydoCore/Flows/MorningFlow.swift",
+        "Packages/SaydoCore/Sources/SaydoCore/Dialogue/DialogueCopy.swift",
+        "App/Features/Session/SessionViewModel.swift",
+        "App/Notifications/NotificationScheduler.swift",
+        "App/Notifications/NotificationScheduler+SessionScheduling.swift",
+        "App/Data/Repository.swift",
+        "App/SaydoApp.swift",
+        "App/AppRouter.swift"
+      ],
+      "files_to_create": [],
+      "files_to_modify": [
+        "Packages/SaydoCore/Sources/SaydoCore/Flows/FlowMachine.swift",
+        "Packages/SaydoCore/Sources/SaydoCore/Flows/MorningFlow.swift",
+        "Packages/SaydoCore/Sources/SaydoCore/Dialogue/DialogueCopy.swift",
+        "App/Features/Session/SessionViewModel.swift",
+        "App/Notifications/NotificationScheduler.swift",
+        "App/Notifications/NotificationScheduler+SessionScheduling.swift",
+        "App/AppRouter.swift",
+        "App/SaydoApp.swift",
+        "Packages/SaydoCore/Tests/SaydoCoreTests/MorningFlowTests.swift",
+        "Packages/SaydoCore/Tests/SaydoCoreTests/DialogueCopyTests.swift",
+        "Packages/SaydoCore/Tests/SaydoCoreTests/GuardrailsTests.swift",
+        "Tests/SaydoTests/SessionViewModelTests.swift"
+      ],
+      "dependencies": [
+        "task_034"
+      ],
+      "implementation_steps": [
+        "MorningFlow.swift:340-370 と SessionViewModel.swift:975-996, 1019-1100 と NotificationScheduler+SessionScheduling.swift:14-34 を読んで確かめる",
+        "MorningFlowTests に先に失敗するテストを書く: 宣言の後に commit だけが出て、受領文の読み上げが出ない。commitResult の 4 種類それぞれで、決められた受領文が出る",
+        "MorningFlowTests に先に失敗するテストを書く: 「16時から」と答えた日の scheduled の受領文に「16時から 16時から」も「。に」も現れない",
+        "VMT に先に失敗するテストを書く: 保存に失敗するモックで受領文が読まれず、宣言の聞き取りに 1 回戻る",
+        "VMT に先に失敗するテストを書く: 通知が未許可のモックで、約束は保存され、受領文が時刻に触れない",
+        "VMT に先に失敗するテストを書く: 通知の登録が成功した会話で、登録された時刻が約束の plannedAt と一致し、受領文がその時刻を言う",
+        "実装する。新しい受領文を Guardrails に通すテストを足す"
+      ],
+      "done_definition": [
+        "受領文が読まれた会話では約束が保存されている（VMT）",
+        "「届きます」と読まれた会話では、同じ時刻の通知が登録されている（VMT）",
+        "通知が未許可・登録失敗・時刻なし・保存先が一時的の日は、受領文が時刻に触れない（MorningFlowTests / VMT）",
+        "保存に失敗した会話で受領文が読まれない（VMT）",
+        "受領文に生の発話の重複や「。に」が現れない（MorningFlowTests）",
+        "scripts/test-core.sh と scripts/test-ios.sh が exit 0"
+      ],
+      "verify_commands": [
+        "scripts/test-core.sh",
+        "scripts/test-ios.sh"
+      ],
+      "risk_level": "high"
+    },
+    {
+      "task_id": "task_036",
+      "title": "「後で声で」と「一人で話せる時間」を、実装が整うまで画面から外す",
+      "goal": "実装されていない通知を約束する文言と、効かない設定を無くす",
+      "scope": [
+        "朝の M4 の選択肢から「後で声で」を出さない。声を出さない日の M4 は、文字で約束を書いて完了する",
+        "「一人になれる時間に、もう一度だけ声をかけるね。」の読み上げと、declarationReminder の登録命令を出さない",
+        "設定の「一人で話せる時間」の節と、オンボーディングの同じ段階を外す。AppSettings の保存値と型は残す",
+        "ChoiceID.declareLater と NotificationRequest.Kind.declarationReminder の型は残す（再導入のため）"
+      ],
+      "non_scope": [
+        "「後で声で」の通知の実装（今回の範囲外。§16.5）",
+        "オンボーディングの他の段階の整理（task_045）"
+      ],
+      "files_to_read": [
+        "docs/implementation-plan.md（§16）",
+        "docs/review/ux-weak-areas-2026-10-05.md",
+        "Packages/SaydoCore/Sources/SaydoCore/Flows/MorningFlow.swift",
+        "Packages/SaydoCore/Sources/SaydoCore/Flows/FlowMachine.swift",
+        "Packages/SaydoCore/Sources/SaydoCore/Dialogue/DialogueCopy.swift",
+        "App/Features/Settings/SettingsView.swift",
+        "App/Features/Settings/SettingsCopy.swift",
+        "App/Features/Onboarding/OnboardingView.swift",
+        "App/Features/Onboarding/OnboardingCopy.swift",
+        "docs/retention-strategy.md"
+      ],
+      "files_to_create": [],
+      "files_to_modify": [
+        "Packages/SaydoCore/Sources/SaydoCore/Flows/MorningFlow.swift",
+        "Packages/SaydoCore/Sources/SaydoCore/Dialogue/DialogueCopy.swift",
+        "App/Features/Settings/SettingsView.swift",
+        "App/Features/Onboarding/OnboardingView.swift",
+        "Packages/SaydoCore/Tests/SaydoCoreTests/MorningFlowTests.swift",
+        "Tests/SaydoTests/SessionViewModelTests.swift"
+      ],
+      "dependencies": [
+        "task_035"
+      ],
+      "implementation_steps": [
+        "MorningFlow.swift:96-105, 325-340, 358-362 と SettingsView.swift:160-172 と OnboardingView.swift:205-221 を読んで確かめる",
+        "MorningFlowTests に先に失敗するテストを書く: 文字の経路の M4 で declareLater の選択肢が出ず、文字の宣言で commit が出る",
+        "実装する。declareLater を前提にした既存テストを書き換え、変えたテスト名を PROGRESS に列挙する",
+        "retention R1 の一時停止を PROGRESS に明記する"
+      ],
+      "done_definition": [
+        "会話のどの経路でも「後で声で」の選択肢と、その通知を約束する読み上げが出ない（MorningFlowTests）",
+        "設定とオンボーディングに「一人で話せる時間」が出ない（コードで確認）",
+        "文字だけで朝の会話を通すと約束が保存される（VMT）",
+        "scripts/test-core.sh と scripts/test-ios.sh が exit 0"
+      ],
+      "verify_commands": [
+        "scripts/test-core.sh",
+        "scripts/test-ios.sh"
+      ],
+      "risk_level": "medium"
+    },
+    {
+      "task_id": "task_037",
+      "title": "会話をいつでも閉じられるようにし、「録り直す」を理由の質問までに限る",
+      "goal": "迷ったときに本人が制御を取り戻せる",
+      "scope": [
+        "SessionView の左上に「閉じる」を常に出す（44pt 以上、VoiceOver のラベル付き）。押すと AppRouter.dismissSession() を呼ぶ",
+        "閉じた後に読み上げ・録音・再生が止まっていること",
+        "「録り直す」は M1（理由）に答えるまでだけ出す"
+      ],
+      "non_scope": [
+        "宣言の言い直し（task_038）",
+        "各質問の答えの言い直し（task_042）",
+        "中断からの再開（task_044）"
+      ],
+      "files_to_read": [
+        "docs/implementation-plan.md（§16）",
+        "docs/review/ux-weak-areas-2026-10-05.md",
+        "App/Features/Session/SessionView.swift",
+        "App/Features/Session/SessionViewModel.swift",
+        "App/Features/Session/SessionCopy.swift",
+        "App/AppRouter.swift"
+      ],
+      "files_to_create": [],
+      "files_to_modify": [
+        "App/Features/Session/SessionView.swift",
+        "App/Features/Session/SessionViewModel.swift",
+        "App/Features/Session/SessionCopy.swift",
+        "Tests/SaydoTests/SessionViewModelTests.swift",
+        "Tests/SaydoTests/AppRouterTests.swift"
+      ],
+      "dependencies": [
+        "task_036"
+      ],
+      "implementation_steps": [
+        "SessionView.swift:177-196, 229-252 と SessionViewModel.swift:524-541 と AppRouter.swift:150-160 を読んで確かめる",
+        "SessionView に常設の「閉じる」を足し、onClose に繋ぐ",
+        "AppRouterTests に、会話の途中で dismissSession を呼ぶと SessionLog が中断として残り、音声スタックが止まるテストを足す",
+        "canRetakeAvoidance を、理由の答えが確定した時点で false にし、VMT で固定する"
+      ],
+      "done_definition": [
+        "会話のすべての段階で「閉じる」が画面にある（コードと task_039 の実機で確認）",
+        "途中で閉じると SessionLog が中断として残り、録音と読み上げが止まる（AppRouterTests）",
+        "「録り直す」が M2 以降に出ない（VMT）",
+        "scripts/test-ios.sh が exit 0"
+      ],
+      "verify_commands": [
+        "scripts/test-ios.sh"
+      ],
+      "risk_level": "low"
+    },
+    {
+      "task_id": "task_038",
+      "title": "宣言を聞いて確かめ、1 回だけ言い直せるようにする",
+      "goal": "あとで自分に返る録音に、本人が納得できる",
+      "scope": [
+        "Repository に replaceDeclaration(commitmentID:with:) を足す。新しい VoiceEntry の保存と Commitment の宣言文・音声・長さの更新が成功してから、古い VoiceEntry と古い音声ファイルを消す。途中で失敗したら古いものを残す",
+        "完了画面に「聞いてみる」を出し、いま録った宣言を再生できる",
+        "完了画面に「言い直す」を 1 回だけ出す。押すと宣言の段階に入り直し、録り終えたら replaceDeclaration で差し替える。通知は登録し直さない（時刻は変わらない）",
+        "文字で約束した日は「聞いてみる」を出さない"
+      ],
+      "non_scope": [
+        "行動や時刻の変更",
+        "2 回以上の言い直し"
+      ],
+      "files_to_read": [
+        "docs/implementation-plan.md（§16）",
+        "docs/review/ux-weak-areas-2026-10-05.md",
+        "App/Data/Repository.swift",
+        "App/Data/AudioFileStore.swift",
+        "App/Features/Session/SessionViewModel.swift",
+        "App/Features/Session/SessionView.swift",
+        "App/Features/Session/SessionCopy.swift",
+        "App/Audio/VoicePlayer.swift"
+      ],
+      "files_to_create": [],
+      "files_to_modify": [
+        "App/Data/Repository.swift",
+        "App/Features/Session/SessionViewModel.swift",
+        "App/Features/Session/SessionView.swift",
+        "App/Features/Session/SessionCopy.swift",
+        "Tests/SaydoTests/RepositoryTests.swift",
+        "Tests/SaydoTests/SessionViewModelTests.swift"
+      ],
+      "dependencies": [
+        "task_037"
+      ],
+      "implementation_steps": [
+        "Repository.swift:212-282 を読み、既存の追記と削除では差し替えにならないことを確かめる",
+        "RepositoryTests に先に失敗するテストを書く: 差し替えの後、宣言の VoiceEntry が 1 件で、Commitment が新しいファイルと文字起こしを指し、古いファイルが消えている",
+        "RepositoryTests に先に失敗するテストを書く: 新しい録音の保存に失敗すると、Commitment が古いファイルを指したままで、古いファイルが残っている",
+        "VMT に、言い直しの後に「言い直す」が出なくなるテストと、「聞いてみる」で再生が呼ばれるテストを足す",
+        "実装する"
+      ],
+      "done_definition": [
+        "差し替えの後、約束が新しい録音を指し、古い録音ファイルが消えている（RepositoryTests）",
+        "差し替えに失敗しても古い録音が残り、約束が壊れない（RepositoryTests）",
+        "完了画面で宣言を再生できる（VMT）",
+        "言い直しは 1 回の会話で 1 回だけである（VMT）",
+        "scripts/test-ios.sh が exit 0"
+      ],
+      "verify_commands": [
+        "scripts/test-ios.sh"
+      ],
+      "risk_level": "medium"
+    },
+    {
+      "task_id": "task_039",
+      "title": "実機確認 1: 止血の結果を実機のログで確かめる（人間の作業を含む）",
+      "goal": "task_031〜task_038 の結果を実機で確かめ、重なりが残っていれば原因を切り分ける",
+      "scope": [
+        "OSLog 付きのビルドを実機に入れ、アプリを入れ直して朝フローを 1 回通す",
+        "idevicesyslog で Saydo の行を集め、読み上げと聞き取りの時系列表を作る",
+        "各段階の「読み上げ終了から聞き取り開始まで」の時間を記録する（1 秒を超えていたら、認識器の作り直しの改修を別に計画する材料にする）",
+        "重なりが残っていた場合の切り分け: 読み上げ終了より前に聞き取りが始まっていれば順序の不具合として task_031 に戻す。順序は正しいが、聞き取りの終了が発話前に起きていて peakRMS が高ければ音の回り込みとして task_052 を起こす",
+        "結果がどうであっても、このタスクは記録が残れば完了とする"
+      ],
+      "non_scope": [
+        "TestFlight の配布（task_051）",
+        "device-check の全項目（task_051）"
+      ],
+      "files_to_read": [
+        "docs/implementation-plan.md（§16）",
+        "docs/review/ux-weak-areas-2026-10-05.md",
+        "docs/device/device-log-analysis-2026-09-04.md",
+        "scripts/build-device.sh",
+        "docs/device/device-check-2026-09-04.md"
+      ],
+      "files_to_create": [
+        "docs/device/device-log-analysis-2026-10.md"
+      ],
+      "files_to_modify": [
+        "docs/PROGRESS.md"
+      ],
+      "dependencies": [
+        "task_038"
+      ],
+      "implementation_steps": [
+        "iPhone を接続しロックを解除した状態で SAYDO_TEAM_ID=2WWB6ZA7A9 scripts/build-device.sh を実行する",
+        "アプリを消して入れ直し、オンボーディングから朝フローを 1 回通す。その間 idevicesyslog | grep -E \"Saydo\\(\" でログを集める",
+        "category=tts の utterance 行と category=session の speak done / listen begin / listen end 行から時系列表を作り、docs/device/device-log-analysis-2026-10.md に置く",
+        "切り分けの結果（重なりなし / 順序の不具合 / 音の回り込み）を 1 文で書く"
+      ],
+      "done_definition": [
+        "朝フロー 1 回分の読み上げと聞き取りの時系列表が docs/device にある",
+        "重なりの有無と、あった場合の種類が 1 文で書かれている",
+        "各段階の読み上げ終了から聞き取り開始までの時間が記録されている"
+      ],
+      "verify_commands": [
+        "SAYDO_TEAM_ID=2WWB6ZA7A9 scripts/build-device.sh"
+      ],
+      "risk_level": "high"
+    },
+    {
+      "task_id": "task_040",
+      "title": "文字の経路を第一級にする",
+      "goal": "声を出せない場面でも、文字だけで朝の会話を最後まで落ち着いて通せる",
+      "scope": [
+        "「声を出さない」に切り替えた後は読み上げを鳴らさず、質問文は画面に出すだけにする",
+        "入力欄をシートではなく会話画面の中に常設する（TextAnswerField）。送信しても閉じない",
+        "キーボードのボタンは「この質問だけ文字で答える」（answerByTextOnce）にし、その日を声なしに固定しない",
+        "「声を出さない」は元に戻せる（switchToVoiceMode）",
+        "行動と時刻の例を押せるチップにし、押した文言を答えとして流す",
+        "スキップの操作は、必須でない質問（理由、時刻）にだけ出す",
+        "宣言を実際に声で録った日は、途中で文字を使っていても音声ありとして保存する",
+        "チップだけが有効な段階では入力欄を出さない",
+        "文字の入力待ちの状態行を「入力を待っています」にする"
+      ],
+      "non_scope": [
+        "文字の入力待ちの見張りの停止（task_033 で実施済み）",
+        "設定の「話せない時を自動で使う時間帯」の変更"
+      ],
+      "files_to_read": [
+        "docs/implementation-plan.md（§16）",
+        "docs/review/ux-weak-areas-2026-10-05.md",
+        "App/Features/Session/SessionView.swift",
+        "App/Features/Session/SessionViewModel.swift",
+        "App/Features/Session/TextFallbackSheet.swift",
+        "App/Features/Session/SessionCopy.swift",
+        "Packages/SaydoCore/Sources/SaydoCore/Flows/MorningFlow.swift",
+        "Packages/SaydoCore/Sources/SaydoCore/Flows/FlowMachine.swift"
+      ],
+      "files_to_create": [
+        "App/Features/Session/TextAnswerField.swift"
+      ],
+      "files_to_modify": [
+        "App/Features/Session/SessionView.swift",
+        "App/Features/Session/SessionViewModel.swift",
+        "App/Features/Session/TextFallbackSheet.swift",
+        "App/Features/Session/SessionCopy.swift",
+        "Packages/SaydoCore/Sources/SaydoCore/Flows/MorningFlow.swift",
+        "Tests/SaydoTests/SessionViewModelTests.swift",
+        "Packages/SaydoCore/Tests/SaydoCoreTests/MorningFlowTests.swift"
+      ],
+      "dependencies": [
+        "task_039"
+      ],
+      "implementation_steps": [
+        "SessionViewModel.swift:543-557, 676-690 と TextFallbackSheet.swift:40-90 と MorningFlow.swift:351 を読んで確かめる",
+        "VMT に先に失敗するテストを書く: 声を出さない状態では speak が呼ばれない",
+        "VMT に先に失敗するテストを書く: 1 問だけ文字で答えた後、次の質問は声で聞き取りが始まる",
+        "VMT に先に失敗するテストを書く: 声を出さない状態から switchToVoiceMode で戻ると、次の質問が読み上げられる",
+        "MorningFlowTests に先に失敗するテストを書く: 途中で文字を使い、宣言を声で録った日の commit が音声ありになる",
+        "実装し、TextFallbackSheet を TextAnswerField に置き換える"
+      ],
+      "done_definition": [
+        "声を出さない状態で読み上げが鳴らない（VMT）",
+        "文字だけで M0〜M4 を通すと約束が保存される（VMT）",
+        "1 問だけ文字で答えた後、声に戻る（VMT）",
+        "声で宣言した日は音声ありで保存される（MorningFlowTests）",
+        "必須の質問でスキップの操作が出ない（コードと実機で確認）",
+        "scripts/test-core.sh と scripts/test-ios.sh が exit 0"
+      ],
+      "verify_commands": [
+        "scripts/test-core.sh",
+        "scripts/test-ios.sh"
+      ],
+      "risk_level": "medium"
+    },
+    {
+      "task_id": "task_041",
+      "title": "番の見える化: 話す・聞く・待つを区別し、「話し終えた」を 1 タップで伝えられるようにする",
+      "goal": "画面を見れば、いま自分が話す番かどうかが分かる",
+      "scope": [
+        "WaveformView が段階を受け取り、聞き取り中と宣言の録音中だけ動く。それ以外は静かな 1 本の線",
+        "SessionCopy の状態行をすべての段階に定義する",
+        "聞き取りの開始と終了で触覚を 1 回ずつ返す（音は鳴らさない）",
+        "聞き取り中と録音中に「話し終えた」ボタンを出し、finishSpeaking() で無音を待たずに確定する",
+        "無音での打ち切りが近いことを SilenceDetector.progress で示す。宣言の録音中は残り秒数を出す",
+        "催促と聞き直しは質問文の下の行に出し、質問文を消さない。聞き直しの文言を 3 種類にする",
+        "最初の沈黙の待ち時間を 5 秒から 8 秒にする",
+        "AppSettings.silenceThresholdSeconds を SilenceDetector に配線する"
+      ],
+      "non_scope": [
+        "押している間だけ録音する方式（範囲外）",
+        "開始音・終了音",
+        "波形の意匠の変更"
+      ],
+      "files_to_read": [
+        "docs/implementation-plan.md（§16）",
+        "docs/review/ux-weak-areas-2026-10-05.md",
+        "App/Features/Session/SessionView.swift",
+        "App/Features/Session/WaveformView.swift",
+        "App/Features/Session/SessionCopy.swift",
+        "App/Features/Session/SessionViewModel.swift",
+        "App/Audio/SilenceDetector.swift",
+        "App/Data/AppSettings.swift",
+        "Packages/SaydoCore/Sources/SaydoCore/Flows/FlowMachine.swift",
+        "Packages/SaydoCore/Sources/SaydoCore/Dialogue/DialogueCopy.swift",
+        "docs/design/design-notes.md"
+      ],
+      "files_to_create": [],
+      "files_to_modify": [
+        "App/Features/Session/SessionView.swift",
+        "App/Features/Session/WaveformView.swift",
+        "App/Features/Session/SessionCopy.swift",
+        "App/Features/Session/SessionViewModel.swift",
+        "Packages/SaydoCore/Sources/SaydoCore/Flows/FlowMachine.swift",
+        "Packages/SaydoCore/Sources/SaydoCore/Dialogue/DialogueCopy.swift",
+        "Tests/SaydoTests/SessionViewModelTests.swift",
+        "Packages/SaydoCore/Tests/SaydoCoreTests/DialogueCopyTests.swift",
+        "Packages/SaydoCore/Tests/SaydoCoreTests/MorningFlowTests.swift"
+      ],
+      "dependencies": [
+        "task_040"
+      ],
+      "implementation_steps": [
+        "SessionView.swift:67-81, WaveformView.swift:100-125, SessionCopy.swift:19-27 を読んで確かめる",
+        "状態行がすべての段階で文言を返すことを確かめるテストを足す",
+        "WaveformView に段階を渡し、Reduce Motion の既存の扱いを保つ",
+        "finishSpeaking() を実装し、聞き取りの世代（task_031）と整合させる",
+        "VMT に、finishSpeaking() で無音を待たずに文字起こしが流れるテストと、設定の無音しきい値が SilenceDetector に渡るテストを足す",
+        "催促の副次行を SessionViewModel に足し、質問文を上書きしない",
+        "聞き直しの文言 3 種類を DialogueCopy に足し、Guardrails に通す"
+      ],
+      "done_definition": [
+        "状態行がすべての段階で文言を返す（テスト）",
+        "波形が聞き取り中と録音中以外で動かない（コードと task_051 の実機で確認）",
+        "「話し終えた」で即座に確定する（VMT）",
+        "設定の無音しきい値を変えると打ち切りの秒数が変わる（VMT）",
+        "催促の間も質問文が画面に残る（VMT）",
+        "scripts/test-core.sh と scripts/test-ios.sh が exit 0"
+      ],
+      "verify_commands": [
+        "scripts/test-core.sh",
+        "scripts/test-ios.sh"
+      ],
+      "risk_level": "medium"
+    },
+    {
+      "task_id": "task_042",
+      "title": "答えを見せる: 認識結果を 1 行で見せて言い直せ、宣言の前に行動と時刻を画面に出す",
+      "goal": "聞き間違いがそのまま約束になることを防ぎ、宣言を記憶から組み立て直さなくて済むようにする",
+      "scope": [
+        "声の答え（逃げたいこと・行動・時刻）は、確定したら質問文の下に 1 行で見せる。時刻は解釈した結果（「16 時」）を見せる",
+        "見せた答えの横に「言い直す」を出し、その質問だけを聞き直せる（retakeAnswer。質問ごとに 1 回）。従来の M0 専用の「録り直す」はこれに置き換える",
+        "宣言の段階（M4）では、決めた行動と時刻を画面に出す",
+        "聞き取り中の途中経過（partialTranscript）を、聞いている間だけ薄く 1 行で見せる"
+      ],
+      "non_scope": [
+        "文字起こしの手での編集",
+        "宣言の文字起こしの表示（宣言は「聞いてみる」で確かめる。task_038）"
+      ],
+      "files_to_read": [
+        "docs/implementation-plan.md（§16）",
+        "docs/review/ux-weak-areas-2026-10-05.md",
+        "App/Features/Session/SessionView.swift",
+        "App/Features/Session/SessionViewModel.swift",
+        "App/Features/Session/SessionCopy.swift",
+        "Packages/SaydoCore/Sources/SaydoCore/Flows/FlowMachine.swift",
+        "Packages/SaydoCore/Sources/SaydoCore/Flows/MorningFlow.swift"
+      ],
+      "files_to_create": [],
+      "files_to_modify": [
+        "App/Features/Session/SessionView.swift",
+        "App/Features/Session/SessionViewModel.swift",
+        "App/Features/Session/SessionCopy.swift",
+        "Packages/SaydoCore/Sources/SaydoCore/Flows/FlowMachine.swift",
+        "Packages/SaydoCore/Sources/SaydoCore/Flows/MorningFlow.swift",
+        "Tests/SaydoTests/SessionViewModelTests.swift",
+        "Packages/SaydoCore/Tests/SaydoCoreTests/MorningFlowTests.swift"
+      ],
+      "dependencies": [
+        "task_041"
+      ],
+      "implementation_steps": [
+        "SessionView.swift:175-196 と SessionViewModel.swift:236, 524-541, 763 を読んで確かめる",
+        "MorningFlowTests に先に失敗するテストを書く: M2 の答えの後に言い直すと M2 の質問に戻り、行動が空になる。M3 でも同じ",
+        "VMT に先に失敗するテストを書く: 言い直しの後、古い答えの VoiceEntry が残らない",
+        "VMT に、M4 の段階で行動と時刻が画面用の値として出ているテストを足す",
+        "実装する"
+      ],
+      "done_definition": [
+        "行動と時刻の答えが、確定の後に画面で読める（VMT と実機）",
+        "各質問を 1 回ずつ言い直せ、古い答えの記録が残らない（MorningFlowTests / VMT）",
+        "宣言の段階で行動と時刻が画面に出る（VMT）",
+        "scripts/test-core.sh と scripts/test-ios.sh が exit 0"
+      ],
+      "verify_commands": [
+        "scripts/test-core.sh",
+        "scripts/test-ios.sh"
+      ],
+      "risk_level": "medium"
+    },
+    {
+      "task_id": "task_043",
+      "title": "朝の声を返す場面: 聞き方の選択肢を実際の出力に合わせ、本人が進めるまで留まる",
+      "goal": "朝の自分の声を、周りに聞かれずに、落ち着いて聞ける",
+      "scope": [
+        "聞き方の選択肢を「耳に当てて聞く」（受話口）「文字で読む」「このまま鳴らす」（スピーカー）の 3 つにする",
+        "再生または文字の表示の後、本人が「次へ」を押すまで次の質問へ進まない（continueAfterPlayback）",
+        "「もう一度聞く」は会話を進めず、読み上げと重ならない",
+        "「文字で読む」を選んだ会話では、以降の読み上げも鳴らさない",
+        "昼・夜・手動の時間切れの計時から、聞き方の選択待ちと再生中と「次へ」待ちの時間を除く"
+      ],
+      "non_scope": [
+        "再生カードの意匠の変更",
+        "イヤホンの自動検出の変更"
+      ],
+      "files_to_read": [
+        "docs/implementation-plan.md（§16）",
+        "docs/review/ux-weak-areas-2026-10-05.md",
+        "App/Features/Session/ListenModeSheet.swift",
+        "App/Features/Session/PlaybackCardView.swift",
+        "App/Features/Session/PlaybackCopy.swift",
+        "App/Features/Session/SessionViewModel.swift",
+        "App/Audio/AudioSessionController.swift",
+        "App/Audio/VoicePlayer.swift",
+        "Packages/SaydoCore/Sources/SaydoCore/Flows/NoonFlow.swift",
+        "docs/design/Playback.dc.html"
+      ],
+      "files_to_create": [],
+      "files_to_modify": [
+        "App/Features/Session/ListenModeSheet.swift",
+        "App/Features/Session/PlaybackCardView.swift",
+        "App/Features/Session/PlaybackCopy.swift",
+        "App/Features/Session/SessionViewModel.swift",
+        "App/Features/Session/SessionView.swift",
+        "Tests/SaydoTests/SessionViewModelTests.swift"
+      ],
+      "dependencies": [
+        "task_042"
+      ],
+      "implementation_steps": [
+        "ListenModeSheet.swift:12-30 と SessionViewModel.swift:876-895 と AudioSessionController.swift:150-180 と VoicePlayer.swift:70-116 を読んで確かめる",
+        "VMT に先に失敗するテストを書く: 再生が終わっても continueAfterPlayback を呼ぶまで次の質問が読まれない",
+        "VMT に先に失敗するテストを書く: 「耳に当てて聞く」で preferReceiver が true、「このまま鳴らす」で false で再生される",
+        "VMT に先に失敗するテストを書く: 「文字で読む」の後は speak が呼ばれない",
+        "VMT に先に失敗するテストを書く: 30 秒の再生の後でも、昼の会話が時間切れにならず結果を答えられる",
+        "実装する"
+      ],
+      "done_definition": [
+        "3 つの選択肢がそれぞれ文言どおりの出力経路で動く（VMT。受話口から実際に鳴ることは task_051 の実機で確認）",
+        "「次へ」を押すまで次の質問が読まれない（VMT）",
+        "「もう一度聞く」で会話が進まない（VMT）",
+        "再生の時間が時間切れに数えられない（VMT）",
+        "scripts/test-ios.sh が exit 0"
+      ],
+      "verify_commands": [
+        "scripts/test-ios.sh"
+      ],
+      "risk_level": "medium"
+    },
+    {
+      "task_id": "task_044",
+      "title": "割り込みで会話を中断し、同じ日のうちは続きから始められるようにする",
+      "goal": "電話が来たりアプリを離れたりしてもマイクが動いたままにならず、戻ったときに最初からやり直さずに済む",
+      "scope": [
+        "AudioSessionController が流す割り込みと経路変更のイベントを SessionViewModel が受ける",
+        "割り込みの開始とバックグラウンド移行で、聞き取り・録音・読み上げを止め、会話を中断として保存して閉じる",
+        "再生中にイヤホンが抜けたら再生を止める",
+        "中断した朝の会話の状態（FlowState と、保存済みの音声・分類結果との対応）を、その日のうちだけ AppSettings に保存する",
+        "同じ日に朝の会話を開いたとき、保存があれば FlowEntry.resume に渡し、中断した質問から始める。答えの途中だった質問は聞き直す",
+        "日付が変わったら保存を捨てる。約束が保存済みの会話は再開の対象にしない"
+      ],
+      "non_scope": [
+        "昼・夜の会話の再開",
+        "バックグラウンドでの録音の継続",
+        "「後で声で」の通知からの再開"
+      ],
+      "files_to_read": [
+        "docs/implementation-plan.md（§16）",
+        "docs/review/ux-weak-areas-2026-10-05.md",
+        "App/Audio/AudioSessionController.swift",
+        "App/Features/Session/SessionViewModel.swift",
+        "App/RootView.swift",
+        "App/AppRouter.swift",
+        "App/Data/AppSettings.swift",
+        "Packages/SaydoCore/Sources/SaydoCore/Flows/FlowMachine.swift"
+      ],
+      "files_to_create": [],
+      "files_to_modify": [
+        "App/Features/Session/SessionViewModel.swift",
+        "App/RootView.swift",
+        "App/AppRouter.swift",
+        "App/Data/AppSettings.swift",
+        "Tests/SaydoTests/SessionViewModelTests.swift",
+        "Tests/SaydoTests/AppRouterTests.swift",
+        "Tests/SaydoTests/AppSettingsTests.swift"
+      ],
+      "dependencies": [
+        "task_043"
+      ],
+      "implementation_steps": [
+        "AudioSessionController.swift:95-110, 185-240 と FlowMachine.swift:455-470 と SessionViewModel.swift:1019-1034 と AppRouter.swift:138-160 を読み、イベントの購読箇所が無いことと、再開の入口が既にあることを確かめる",
+        "VMT に先に失敗するテストを書く: 割り込みのイベントの後、録音が止まり、完了の種類が中断になる",
+        "AppRouterTests に先に失敗するテストを書く: M2 で中断した後、同じ日に朝の会話を開くと M2 の質問から始まり、M0 の答えが保たれている",
+        "AppRouterTests に先に失敗するテストを書く: 翌日に開くと最初の質問から始まる",
+        "RootView の scenePhase で .background を受けたら router.dismissSession() を呼ぶ",
+        "実装する"
+      ],
+      "done_definition": [
+        "割り込みの後に録音・読み上げ・再生が止まり、SessionLog が中断として残る（VMT）",
+        "同じ日の再開で、中断した質問から始まり、それまでの答えが保たれている（AppRouterTests）",
+        "翌日は最初から始まる（AppRouterTests）",
+        "再生中にイヤホンが抜けると再生が止まる（VMT）",
+        "scripts/test-ios.sh が exit 0"
+      ],
+      "verify_commands": [
+        "scripts/test-ios.sh"
+      ],
+      "risk_level": "medium"
+    },
+    {
+      "task_id": "task_045",
+      "title": "オンボーディングを 3 画面にし、通知の許可を主ボタンで求める",
+      "goal": "初めての人が短い手順で会話にたどり着き、声を届けるための通知を確実に検討できる",
+      "scope": [
+        "オンボーディングを「何をするアプリか」「マイクの許可」「通知の許可」の 3 画面にする。時刻・アセット・バックアップの段階を外す",
+        "マイクと通知の許可は、それぞれの画面の主ボタンで求める。断っても、または「あとで」を選んでも先へ進める",
+        "通知の画面では、なぜ要るか（朝の声を言った時刻に届けるため）を 1 文で伝える",
+        "オンボーディングの「朝に 30 秒だけ」「朝に 1 通と行動の時刻に 1 通。それだけ」を、実際の動作に合う文言に直す",
+        "アプリが前面に戻るたびに通知の許可状態を読み直す",
+        "バックアップの説明を設定画面のデータの節に移す"
+      ],
+      "non_scope": [
+        "オンボーディング完了で会話を開く配線（task_046）",
+        "Today の通知の掲示（task_047）",
+        "音声モデルの取得中の掲示（task_046）"
+      ],
+      "files_to_read": [
+        "docs/implementation-plan.md（§16）",
+        "docs/review/ux-weak-areas-2026-10-05.md",
+        "App/Features/Onboarding/OnboardingView.swift",
+        "App/Features/Onboarding/OnboardingCopy.swift",
+        "App/Features/Onboarding/PermissionsViewModel.swift",
+        "App/Features/Onboarding/AssetDownloadView.swift",
+        "App/Notifications/NotificationScheduler.swift",
+        "App/Features/Settings/SettingsView.swift"
+      ],
+      "files_to_create": [],
+      "files_to_modify": [
+        "App/Features/Onboarding/OnboardingView.swift",
+        "App/Features/Onboarding/OnboardingCopy.swift",
+        "App/Features/Onboarding/PermissionsViewModel.swift",
+        "App/Features/Settings/SettingsView.swift",
+        "App/Features/Settings/SettingsCopy.swift"
+      ],
+      "dependencies": [
+        "task_036"
+      ],
+      "implementation_steps": [
+        "OnboardingView.swift:38-112, 170-240 と PermissionsViewModel.swift を読んで確かめる",
+        "3 画面に作り直し、外した段階の文言を OnboardingCopy から消す",
+        "主ボタンの動作を「許可を求める。結果に関わらず次へ進む」にする",
+        "scenePhase の .active で許可状態を読み直す",
+        "iPhone SE（3 世代）のシミュレータで 3 画面の画面写真を撮り、docs/logs に置く"
+      ],
+      "done_definition": [
+        "オンボーディングが 3 画面で、どの画面も主ボタン 1 回で先へ進める（画面写真とコード）",
+        "通知を断っても最後まで進める（シミュレータで確認）",
+        "文言が実際の会話の長さと通知の回数に合っている（task_049 の copy-audit でも確認）",
+        "scripts/build-ios.sh と scripts/test-ios.sh が exit 0"
+      ],
+      "verify_commands": [
+        "scripts/build-ios.sh",
+        "scripts/test-ios.sh"
+      ],
+      "risk_level": "low"
+    },
+    {
+      "task_id": "task_046",
+      "title": "開いたら会話が始まる",
+      "goal": "初めての人が、最初の 1 分で会話を体験する",
+      "scope": [
+        "オンボーディングを終えたら、そのまま朝の会話を開く",
+        "アイコンから起動したとき、その日の SessionLog が 1 件も無ければ、会話を自動で開く（約束が無ければ朝の会話）。その日に会話を開いたことがあれば自動では開かない。通知からの起動は従来どおり毎回開く",
+        "Repository に、当日の SessionLog があるかを返す問い合わせを足す（既にあれば使う）",
+        "マイクが拒否されている端末で自動で開いた場合は、最初から文字の経路で始め、無言で止まらない",
+        "音声モデルの取得は裏で始め、会話画面に「日本語の音声を準備しています」を出して文字で答えられることを示す。取得中は時間切れの計時を止める"
+      ],
+      "non_scope": [
+        "Today の主ボタン（task_047）",
+        "タブ構成の変更"
+      ],
+      "files_to_read": [
+        "docs/implementation-plan.md（§16）",
+        "docs/review/ux-weak-areas-2026-10-05.md",
+        "App/AppRouter.swift",
+        "App/RootView.swift",
+        "App/Data/Repository.swift",
+        "App/Features/Session/SessionViewModel.swift",
+        "App/Features/Session/SessionView.swift",
+        "App/Features/Session/SessionCopy.swift",
+        "App/Audio/TranscriptionService.swift"
+      ],
+      "files_to_create": [],
+      "files_to_modify": [
+        "App/AppRouter.swift",
+        "App/RootView.swift",
+        "App/Data/Repository.swift",
+        "App/Features/Session/SessionViewModel.swift",
+        "App/Features/Session/SessionView.swift",
+        "App/Features/Session/SessionCopy.swift",
+        "Tests/SaydoTests/AppRouterTests.swift",
+        "Tests/SaydoTests/RepositoryTests.swift",
+        "Tests/SaydoTests/SessionViewModelTests.swift"
+      ],
+      "dependencies": [
+        "task_044",
+        "task_045"
+      ],
+      "implementation_steps": [
+        "AppRouter.swift:95-168 と RootView.swift:18-48 と SessionViewModel.swift:734-746 を読んで確かめる",
+        "AppRouterTests に先に失敗するテストを書く: completeOnboarding の後に朝の会話が開いている",
+        "AppRouterTests に先に失敗するテストを書く: その日の SessionLog が無い起動で会話が開き、1 件ある起動では開かない",
+        "AppRouterTests に先に失敗するテストを書く: マイク拒否の端末で自動で開くと、文字の経路で始まる",
+        "VMT に、音声モデルの取得中に掲示が出て、時間切れの計時が進まないテストを足す",
+        "実装する"
+      ],
+      "done_definition": [
+        "オンボーディング完了で朝の会話が開く（AppRouterTests）",
+        "自動で開くのは、その日に会話を 1 度も開いていない起動だけである（AppRouterTests）",
+        "マイク拒否の端末でも、自動で開いた会話が文字で進められる（AppRouterTests）",
+        "音声モデルの取得中に掲示が出る（VMT）",
+        "scripts/test-ios.sh が exit 0"
+      ],
+      "verify_commands": [
+        "scripts/test-ios.sh"
+      ],
+      "risk_level": "medium"
+    },
+    {
+      "task_id": "task_047",
+      "title": "Today: 開始位置まで含めた主ボタンの判定、読み直し、再生中の表示",
+      "goal": "Today を見れば、次に押すと何が起きるかが分かり、朝の声を確かに聞ける",
+      "scope": [
+        "主ボタンの判定を TodayAction として切り出す。昼の会話の入口（NoonFlow.entrance）と同じ入力（約束の有無・結果・行動時刻より前か）を使い、実装計画 §16.8 の 5 行の表どおりに文言と会話の種類を返す",
+        "アプリが前面に戻るたび、および日付が変わったときに読み直す",
+        "約束のカードの再生ボタンは、再生中は停止の形になり、押すと止まる。再生に失敗したら 1 行で伝える。連打しても再生が重ならない",
+        "通知の掲示: 許可が未決定なら押すと許可ダイアログを出す。拒否済みなら設定アプリを開く。本人が閉じたら、その日は出さない",
+        "朝以外の時間帯に朝の会話を開いたときの挨拶を時間帯で変える（FlowEntry.dayPart）"
+      ],
+      "non_scope": [
+        "Today のレイアウトの作り直し",
+        "夜の会話の内容の変更"
+      ],
+      "files_to_read": [
+        "docs/implementation-plan.md（§16）",
+        "docs/review/ux-weak-areas-2026-10-05.md",
+        "App/Features/Today/TodayView.swift",
+        "App/Features/Today/TodayCopy.swift",
+        "App/RootView.swift",
+        "App/AppRouter.swift",
+        "Packages/SaydoCore/Sources/SaydoCore/Flows/NoonFlow.swift",
+        "Packages/SaydoCore/Sources/SaydoCore/Flows/NightFlow.swift",
+        "Packages/SaydoCore/Sources/SaydoCore/Flows/FlowMachine.swift",
+        "Packages/SaydoCore/Sources/SaydoCore/Dialogue/DialogueCopy.swift",
+        "App/Audio/VoicePlayer.swift",
+        "App/Features/Timeline/TimelinePlayback.swift",
+        "App/Notifications/NotificationScheduler.swift"
+      ],
+      "files_to_create": [
+        "App/Features/Today/TodayAction.swift",
+        "Tests/SaydoTests/TodayActionTests.swift"
+      ],
+      "files_to_modify": [
+        "App/Features/Today/TodayView.swift",
+        "App/Features/Today/TodayCopy.swift",
+        "App/AppRouter.swift",
+        "App/RootView.swift",
+        "Packages/SaydoCore/Sources/SaydoCore/Flows/FlowMachine.swift",
+        "Packages/SaydoCore/Sources/SaydoCore/Flows/MorningFlow.swift",
+        "Packages/SaydoCore/Sources/SaydoCore/Dialogue/DialogueCopy.swift",
+        "Packages/SaydoCore/Tests/SaydoCoreTests/MorningFlowTests.swift"
+      ],
+      "dependencies": [
+        "task_046"
+      ],
+      "implementation_steps": [
+        "TodayView.swift:58-62, 160-216, 244-247 と NoonFlow.swift:18-90 と NightFlow.swift:8-30 を読み、各入口で最初に起きることを確かめる",
+        "TodayActionTests に、§16.8 の 5 つの状態それぞれで文言と会話の種類を固定するテストを書く。あわせて、各状態で実際に FlowMachine.start を呼び、最初の命令が表の「最初に起きること」と一致することを確かめる",
+        "TodayView が scenePhase の .active で load() を呼び直す",
+        "再生の状態は記録タブの TimelinePlayback と同じ仕組みを使う",
+        "FlowEntry に dayPart を足し、MorningFlowTests で夕方に開いた朝の会話が「おはよう」で始まらないことを確かめる"
+      ],
+      "done_definition": [
+        "5 つの状態で、主ボタンの文言と、押して最初に起きることが一致する（TodayActionTests）",
+        "「朝の声を聞く」を押すと、最初に朝の声の再生（または聞き方の選択）が始まる（TodayActionTests）",
+        "再生中は停止の形になり、連打しても再生が重ならない（実機で確認）",
+        "夕方に開いた朝の会話が「おはよう」で始まらない（MorningFlowTests）",
+        "scripts/test-core.sh と scripts/test-ios.sh が exit 0"
+      ],
+      "verify_commands": [
+        "scripts/test-core.sh",
+        "scripts/test-ios.sh"
+      ],
+      "risk_level": "medium"
+    },
+    {
+      "task_id": "task_048",
+      "title": "設定と仕様の同期: ダーク固定、開発者向け節の非表示、削除の確認",
+      "goal": "見えているものが、そのとおりに効く",
+      "scope": [
+        "外観をダークに固定する（RootView の preferredColorScheme と project.yml の UIUserInterfaceStyle）",
+        "設定の開発者向けの節を Debug ビルドだけに出す",
+        "「データを全部消す」を節の最下段に離し、破壊的操作の役割を付ける。確認文に「設定も最初に戻ります」を足す。消した後は設定のシートを閉じる",
+        "書き出しの前に、文字起こしと音声が含まれることを 1 行で伝える",
+        "週次のカードは 7 日そろうまで押せなくする。週次の画面の左上を「閉じる」にする"
+      ],
+      "non_scope": [
+        "設定の項目の追加",
+        "書き出しの暗号化"
+      ],
+      "files_to_read": [
+        "docs/implementation-plan.md（§16）",
+        "docs/review/ux-weak-areas-2026-10-05.md",
+        "App/Features/Settings/SettingsView.swift",
+        "App/Features/Settings/SettingsCopy.swift",
+        "App/RootView.swift",
+        "project.yml",
+        "App/Features/Insight/WeeklyInsightView.swift",
+        "App/Features/Insight/InsightCardView.swift",
+        "docs/design/design-notes.md"
+      ],
+      "files_to_create": [],
+      "files_to_modify": [
+        "App/Features/Settings/SettingsView.swift",
+        "App/Features/Settings/SettingsCopy.swift",
+        "App/RootView.swift",
+        "project.yml",
+        "App/Features/Insight/WeeklyInsightView.swift",
+        "App/Features/Insight/InsightCardView.swift"
+      ],
+      "dependencies": [
+        "task_047"
+      ],
+      "implementation_steps": [
+        "SettingsView.swift:100-108, 249-263, 300-353 と WeeklyInsightView.swift:53-96 を読んで確かめる",
+        "developerSection を #if DEBUG で囲む",
+        "ダーク固定を入れる",
+        "削除と書き出しの見た目と文言を直す",
+        "週次のカードの押下条件を直す",
+        "シミュレータをライト外観にして Today・記録・設定・会話画面の画面写真を撮り、docs/logs に置く"
+      ],
+      "done_definition": [
+        "Release ビルドの設定画面に開発者向けの節が無い（コードで確認）",
+        "端末がライト外観でも全画面がダークで表示される（画面写真）",
+        "全削除の確認文が設定の初期化に触れ、消した後にオンボーディングだけが見える（シミュレータで確認）",
+        "scripts/build-ios.sh と scripts/test-ios.sh が exit 0"
+      ],
+      "verify_commands": [
+        "scripts/build-ios.sh",
+        "scripts/test-ios.sh"
+      ],
+      "risk_level": "low"
+    },
+    {
+      "task_id": "task_049",
+      "title": "言葉: 用語を統一し、通知・締めの文言と声の答えの判定を直す",
+      "goal": "同じものを同じ名前で呼び、禁止語を通っても責めて聞こえる文を無くす",
+      "scope": [
+        "利用者に見せる語を「約束」（中身）と「朝の声」（録音）に統一する。用語の対応を DialogueCopy の先頭のコメントに置く",
+        "通知の文言を、問い詰める疑問文から「朝のあなたからです。」の調子に変える。ロック画面で他人に見えても困らない文にする",
+        "通知のアクション「今は話せない」を「1 時間あとで」に変える（会話画面の「声を出さない」と区別する）",
+        "朝の会話の締めを「今日はここまで。」から、次に起きることを言う文に変える",
+        "昼と夜の声の答えの判定で、判定の前に句読点を落とし、否定の語を先に見る。どちらとも取れる答えはチップで確かめる",
+        "設定の「固定の通知」「話し終わりの間」「端末の既定」に 1 行の説明を付ける"
+      ],
+      "non_scope": [
+        "Guardrails の禁止語リストの削減",
+        "AI による言い換え（task_015）"
+      ],
+      "files_to_read": [
+        "docs/implementation-plan.md（§16）",
+        "docs/review/ux-weak-areas-2026-10-05.md",
+        "Packages/SaydoCore/Sources/SaydoCore/Dialogue/DialogueCopy.swift",
+        "Packages/SaydoCore/Sources/SaydoCore/Notifications/NotificationCopy.swift",
+        "Packages/SaydoCore/Sources/SaydoCore/Flows/NoonFlow.swift",
+        "Packages/SaydoCore/Sources/SaydoCore/Flows/NightFlow.swift",
+        "Packages/SaydoCore/Sources/SaydoCore/Dialogue/Guardrails.swift",
+        "App/Features/Today/TodayCopy.swift",
+        "App/Features/Settings/SettingsCopy.swift",
+        "App/Features/Onboarding/OnboardingCopy.swift",
+        "App/Features/Session/SessionCopy.swift",
+        "docs/retention-strategy.md"
+      ],
+      "files_to_create": [],
+      "files_to_modify": [
+        "Packages/SaydoCore/Sources/SaydoCore/Dialogue/DialogueCopy.swift",
+        "Packages/SaydoCore/Sources/SaydoCore/Notifications/NotificationCopy.swift",
+        "Packages/SaydoCore/Sources/SaydoCore/Flows/NoonFlow.swift",
+        "Packages/SaydoCore/Sources/SaydoCore/Flows/NightFlow.swift",
+        "App/Features/Today/TodayCopy.swift",
+        "App/Features/Settings/SettingsCopy.swift",
+        "App/Features/Onboarding/OnboardingCopy.swift",
+        "App/Features/Session/SessionCopy.swift",
+        "Packages/SaydoCore/Tests/SaydoCoreTests/NoonFlowTests.swift",
+        "Packages/SaydoCore/Tests/SaydoCoreTests/NightFlowTests.swift",
+        "Packages/SaydoCore/Tests/SaydoCoreTests/NotificationCopyTests.swift",
+        "Packages/SaydoCore/Tests/SaydoCoreTests/GuardrailsTests.swift"
+      ],
+      "dependencies": [
+        "task_048"
+      ],
+      "implementation_steps": [
+        "NotificationCopy.swift:30-45, 80-86 と NoonFlow.swift:180-196 と NightFlow.swift:55-98 を読んで確かめる",
+        "NoonFlowTests に先に失敗するテストを書く: 「まだちょっと手がついてない」が「少しやった」にならず、チップでの確認になる",
+        "NightFlowTests に先に失敗するテストを書く: 「何もできなかった。」（句点付き）が前進として記録されない",
+        "通知の文言を書き換え、すべてを Guardrails に通すテストを足す",
+        "用語の対応表をコメントに置き、各 Copy ファイルの語を揃える",
+        "copy-audit のスキルを実行し、結果を PROGRESS に貼る"
+      ],
+      "done_definition": [
+        "句点付きの否定の答えが前進として扱われない（NoonFlowTests / NightFlowTests）",
+        "通知の文言がすべて Guardrails のテストを通り、問い詰める疑問文が無い（NotificationCopyTests と copy-audit の結果）",
+        "録音を指す語と中身を指す語が、画面と通知で揃っている（copy-audit の結果を PROGRESS に貼る）",
+        "Guardrails の禁止語と既存のテストケースが削られていない（git diff で確認）",
+        "scripts/test-core.sh と scripts/test-ios.sh が exit 0"
+      ],
+      "verify_commands": [
+        "scripts/test-core.sh",
+        "scripts/test-ios.sh"
+      ],
+      "risk_level": "medium"
+    },
+    {
+      "task_id": "task_050",
+      "title": "視覚とアクセシビリティ: 文字階層、タップ領域、VoiceOver、記録の行",
+      "goal": "小さくて読めない・押せない・読み上げで区別できない箇所を無くす",
+      "scope": [
+        "セクションラベルの色を ink4 から ink3 にする",
+        "折り返す補足文のために、字送り 0 の文字の役割を SaydoTheme に足し、設定とオンボーディングの補足文をそれに替える",
+        "文字だけのボタンと設定の歯車に 44pt 以上のタップ領域を当てる",
+        "記録の行を VoiceOver で 1 要素にまとめ、「8 時 12 分の朝の声を再生」のように読ませる",
+        "記録の行に種類（朝の声 / 昼 / 夜）を 1 語添える。音声の無い行はマイクの絵を外す",
+        "日付の書式を 1 か所にまとめ、ja_JP に固定する",
+        "Today を縦にスクロールできるようにする（Dynamic Type xxxLarge のはみ出し対策）"
+      ],
+      "non_scope": [
+        "粒状感・帯状の光の再現",
+        "配色の変更",
+        "記録の行を押して全文を開く機能",
+        "task_018 の残り（Instruments の計測など）"
+      ],
+      "files_to_read": [
+        "docs/implementation-plan.md（§16）",
+        "docs/review/ux-weak-areas-2026-10-05.md",
+        "App/Features/Shared/SaydoTheme.swift",
+        "App/Features/Timeline/VoiceEntryRow.swift",
+        "App/Features/Timeline/VoiceTimelineView.swift",
+        "App/Features/Today/TodayView.swift",
+        "App/Features/Settings/SettingsView.swift",
+        "App/Features/Onboarding/OnboardingView.swift",
+        "App/Features/Insight/WeeklyInsightView.swift",
+        "docs/design/design-notes.md"
+      ],
+      "files_to_create": [],
+      "files_to_modify": [
+        "App/Features/Shared/SaydoTheme.swift",
+        "App/Features/Timeline/VoiceEntryRow.swift",
+        "App/Features/Timeline/VoiceTimelineView.swift",
+        "App/Features/Today/TodayView.swift",
+        "App/Features/Settings/SettingsView.swift",
+        "App/Features/Onboarding/OnboardingView.swift",
+        "App/Features/Insight/WeeklyInsightView.swift"
+      ],
+      "dependencies": [
+        "task_049"
+      ],
+      "implementation_steps": [
+        "SaydoTheme.swift:25-35, 105-145 と VoiceEntryRow.swift:25-90 を読んで確かめる",
+        "テーマを直し、使用箇所を替える",
+        "記録の行を直す",
+        "iPhone SE（3 世代）のシミュレータと Dynamic Type xxxLarge で、Today・記録・設定・会話画面の画面写真を撮り、docs/logs に置く"
+      ],
+      "done_definition": [
+        "本文とラベルが ink3 以上の濃さで表示される（コードと画面写真）",
+        "押せる要素のタップ領域がすべて 44pt 以上である（コードで確認）",
+        "記録の行が VoiceOver で時刻と種類を読む（task_051 の実機で確認）",
+        "iPhone SE × xxxLarge の画面写真で、文字の欠けと届かない操作が無い",
+        "scripts/test-ios.sh が exit 0"
+      ],
+      "verify_commands": [
+        "scripts/test-ios.sh"
+      ],
+      "risk_level": "low"
+    },
+    {
+      "task_id": "task_051",
+      "title": "実機検証 2 と TestFlight 内部配布 #2（人間の作業を含む）",
+      "goal": "直した結果を実機で確かめ、本人が 7 日間使える版を配る",
+      "scope": [
+        "OSLog 付きのビルドを実機に入れ、朝フローを 3 回通す",
+        "OSLog を集め、3 回とも全段階で読み上げ終了が聞き取り開始より前にあることを確かめる",
+        "docs/device/device-check-2026-09-04.md の A・B を実施し、結果を記入する",
+        "苦手分野リストの「推定」の行（翌朝の Today、再生の連打、受話口からの再生、着信時の中断、VoiceOver）を実機で確かめる",
+        "TestFlight 内部配布 #2 をアップロードし、ビルド番号を PROGRESS に記録する"
+      ],
+      "non_scope": [
+        "外部テスト",
+        "App Review への提出"
+      ],
+      "files_to_read": [
+        "docs/implementation-plan.md（§16）",
+        "docs/review/ux-weak-areas-2026-10-05.md",
+        "docs/device/device-check-2026-09-04.md",
+        "docs/device/device-log-analysis-2026-10.md",
+        "scripts/build-device.sh",
+        "scripts/archive-testflight.sh"
+      ],
+      "files_to_create": [],
+      "files_to_modify": [
+        "docs/device/device-check-2026-09-04.md",
+        "docs/device/device-log-analysis-2026-10.md",
+        "docs/PROGRESS.md"
+      ],
+      "dependencies": [
+        "task_050"
+      ],
+      "implementation_steps": [
+        "iPhone を接続しロックを解除した状態で SAYDO_TEAM_ID=2WWB6ZA7A9 scripts/build-device.sh を実行する",
+        "アプリを消して入れ直し、オンボーディングから朝フローを 3 回通す（日付をまたぐか、データを消して繰り返す）。所要時間・タップ回数・最初の読み上げまでの時間を記録する",
+        "ログから時系列表を作り、task_039 の文書に追記する",
+        "device-check の A・B と、上の「推定」の行を確かめて記入する",
+        "Mac の空き容量を確かめてから SAYDO_TEAM_ID=2WWB6ZA7A9 scripts/archive-testflight.sh を実行する"
+      ],
+      "done_definition": [
+        "実機の朝フロー 3 回すべてで、読み上げ終了が聞き取り開始より前にある（時系列表）",
+        "device-check の A・B の結果欄が埋まっている",
+        "TestFlight 内部配布 #2 のアップロードが成功し、ビルド番号が PROGRESS にある",
+        "scripts/test-core.sh と scripts/test-ios.sh が exit 0"
+      ],
+      "verify_commands": [
+        "scripts/test-core.sh",
+        "scripts/test-ios.sh",
+        "SAYDO_TEAM_ID=2WWB6ZA7A9 scripts/build-device.sh",
+        "SAYDO_TEAM_ID=2WWB6ZA7A9 scripts/archive-testflight.sh"
+      ],
+      "risk_level": "high"
+    },
+    {
+      "task_id": "task_052",
+      "title": "（任意）エコーキャンセルの検証（task_039 で音の回り込みが見つかった場合だけ）",
+      "goal": "読み上げがマイクに入って聞き取りが誤って終わる問題を、OS のエコーキャンセルで消せるかを実機で測る",
+      "scope": [
+        "Spikes/SpeechSpike で、入力ノードの音声処理（isVoiceProcessingEnabled）を有効にした場合と無効の場合の、読み上げ中と読み上げ直後の入力レベルを実機で比べる",
+        "SpeechAnalyzer の認識結果と、録音の音質（宣言の録音は本人に返すので劣化させられない）への影響を記録する",
+        "結果を docs/spikes/speech-spike.md に追記し、採否を決める"
+      ],
+      "non_scope": [
+        "アプリ本体への適用（採用を決めた後に別タスクで行う）"
+      ],
+      "files_to_read": [
+        "docs/implementation-plan.md（§16）",
+        "docs/review/ux-weak-areas-2026-10-05.md",
+        "Spikes/SpeechSpike/SpikeAudio.swift",
+        "App/Audio/VoiceCapture.swift",
+        "docs/spikes/speech-spike.md",
+        "docs/device/device-log-analysis-2026-10.md"
+      ],
+      "files_to_create": [],
+      "files_to_modify": [
+        "Spikes/SpeechSpike/SpikeAudio.swift",
+        "docs/spikes/speech-spike.md"
+      ],
+      "dependencies": [
+        "task_039"
+      ],
+      "implementation_steps": [
+        "スパイクに切り替えのスイッチを足す",
+        "実機で読み上げ中の入力レベルを両方の設定で記録する",
+        "録音した宣言を聞き比べる"
+      ],
+      "done_definition": [
+        "両方の設定での入力レベルと認識結果が docs/spikes/speech-spike.md にある",
+        "採否が 1 文で書かれている",
+        "scripts/build-ios.sh SpeechSpike が exit 0"
+      ],
+      "verify_commands": [
+        "scripts/build-ios.sh SpeechSpike"
+      ],
+      "risk_level": "high",
+      "optional": true
     }
   ]
 }

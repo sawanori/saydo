@@ -352,6 +352,326 @@
       "expected_result": "新規 Commitment の alarmEnabled が false。設定画面に案内文があり、コードに MPVolumeView による音量操作が無い",
       "manual_or_automated": "automated",
       "verification_method": "Tests/SaydoTests の Commitment 既定値テストと grep -rn MPVolumeView App が 0 件"
+    },
+    {
+      "id": "check_045",
+      "target": "録音の保護（task_030）",
+      "rule": "永続ストアを開けずメモリ内ストアで起動したとき、音声ファイルの掃除を行わない",
+      "expected_result": "掃除の判定が false になり、端末上の音声ファイルが 1 件も消えない",
+      "manual_or_automated": "automated",
+      "verification_method": "Tests/SaydoTests/LaunchSafetyTests（scripts/test-ios.sh）"
+    },
+    {
+      "id": "check_046",
+      "target": "読み上げと聞き取りの順序（task_031）",
+      "rule": "読み上げの完了を遅らせても、完了より前に聞き取りを始めない",
+      "expected_result": "完了をテストから解放できるモックで M0〜M4 を進め、どの段階でも解放の前に録音が開始されていない。沈黙の見張りを経た催促の読み上げでも同じ",
+      "manual_or_automated": "automated",
+      "verification_method": "Tests/SaydoTests/SessionViewModelTests（scripts/test-ios.sh）"
+    },
+    {
+      "id": "check_047",
+      "target": "古い聞き取り結果（task_031）",
+      "rule": "段階が進んだ後に、前の段階の聞き取り結果を会話へ流さない",
+      "expected_result": "聞き取り中にチップを選んだ後、聞き直しの文言が読まれない",
+      "manual_or_automated": "automated",
+      "verification_method": "Tests/SaydoTests/SessionViewModelTests（scripts/test-ios.sh）"
+    },
+    {
+      "id": "check_048",
+      "target": "準備中の終了（task_031）",
+      "rule": "録音の準備の途中で会話が閉じられたら、録音を始めない",
+      "expected_result": "準備の待ちの間に閉じると、録音の開始が 0 回である",
+      "manual_or_automated": "automated",
+      "verification_method": "Tests/SaydoTests/SessionViewModelTests（scripts/test-ios.sh）"
+    },
+    {
+      "id": "check_049",
+      "target": "終了後の音声（task_031 / task_037）",
+      "rule": "会話が終了または閉じられた後に、録音・読み上げ・再生を動かさない",
+      "expected_result": "読み上げ中の時間切れと、途中での「閉じる」のどちらの後も、録音の開始が 0 回で、読み上げと再生が停止している",
+      "manual_or_automated": "automated",
+      "verification_method": "Tests/SaydoTests/SessionViewModelTests（scripts/test-ios.sh） と AppRouterTests"
+    },
+    {
+      "id": "check_050",
+      "target": "録音開始の失敗（task_032）",
+      "rule": "権限があるのに録音の開始に失敗しても、マイク拒否として扱わない",
+      "expected_result": "1 回の失敗は再試行で声のまま進む。2 回失敗しても「設定を開く」の掲示が出ず、次の質問で声に戻る",
+      "manual_or_automated": "automated",
+      "verification_method": "Tests/SaydoTests/SessionViewModelTests（scripts/test-ios.sh）"
+    },
+    {
+      "id": "check_051",
+      "target": "必須の質問: 沈黙と聞き直し（task_033）",
+      "rule": "朝の M0・M2・M4 は、沈黙 2 回や聞き直しの上限で次の質問へ進めない",
+      "expected_result": "M0 と M4 は文字の入力待ちに、M2 は行動のチップに落ち、段階が進んでいない",
+      "manual_or_automated": "automated",
+      "verification_method": "Packages/SaydoCore の MorningFlowTests（scripts/test-core.sh）"
+    },
+    {
+      "id": "check_052",
+      "target": "必須の質問: スキップ（task_033）",
+      "rule": "必須の質問をスキップしても、欠けた約束を作らない",
+      "expected_result": "M0・M2・M4 のそれぞれでスキップを受けると、会話が未成立として終わり、約束が保存されず、受領文が読まれない",
+      "manual_or_automated": "automated",
+      "verification_method": "Packages/SaydoCore の MorningFlowTests（scripts/test-core.sh） と Tests/SaydoTests/SessionViewModelTests（scripts/test-ios.sh）"
+    },
+    {
+      "id": "check_053",
+      "target": "文字の入力待ち（task_033）",
+      "rule": "文字の入力待ちでは催促も質問の送りもしない",
+      "expected_result": "入力待ちで 20 秒経っても催促が読まれず、段階が変わらない",
+      "manual_or_automated": "automated",
+      "verification_method": "Tests/SaydoTests/SessionViewModelTests（scripts/test-ios.sh）"
+    },
+    {
+      "id": "check_054",
+      "target": "時間切れ（task_033）",
+      "rule": "実装されていない続きを約束せず、話している途中で打ち切らない",
+      "expected_result": "時間切れの読み上げが続きを約束する文言を含まない。聞き取り中に時間切れになっても、その答えが確定するまで打ち切られない",
+      "manual_or_automated": "automated",
+      "verification_method": "Tests/SaydoTests/SessionViewModelTests（scripts/test-ios.sh） と DialogueCopyTests"
+    },
+    {
+      "id": "check_055",
+      "target": "時刻の一致（task_034）",
+      "rule": "時刻の解釈は 1 回だけ行い、保存と通知で同じ日時を使う",
+      "expected_result": "「16時から」と答えた会話で、保存された行動時刻と通知に渡る発火時刻が同じ日時である",
+      "manual_or_automated": "automated",
+      "verification_method": "Tests/SaydoTests/SessionViewModelTests（scripts/test-ios.sh）"
+    },
+    {
+      "id": "check_056",
+      "target": "時刻の聞き直し（task_034）",
+      "rule": "解釈できない答えと過ぎた時刻は、チップで 1 回だけ聞き直す",
+      "expected_result": "「仕事の後」と、現在時刻より前の時刻のどちらでも時刻のチップが出る。「決めない」を選ぶと時刻なしで宣言へ進む",
+      "manual_or_automated": "automated",
+      "verification_method": "Packages/SaydoCore の MorningFlowTests（scripts/test-core.sh） と Tests/SaydoTests/SessionViewModelTests（scripts/test-ios.sh）"
+    },
+    {
+      "id": "check_057",
+      "target": "受領と保存の一致（task_035）",
+      "rule": "受領文を読むのは、約束を保存できた会話だけにする",
+      "expected_result": "受領文が読まれた会話では約束が 1 件あり、保存に失敗した会話では受領文が読まれず、宣言の聞き取りに 1 回戻る",
+      "manual_or_automated": "automated",
+      "verification_method": "Tests/SaydoTests/SessionViewModelTests（scripts/test-ios.sh）"
+    },
+    {
+      "id": "check_058",
+      "target": "「届きます」と通知の一致（task_035）",
+      "rule": "「届きます」と言うのは、その時刻の通知を登録できた会話だけにする",
+      "expected_result": "通知の登録が成功した会話では、登録された時刻が約束の行動時刻と一致し、受領文がその時刻を言う",
+      "manual_or_automated": "automated",
+      "verification_method": "Tests/SaydoTests/SessionViewModelTests（scripts/test-ios.sh）"
+    },
+    {
+      "id": "check_059",
+      "target": "通知が無い日の受領文（task_035）",
+      "rule": "通知が届かない日は、時刻に触れない受領文にする",
+      "expected_result": "通知が未許可、登録に失敗、時刻なし、保存先が一時的、の 4 つの場合すべてで、約束は保存され、受領文が時刻にも「届きます」にも触れない",
+      "manual_or_automated": "automated",
+      "verification_method": "Packages/SaydoCore の MorningFlowTests（scripts/test-core.sh） と Tests/SaydoTests/SessionViewModelTests（scripts/test-ios.sh）"
+    },
+    {
+      "id": "check_060",
+      "target": "受領文の時刻句（task_035）",
+      "rule": "受領文に生の発話を差し込まない",
+      "expected_result": "「16時から」と答えた日の受領文に、同じ句の重複も「。に」も現れない",
+      "manual_or_automated": "automated",
+      "verification_method": "Packages/SaydoCore の MorningFlowTests（scripts/test-core.sh）"
+    },
+    {
+      "id": "check_061",
+      "target": "「後で声で」の非表示（task_036）",
+      "rule": "実装されていない通知を約束しない",
+      "expected_result": "会話のどの経路でも「後で声で」の選択肢と、後で声をかけると約束する読み上げが出ない。設定とオンボーディングに「一人で話せる時間」が出ない",
+      "manual_or_automated": "automated",
+      "verification_method": "Packages/SaydoCore の MorningFlowTests（scripts/test-core.sh）。画面はコードとシミュレータで確認"
+    },
+    {
+      "id": "check_062",
+      "target": "閉じる（task_037）",
+      "rule": "会話のすべての段階で、1 タップで閉じられる",
+      "expected_result": "各段階で「閉じる」が見え、押すと Today に戻り、SessionLog が中断として残る",
+      "manual_or_automated": "manual",
+      "verification_method": "task_039 の実機で朝フローの各段階から閉じる。保存は AppRouterTests で確認"
+    },
+    {
+      "id": "check_063",
+      "target": "宣言の差し替え（task_038）",
+      "rule": "宣言を言い直すと、約束が新しい録音を指し、古い録音を残さない",
+      "expected_result": "差し替えの後、宣言の記録が 1 件で、約束が新しいファイルを指し、古いファイルが消えている",
+      "manual_or_automated": "automated",
+      "verification_method": "Tests/SaydoTests/RepositoryTests（scripts/test-ios.sh）"
+    },
+    {
+      "id": "check_064",
+      "target": "宣言の差し替えの失敗（task_038）",
+      "rule": "新しい録音の保存に失敗しても、古い録音を失わない",
+      "expected_result": "保存に失敗させると、約束が古いファイルを指したままで、古いファイルが残っている",
+      "manual_or_automated": "automated",
+      "verification_method": "Tests/SaydoTests/RepositoryTests"
+    },
+    {
+      "id": "check_065",
+      "target": "宣言の確認（task_038）",
+      "rule": "録った宣言を、その場で聞いて確かめられる",
+      "expected_result": "完了画面の「聞いてみる」で宣言が再生される。文字で約束した日は出ない",
+      "manual_or_automated": "automated",
+      "verification_method": "Tests/SaydoTests/SessionViewModelTests（scripts/test-ios.sh）"
+    },
+    {
+      "id": "check_066",
+      "target": "実機での順序 1（task_039）",
+      "rule": "止血の後、実機の朝フローで読み上げと聞き取りの順序を確かめる",
+      "expected_result": "時系列表が docs/device にあり、重なりの有無と種類（なし / 順序の不具合 / 音の回り込み）が 1 文で書かれている",
+      "manual_or_automated": "manual",
+      "verification_method": "SAYDO_TEAM_ID=2WWB6ZA7A9 scripts/build-device.sh の後、idevicesyslog で Saydo の行を集める"
+    },
+    {
+      "id": "check_067",
+      "target": "文字の経路: 完走（task_040）",
+      "rule": "文字だけで朝フローを最後まで通せ、声を出さない状態では読み上げが鳴らない",
+      "expected_result": "M0〜M4 を文字で通すと約束が保存され、読み上げの呼び出しが 0 回である",
+      "manual_or_automated": "automated",
+      "verification_method": "Tests/SaydoTests/SessionViewModelTests（scripts/test-ios.sh）"
+    },
+    {
+      "id": "check_068",
+      "target": "文字の経路: 戻れる（task_040）",
+      "rule": "1 問だけ文字で答えても、その日を声なしに固定しない",
+      "expected_result": "1 問を文字で答えた後、次の質問で聞き取りが始まり、声で録った宣言が音声ありで保存される",
+      "manual_or_automated": "automated",
+      "verification_method": "Tests/SaydoTests/SessionViewModelTests（scripts/test-ios.sh） と Packages/SaydoCore の MorningFlowTests（scripts/test-core.sh）"
+    },
+    {
+      "id": "check_069",
+      "target": "状態行（task_041）",
+      "rule": "会話のすべての段階で、いま何が起きているかを 1 語で示す",
+      "expected_result": "状態行がどの段階でも文言を返す",
+      "manual_or_automated": "automated",
+      "verification_method": "Tests/SaydoTests の状態行テスト"
+    },
+    {
+      "id": "check_070",
+      "target": "話し終えた（task_041）",
+      "rule": "本人が 1 タップで聞き取りを確定できる",
+      "expected_result": "「話し終えた」を押すと、無音を待たずに文字起こしが会話へ流れる",
+      "manual_or_automated": "automated",
+      "verification_method": "Tests/SaydoTests/SessionViewModelTests（scripts/test-ios.sh）"
+    },
+    {
+      "id": "check_071",
+      "target": "無音しきい値の設定（task_041）",
+      "rule": "設定の「話し終わりの間」が聞き取りに効く",
+      "expected_result": "設定を 2.0 秒にすると、無音での打ち切りが 2.0 秒になる",
+      "manual_or_automated": "automated",
+      "verification_method": "Tests/SaydoTests/SessionViewModelTests（scripts/test-ios.sh）"
+    },
+    {
+      "id": "check_072",
+      "target": "答えの確認（task_042）",
+      "rule": "行動と時刻の認識結果を見せ、その質問だけを言い直せる",
+      "expected_result": "答えが確定の後に画面用の値として出る。言い直すとその質問に戻り、古い答えの記録が残らない。宣言の段階で行動と時刻が画面に出る",
+      "manual_or_automated": "automated",
+      "verification_method": "Tests/SaydoTests/SessionViewModelTests（scripts/test-ios.sh） と Packages/SaydoCore の MorningFlowTests（scripts/test-core.sh）"
+    },
+    {
+      "id": "check_073",
+      "target": "朝の声の聞き方（task_043）",
+      "rule": "聞き方の 3 つの選択肢が、文言どおりの経路で動く",
+      "expected_result": "「耳に当てて聞く」は受話口、「このまま鳴らす」はスピーカー、「文字で読む」は無音で、以降の読み上げも鳴らない",
+      "manual_or_automated": "automated",
+      "verification_method": "Tests/SaydoTests/SessionViewModelTests（scripts/test-ios.sh）。受話口から実際に鳴ることは task_051 の実機で確認"
+    },
+    {
+      "id": "check_074",
+      "target": "朝の声の後の待ち（task_043）",
+      "rule": "再生の後、本人が進めるまで次の質問を読まない",
+      "expected_result": "「次へ」を押すまで次の質問が読まれず、30 秒の宣言を聞いた後でも時間切れにならない",
+      "manual_or_automated": "automated",
+      "verification_method": "Tests/SaydoTests/SessionViewModelTests（scripts/test-ios.sh）"
+    },
+    {
+      "id": "check_075",
+      "target": "割り込み（task_044）",
+      "rule": "着信・バックグラウンド移行で会話を中断として閉じる",
+      "expected_result": "割り込みの後に録音・読み上げ・再生が止まり、SessionLog が中断として残る",
+      "manual_or_automated": "automated",
+      "verification_method": "Tests/SaydoTests/SessionViewModelTests（scripts/test-ios.sh）。着信は task_051 の実機で 1 回確認"
+    },
+    {
+      "id": "check_076",
+      "target": "同じ日の再開（task_044）",
+      "rule": "中断した朝の会話を、同じ日のうちは続きから始める",
+      "expected_result": "M2 で中断した後に同じ日に開くと M2 の質問から始まり、M0 の答えが保たれている。翌日は最初から始まる",
+      "manual_or_automated": "automated",
+      "verification_method": "Tests/SaydoTests/AppRouterTests"
+    },
+    {
+      "id": "check_077",
+      "target": "オンボーディング（task_045 / task_046）",
+      "rule": "オンボーディングは 3 画面で、通知を断っても進め、終えると最初の会話が始まる",
+      "expected_result": "画面は「何をするアプリか」「マイクの許可」「通知の許可」で、通知を断っても完了でき、完了後に朝の会話が開いている",
+      "manual_or_automated": "manual",
+      "verification_method": "シミュレータで通知を断って最後まで進む。完了後の会話は AppRouterTests で確認"
+    },
+    {
+      "id": "check_078",
+      "target": "自動で開く（task_046）",
+      "rule": "アイコン起動で会話を自動で開くのは、その日に会話を 1 度も開いていない場合だけにする",
+      "expected_result": "その日の会話の記録が無い起動では開き、1 件ある起動では開かない。マイク拒否の端末では文字の経路で始まる",
+      "manual_or_automated": "automated",
+      "verification_method": "Tests/SaydoTests/AppRouterTests"
+    },
+    {
+      "id": "check_079",
+      "target": "Today の主ボタン（task_047）",
+      "rule": "主ボタンの文言と、押して最初に起きることを一致させる",
+      "expected_result": "実装計画 §16.8 の 5 つの状態すべてで、文言・会話の種類・最初の命令が表どおりである。「朝の声を聞く」は再生（または聞き方の選択）から始まる",
+      "manual_or_automated": "automated",
+      "verification_method": "Tests/SaydoTests/TodayActionTests"
+    },
+    {
+      "id": "check_080",
+      "target": "設定の同期と外観（task_048）",
+      "rule": "Release の設定に開発者向けの節を出さず、外観をダークに固定する",
+      "expected_result": "設定に完了率などの統計が無く、端末がライト外観でも全画面がダークで表示される",
+      "manual_or_automated": "manual",
+      "verification_method": "シミュレータをライト外観にして各画面の画面写真を docs/logs に保存。SettingsView の #if DEBUG を確認"
+    },
+    {
+      "id": "check_081",
+      "target": "言葉（task_049）",
+      "rule": "通知で問い詰めず、否定の答えを前進として扱わない",
+      "expected_result": "通知の文言がすべて Guardrails を通り、「何もできなかった。」と「まだちょっと手がついてない」が前進として記録されない",
+      "manual_or_automated": "automated",
+      "verification_method": "NotificationCopyTests / NoonFlowTests / NightFlowTests（scripts/test-core.sh）"
+    },
+    {
+      "id": "check_082",
+      "target": "小さい画面・大きい文字・VoiceOver（task_050）",
+      "rule": "iPhone SE（3 世代）と Dynamic Type xxxLarge で主要な操作に届き、読み上げで区別できる",
+      "expected_result": "会話画面の「閉じる」「話し終えた」とチップ、Today の主ボタン、設定の各行に、文字の欠けなく届く。記録の行が時刻と種類を読む",
+      "manual_or_automated": "manual",
+      "verification_method": "iPhone SE（3 世代）のシミュレータで xxxLarge にして画面写真を docs/logs に保存。VoiceOver は task_051 の実機で確認"
+    },
+    {
+      "id": "check_083",
+      "target": "実機での順序 2 と配布（task_051）",
+      "rule": "実機の朝フロー 3 回で読み上げと聞き取りが重ならず、TestFlight 内部配布 #2 が出ている",
+      "expected_result": "3 回分の時系列表で、全段階の読み上げ終了が聞き取り開始より前にある。ビルド番号が PROGRESS にある",
+      "manual_or_automated": "manual",
+      "verification_method": "scripts/build-device.sh と idevicesyslog、scripts/archive-testflight.sh"
+    },
+    {
+      "id": "check_084",
+      "target": "回帰とビルド（task_030〜task_050）",
+      "rule": "既存のテストとガードレールを保つ",
+      "expected_result": "scripts/test-core.sh と scripts/test-ios.sh と scripts/lint-principles.sh が exit 0 で、Guardrails の禁止語と既存のテストケースが削られていない",
+      "manual_or_automated": "automated",
+      "verification_method": "3 つのスクリプトを実行して末尾の出力を docs/logs に保存し、git diff で Guardrails.swift と GuardrailsTests.swift の削除行を確かめる"
     }
   ]
 }
