@@ -22,13 +22,6 @@ enum SettingsCopy {
     static let weekendLabel = "週末も通知する"
     static let weekendFootnote = "切ると土曜と日曜は固定の通知を送りません。"
 
-    // MARK: - 一人で話せる時間
-
-    static let aloneSection = "一人で話せる時間"
-    static let aloneToggle = "時刻を決める"
-    static let aloneTimeLabel = "時刻"
-    static let aloneFootnote = "宣言を後回しにした日に、この時刻に 1 回だけ声をかけます。決めないままなら夜の時刻を使います。"
-
     // MARK: - 声
 
     static let voiceSection = "声"

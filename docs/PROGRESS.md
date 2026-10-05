@@ -3081,3 +3081,76 @@ task_035-4.txt:2059:EXIT=0
 
 - 文言 3 つ（上の表）の言い回しの確認。特に保存できなかったときの 2 文（「ごめん」で始める言い方でよいか）。
 - 実機で、通知を許可した状態で朝の会話を最後まで進め、「◯時に…届きます」と読まれた時刻に通知が届くこと。通知を不許可にした状態で、受領文が「受け取りました。今日の約束として残しました。」になること（task_039 の実機確認に含めてよい）。
+
+## task_036 — 「後で声で」と「一人で話せる時間」を、実装が整うまで画面から外す
+
+- 日時: 2026-10-06
+- 状態: done（macOS の `swift test` とシミュレータの単体テストまで。実機では確かめていない）
+- ブランチ / コミット: task/036-remove-declare-later / このエントリを含むコミット（ハッシュは `git log` の `task_036:` 行）
+- **retention R1（「後で声で」）を一時停止した。** 朝の M4 で宣言を後回しにする選択肢、後回しを告げる一言、`.declarationReminder` の登録命令、設定とオンボーディングの「一人で話せる時間」を外した。通知の実装が整うまで再導入しない（実装計画 §16.5）。R1 の使用率の指標（retention-strategy.md の「後で声で」の使用率）は、この間は取れない。
+
+### 証拠
+
+| コマンド | exit code | ログ |
+|---|---|---|
+| `scripts/test-core.sh`（修正前の挙動。先に書いたテストだけを足した状態） | **1**（SaydoCore: Executed 252 tests, 22 failures。失敗した 2 件が下記。`set -e` のため SaydoAI と lint は走っていない） | `docs/logs/task_036-1.txt` |
+| `scripts/test-ios.sh`（修正前の挙動。同上） | **65**（Executed 180 tests, 1 failure。失敗した 1 件が下記） | `docs/logs/task_036-2.txt` |
+| `scripts/test-core.sh`（修正後。コミットした内容） | 0（SaydoCore: Executed 250 tests, 0 failures。SaydoAI: Executed 33 tests, 0 failures。lint-principles: OK） | `docs/logs/task_036-3.txt` |
+| `scripts/test-ios.sh`（修正後。コミットした内容） | 0（`** TEST SUCCEEDED **`、Executed 180 tests, 0 failures、lint-principles: OK） | `docs/logs/task_036-4.txt` |
+
+修正前の `task_036-1.txt` の 22 failures は assert の失敗の数で、失敗したテストは 2 件である。`task_036-3.txt` は、最初の実行が `MorningFlow.swift` のコンパイルエラー（`pickText` が mutating なのに `let` の `state` に呼んだ）で止まったため取り直した。上書きしたので、そのエラーの実行のログは残していない。
+
+修正前に先に書いて失敗したテスト（3 件）:
+
+```
+SaydoCoreTests.MorningFlowTests testTextModeDeclarationOffersNoChoiceAndWaitsForTypedText
+SaydoCoreTests.MorningFlowTests testNoRouteSchedulesTheDeclarationReminderOrSpeaksTheDeferral
+SaydoTests.SessionViewModelTests testATextOnlyMorningFromM0SavesExactlyOneCommitment
+```
+
+### 実装の要点
+
+- **M4 の入口（MorningFlow）**: 文字の経路（`mode == .text` = 「話せない時」とマイク拒否）は、選択肢を出さず、`morningDeclarationTextPrompt`（「今日やることを、文字で書いておこう。」）だけを読んで文字の宣言を待つ。声で言うよう頼む `morningDeclarationRequest` は文字の経路では読まない（頼んで文字を待つと矛盾するため）。声の経路は変えていない。
+- **「今、声で言う」（`.declareNow`）は残さなかった。** 判断の根拠: `FlowState.mode` は「話せない時」モードとマイク拒否の両方で `.text` になり、状態機械は両者を区別できない。マイク拒否で「今、声で言う」を出すと、押しても録音が始められず `captureFailed` の文字入力に落ちる。区別を足すのは範囲外。`.choice(.declareNow)` を受ける処理も外した（今は受け流す）。
+- **`.choice(.declareLater)` が万一届いたとき**: 文字の経路では通常の文字の宣言待ちと同じ命令（促しを読んで文字を待つ）を返す。`isDeclarationDeferred` は立てない。声の経路・結果待ちの間は受け流す（宣言の録音を邪魔しない）。
+- **後回しの読み上げと通知命令**: `receive` から `isDeclarationDeferred` の分岐（`.declarationReminder` の命令と `morningDeclarationDeferred` の一言）を外した。`hasAudio` と保存失敗後のやり直し先の判定は `isDeclarationDeferred` ではなく `mode == .text` で見る（文字の経路では文字の入力待ちへ戻る）。`SessionViewModel.send` の朝の分岐（朝の会話から来る通知命令が無くなったため）を外し、昼の命令の解釈だけを残した。
+- **設定とオンボーディング**: `SettingsView.aloneTimeSection` と `Draft` の該当 2 項目、`OnboardingView.Step.aloneTime` と `aloneTimeStep` と該当の `@State` を外した。オンボーディングは 7 段階から 6 段階になり、「n / 6」の表示は `Step.allCases` から出るので自動で合う。他の段階は触っていない。`persist` と `finish` が `settings.aloneTime` を書き換える行も外したので、保存済みの値は上書きされない。
+- **残した型と値**: `ChoiceID.declareLater` / `.declareNow`、`NotificationRequest.Kind.declarationReminder`、`FlowState.isDeclarationDeferred`、`CommitRequest.isDeclarationDeferred`、`AppSettings.aloneTime` / `effectiveAloneTime`。`FlowMachine.swift` の 4 か所に「task_036 で一時停止中。型だけ残している」と書いた。`SessionViewModel.commit` の `request.isDeclarationDeferred ||` と `NotificationScheduler` の `.declarationReminder` の分岐（登録しない）は、誤解を招く約束をしないので触っていない。
+- **消した文言（参照が無くなったもの）**: `DialogueCopy.morningDeclarationDeferred`、`DialogueCopy.morningDeclarationChoice`（「今、声で言う？ それとも後で？」。選択肢の促しで、これだけが残ると誤解を招くため。依頼に明記は無いが同じ理由で消した）、`SettingsCopy` の「一人で話せる時間」の 5 項目、`OnboardingCopy` の同 6 項目。`Guardrails` と禁止語リストは無変更。`GuardrailsTests` と `DialogueCopyTests` は変更していない（消した文言を直接名指ししていなかった。全文言を走査するテストは残った文言に対して通る）。
+
+### done_definition との対応
+
+| done_definition | 証拠 | 修正前 | 修正後 |
+|---|---|---|---|
+| 会話のどの経路でも「後で声で」の選択肢と、その通知を約束する読み上げが出ない（MorningFlowTests） | `testTextModeDeclarationOffersNoChoiceAndWaitsForTypedText`（文字の経路の M4 で選択肢 0、録音 0、文字の聞き取り 1、「声に出して」「後で」を読まない。文字の宣言で `commit`（`isDeclarationDeferred == false`）が出て、`commitResult(.scheduled)` で `completed`）、`testNoRouteSchedulesTheDeclarationReminderOrSpeaksTheDeferral`（声の経路・文字の経路・`declareLater` が届いた場合、5 種類の `commitResult` のすべてで `.declarationReminder` の命令も後回しの一言も出ず、`isDeclarationDeferred` も立たない） | failed | passed |
+| 設定とオンボーディングに「一人で話せる時間」が出ない（コードで確認） | `grep -rn "aloneSection\|aloneTitle\|aloneTimeStep\|aloneTimeSection\|isAloneTimeSet" App Packages Tests` が 0 件（`App/Data/AppSettings.swift` の保存値と `Tests/SaydoTests/AppSettingsTests.swift` の `aloneTime` は残る）。画面の目視は未実施 | - | 確認済み（コード） |
+| 文字だけで朝の会話を通すと約束が保存される（VMT） | `testATextOnlyMorningFromM0SavesExactlyOneCommitment`（M0 から文字だけ。M4 で選択肢 0・文字入力可。完了後、ストアの約束が 1 件で宣言の言葉が入り、`.declarationReminder` は登録されない）。既存の `testMorningFlowWithoutMicrophoneStillSavesThreeVoiceEntries` も選択を使わずに 3 件 | failed | passed |
+| `scripts/test-core.sh` と `scripts/test-ios.sh` が exit 0 | `docs/logs/task_036-3.txt`、`docs/logs/task_036-4.txt` | 1 / 65 | 0 / 0 |
+
+### 変えた・消した既存テスト
+
+| テスト | 変更と理由 |
+|---|---|
+| MFT `testDeferredDeclarationSchedulesASingleReminder` | **削除。** 「後で声で」を選ぶと通知命令が 1 件出る、という仕様が無くなったため。代わりに `testNoRouteSchedulesTheDeclarationReminderOrSpeaksTheDeferral`（出ないこと）を足した |
+| MFT `testDeclareNowInVoicelessModeStartsRecording` | **削除。** 「今、声で言う」を出さなくなったため（上の判断） |
+| MFT `testVoicelessModeListensWithTextInputThroughM0ToM3` | M4 の期待値を `choices == [.declareNow, .declareLater]` から「選択肢 0、文字の聞き取り 1、録音 0」に変えた。M0〜M3 の確認は変えていない |
+| MFT `testSaveFailedOnATypedDeclarationGoesBackToTextInput` | 宣言の前の `.choice(.declareLater)` を外した（文字の経路では選択なしで文字の宣言に入る）。期待値（文字の入力待ちへ戻る）は変えていない。名前と説明を「後で声で」に頼らない形にした |
+| VMT `testMorningFlowWithoutMicrophoneStillSavesThreeVoiceEntries` | `select(.declareLater)` を外した。最後の期待値を「`.declarationReminder` が登録される」から「登録されない」に反転した。3 件の確認は変えていない |
+| VMT `testNoonWithoutCommitmentOpensShortMorningFlow`、`testADeclarationWithoutTheRequiredValuesSavesNothing`、`testPlannedPlaceIsSavedWithTheCommitment`、`testPlannedPlaceIsNilWhenNoPlaceWasSaid`、補助関数 `declare` と `walkThroughDeclaration` | `select(.declareLater)` を外しただけ（文字の経路で M4 の選択なしに宣言できるため）。期待値は変えていない |
+| VMT `testTwoDeclarationRecordingFailuresFallBackToTextForTheDeclarationOnly` | コメントだけ（「後で声で」の言及を「一時停止」に）。期待値は変えていない |
+
+テスト数: SaydoCore は 250 のまま（足した 2、消した 2）。Saydo は 179 から 180（足した 1）。
+
+### 未解決
+
+- **画面は目視していない。** 設定の節が消えたこと、オンボーディングが 6 段階で「n / 6」になることは、コードとビルドの成功までで、実機・シミュレータの画面では見ていない。
+- **文字の経路の M4 は、声で言うよう頼む文言を読まない。** 「自分に約束してください」の約束の枠組みは、声の経路でしか言わない。文字の経路の宣言の言い回しは task_040（文字入力の画面）で整えるのが自然。
+- **マイクが使える「話せない時」モードで、M4 だけ声で言う手段が無くなった。** 以前の「今、声で言う」を外した結果である。会話の途中で文字から声へ戻す手段は元から無い（`switchToText` の片方向）。再導入の際に `FlowState` へマイクの可否を持たせる必要がある。
+- `NotificationScheduler+SessionScheduling.swift` と `NotificationCopy`・`NotificationCopyTests` の `.declarationReminder`（登録しない・文言あり）は、型を残す決定に従い触っていない。
+- オンボーディングの他の段階（マイク・通知・時刻・音声アセット・バックアップ）の整理は task_045。
+- 昼フロー・task_035 の未解決（当日の約束がある日の朝の再入場など）は、すべて task_035 のエントリのまま。
+
+### 人間の確認待ち
+
+- 実機で、「話せない時」モードとマイク拒否の朝の会話を最後まで通し、M4 で選択肢が出ず、文字の入力欄が開くこと。
+- 設定画面に「一人で話せる時間」の節が出ず、オンボーディングが 6 段階であること。

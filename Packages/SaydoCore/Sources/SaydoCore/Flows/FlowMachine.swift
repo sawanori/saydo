@@ -70,7 +70,7 @@ public struct CommitRequest: Sendable, Equatable, Hashable, Codable {
     public var declaration: String
     /// 解釈が済んだ行動時刻。決めなかった日は nil。通知の発火時刻にはこの日時を使う。
     public var plannedTime: ResolvedTime?
-    /// 宣言を「後で声で」に回したか（retention R1）。
+    /// 宣言を「後で声で」に回したか（retention R1）。task_036 で選択肢を外したため、現在はどこからも true にならない。再導入のために残している。
     public var isDeclarationDeferred: Bool
 
     public init(
@@ -157,7 +157,7 @@ public enum ChoiceID: Sendable, Equatable, Hashable, Codable {
     case timeNoon
     case timeUndecided
 
-    // M4（「話せない時」モードのみ）
+    // M4（「話せない時」モード）。task_036 で選択肢として出さなくなった。再導入のために型だけ残している。
     case declareNow
     case declareLater
 
@@ -295,7 +295,7 @@ public struct NotificationRequest: Sendable, Equatable, Hashable, Codable {
     public enum Kind: String, Sendable, Equatable, Hashable, Codable {
         /// 行動時刻の通知（「朝のあなたからです。」）。
         case actionTime
-        /// 宣言を後回しにしたときの、一人になれる時刻の 1 回だけの通知（retention R1）。
+        /// 宣言を後回しにしたときの、一人になれる時刻の 1 回だけの通知（retention R1）。task_036 で一時停止中。会話は出さず、アプリも登録しない。型だけ残している。
         case declarationReminder
         /// 固定の昼通知。
         case noonFixed
@@ -375,7 +375,7 @@ public struct FlowState: Sendable, Equatable, Hashable, Codable {
     public var commitStage: CommitStage?
     /// 宣言の言葉。
     public var declaration: String
-    /// 宣言を「後で声で」に回したか（retention R1）。
+    /// 宣言を「後で声で」に回したか（retention R1）。task_036 で選択肢を外したため、現在はどこからも true にならない。再導入のために残している。
     public var isDeclarationDeferred: Bool
     /// 昼に聞いた「何が止めているか」。
     public var blocker: String?
