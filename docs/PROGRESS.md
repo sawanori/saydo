@@ -3202,3 +3202,109 @@ SaydoTests.SessionViewModelTests testRetakeIsNotOfferedAfterSkippingTheReason
 
 - 実機で、読み上げ中・聞き取り中・チップ待ち・宣言の録音中・昼の再生中のそれぞれから「閉じる」を押し、音が止まって Today に戻ること。
 - 「録り直す」が M1 に答えた後（M2 以降）に出ないこと。
+
+## task_038 — 宣言を聞いて確かめ、1 回だけ言い直せるようにする
+
+- 日時: 2026-10-06
+- 状態: done（シミュレータの単体テストまで。画面の見た目は目視していない。実機では確かめていない）
+- ブランチ / コミット: task/038-declaration-retake / このエントリを含むコミット（ハッシュは `git log` の `task_038:` 行）
+
+### 証拠
+
+| コマンド | exit code | ログ |
+|---|---|---|
+| `scripts/test-ios.sh`（修正前。先に書いたテストとテスト用モックだけを足した状態） | **65**（テストターゲットがコンパイルできない。`cannot find type 'DeclarationReplacement' in scope` が 2 箇所。テストは 1 件も実行されていない） | `docs/logs/task_038-1.txt` |
+| `scripts/test-ios.sh`（修正後。コミットした内容） | 0（`** TEST SUCCEEDED **`、Executed 199 tests, with 0 failures、lint-principles: OK） | `docs/logs/task_038-2.txt` |
+
+SaydoCore は触っていないので `scripts/test-core.sh` は単独では実行していない。
+
+先に書いたテスト（15 件。修正前はコンパイルできず、修正後はすべて passed）:
+
+```
+RepositoryTests testReplacingTheDeclarationPointsAtTheNewRecordingAndDeletesTheOldOne
+RepositoryTests testAFailedReplacementKeepsTheOldDeclarationUntouched
+RepositoryTests testReplacingTheDeclarationOfAnUnknownCommitmentThrows
+SessionViewModelTests testThePreviewPlaysTheDeclarationThatWasJustRecorded
+SessionViewModelTests testPressingThePreviewAgainStopsThePlayback
+SessionViewModelTests testATextDeclarationOffersNeitherThePreviewNorTheRetake
+SessionViewModelTests testANoonSessionOffersNeitherThePreviewNorTheRetake
+SessionViewModelTests testAnAbandonedOrSuspendedSessionOffersNeitherThePreviewNorTheRetake
+SessionViewModelTests testRetakingTheDeclarationReplacesItOnceAndIsNotOfferedAgain
+SessionViewModelTests testRetakingWhileThePreviewPlaysStopsThePlaybackFirst
+SessionViewModelTests testAFailedReplacementKeepsTheOldDeclarationAndSaysSo
+SessionViewModelTests testAnEmptyRetakeKeepsTheOldDeclaration
+SessionViewModelTests testARetakeThatCannotStartRecordingKeepsTheOldDeclaration
+SessionViewModelTests testClosingDuringTheRetakeStopsTheRecordingAndKeepsTheOldDeclaration
+SessionViewModelTests testClosingWhileTheRetakeIsFinalizingDiscardsIt
+```
+
+修正前の状態は「失敗」ではなく「コンパイルできない」である。新しい型（`DeclarationReplacement`）と新しいメソッドを使うテストなので、個々のテストが赤になるところは観測していない。
+
+### 実装の要点
+
+- **`Repository.replaceDeclaration(commitmentID:with:)`**: 引数は `DeclarationReplacement`（音声の相対パス・文字起こし・長さ・録音時刻）。順序は、(a) 新しい宣言の `VoiceEntry` を足し、`Commitment` の `declarationAudioPath` と `declarationTranscript` を新しいものにして `save()`、(b) 成功した後で古い宣言の `VoiceEntry` を既存の `deleteVoiceEntry(id:)` で消す（古い音声ファイルも消える）。(a) のどこかで失敗したら `modelContext.rollback()` で巻き戻して投げ直す。宣言の長さは `Commitment` に列が無く、`VoiceEntry.durationSec` にだけ持つ（スキーマは変えていない）。新しい `VoiceEntry` の `sessionType` は古い宣言のものを引き継ぐ。
+- **`deleteVoiceEntry` を (b) で使ってよい理由**: `deleteVoiceEntry` が外すのは「その音声パスを `declarationAudioPath` に持つ約束」の参照である。(a) の後の約束は新しいパスを指しているので、古いパスでは 1 件も当たらない。差し替え後に約束と宣言の `VoiceEntry` が新しいファイルを指したままであること、起動時の孤児掃除にかけても新しいファイルが残ることをテストで確かめた。
+- **(b) の失敗の扱い**: 片づけ（古い `VoiceEntry` と古いファイルの削除）に失敗しても差し替えは取り消さず、`try?` で受ける。約束は新しい録音で成立しているためである。古いファイルだけが残った場合は起動時の孤児掃除が消す。
+- **失敗の注入**: 新しい録音のファイルが置き場所に無い（書き込めなかった）場合を `RepositoryError.declarationAudioMissing` で拒否する確認を本体に足し、テストはこれで失敗させる。鳴らせない録音を約束に指させないための確認であり、テスト専用の口ではない。確認は (a) の変更の後・`save()` の前に置き、`save()` の失敗と同じ巻き戻しを通るようにした。
+- **「聞いてみる」（`SessionViewModel.playDeclarationPreview()`）**: 進行の入口に入力として渡し、`finish()` で閉じた音声セッションを鳴らす間だけ有効にして、宣言の音声を再生する。再生中にもう一度呼ぶと `player.stop()` で止める（再生は進行の中で終わりを待っているので、止めるほうは入口を通さない）。
+- **「言い直す」（`SessionViewModel.retakeDeclaration()`）**: `FlowMachine` は通さない。進行の入口に入力として渡し、聞き取りの世代を進めて、最初の宣言と同じ `startCapture(limit: .declaration)`・`SilenceDetector(duration: .long)`・`observe`・`finishListening` で録る。録り終えたら `store.replaceDeclaration` を呼ぶ。録る間は `phase` が `.recordingDeclaration`、終わったら `.done` に戻る。音声セッションは録る前に有効にし、終わったら閉じる。
+- **完了済みの会話で聞き取りを動かすための変更**: `isCurrent(_:)` は「会話が終わっていたら古い」と判定していたので、言い直しの録音中（`isRetakingDeclaration`）だけは完了済みでも有効とみなすようにした。`finishListening` は、言い直しの間は文字起こしを `FlowMachine` に渡さず差し替えへ回す。
+- **録り直しの途中の入力**: 言い直しの録音中に進行へ届く入力は、録音の終わり以外すべて（閉じる・割り込み・文字の送信・「話せない時」）言い直しをやめる合図として扱い、録音を止めて最初の宣言を保つ。完了した会話の `completion`・SessionLog・`suspendedState` は変えない。
+- **1 回だけ**: `retakeDeclaration()` を呼んだ時点で使ったことにする。成功・空の文字起こし・録音の開始失敗・差し替えの失敗・途中で閉じた、のどれでも以降は出さない。
+- **出す条件（`canPreviewDeclaration` / `canRetakeDeclaration`）**: `completion == .completed`、会話の種類が朝、この会話の中で宣言を声で録って約束を保存した、約束に宣言の音声がある、のすべてを満たすとき。
+- **通知と SessionLog**: 言い直しでは登録も書き込みもしない（テストで前後が等しいことを確かめた）。
+
+### 設計判断
+
+- **仕様 2（読み上げと重ねない）**: 「受領文の読み上げが終わってから押せる」にした。完了画面（`phase == .done`）は、受領文の `speak` を待ち終えた後の `finish()` で出る。`finish()` は読み上げも止めている。そのため「聞いてみる」が画面に出た時点で読み上げは終わっており、押した側で読み上げを止める処理は足していない。
+- **聞き方の確認（retention R8）は出さない**: 「聞いてみる」は、イヤホン未接続で音量が大きくても聞き方を尋ねずに鳴らす。いまその場所で本人が声に出した言葉であり、確認を挟むとタップが増えるためである。受話口では鳴らさない。
+- **仕様 9（`replayDeclaration()`）**: 統合していない。`PlaybackCardView`（昼の再生カード）の「聞く」「耳に当てて聞く」が使っているので、挙動を変えていない（昼の再生は task_043）。「聞いてみる」は別の入口（`playDeclarationPreview()`）にし、こちらは進行の直列の流れを通す。
+- **昼・夜から始まる短縮版の朝フロー**: 会話の種類が朝でないので、宣言を声で録って完了しても 2 つのボタンは出さない（依頼の仕様 7「昼・夜・手動の会話では出さない」に従った）。
+
+### done_definition との対応
+
+| done_definition | 証拠 |
+|---|---|
+| 差し替えの後、約束が新しい録音を指し、古い録音ファイルが消えている（RepositoryTests） | `testReplacingTheDeclarationPointsAtTheNewRecordingAndDeletesTheOldOne`（宣言の `VoiceEntry` が 1 件、約束と `VoiceEntry` が新しいパス、古いファイルが無い、新しいファイルがある）。passed |
+| 差し替えに失敗しても古い録音が残り、約束が壊れない（RepositoryTests） | `testAFailedReplacementKeepsTheOldDeclarationUntouched`（約束が古いパスと古い文字起こしのまま、`VoiceEntry` が古い 1 件のまま、古いファイルがある）。passed |
+| 完了画面で宣言を再生できる（VMT） | `testThePreviewPlaysTheDeclarationThatWasJustRecorded`、`testPressingThePreviewAgainStopsThePlayback`。passed。画面にボタンが出ることはコードで確認しただけで、目視していない |
+| 言い直しは 1 回の会話で 1 回だけである（VMT） | `testRetakingTheDeclarationReplacesItOnceAndIsNotOfferedAgain`（差し替えが 1 回、以降 `canRetakeDeclaration == false`、もう一度呼んでも録音が始まらない）。失敗時は `testAFailedReplacementKeepsTheOldDeclarationAndSaysSo` ほか 3 件。passed |
+| `scripts/test-ios.sh` が exit 0 | `docs/logs/task_038-2.txt` |
+
+### 新しい文言（`SessionCopy`）
+
+| 用途 | 文言 |
+|---|---|
+| 宣言を聞くボタン | 聞いてみる |
+| 再生中の同じボタン | 止める |
+| 宣言を言い直すボタン | 言い直す |
+| VoiceOver（聞く） | いま録った宣言を聞く |
+| VoiceOver（止める） | 宣言の再生を止める |
+| VoiceOver（言い直す） | 宣言を言い直す |
+| 言い直しを残せなかったとき | うまく録れませんでした。最初の宣言を、そのまま残しています。 |
+
+### 変えた・消した既存テスト
+
+既存のテストケースは変えていない。テスト用モックに足したもの:
+
+- `InMemorySessionStore`: `replaceDeclaration`（`SessionStore` の新しい要件）、頼まれた差し替えの記録 `replacements`、失敗させる `failReplacements()`。
+- `MockPlayer`: `holdsPlayback`（true の間、再生は `stop()` されるまで終わらない）。既定は従来どおりすぐ終わる。
+- `SessionViewModelTests.tearDown`: 待たせた再生を残さないよう `player?.stop()` を足した。
+
+### 未解決
+
+- **画面の見た目は目視していない。** 完了画面の「閉じる」の下に 2 つの文字ボタン（accent 色、44pt 以上）が並ぶ。小さい端末や Dynamic Type の大きい設定で収まるかは未確認。
+- **録り直しの間、質問の位置に受領文が出たままになる。** `spokenLine` を変えていないため、「録音しています…」の上に「受け取りました。…」が残る。決めた行動と時刻を宣言の段階で出す表示（§16.8）は別タスクの範囲で、ここでは足していない。
+- **録り直しの間も、右下のキーボードボタンと「話せない時」が出ている。** 押すと言い直しをやめて最初の宣言を保つ（失敗の 1 文が出る）。言い直しを文字で受ける経路は作っていない。
+- **`save()` そのものの失敗による巻き戻しは、テストで起こしていない。** テストが通しているのは、同じ `catch` を通る「新しい音声ファイルが無い」場合である。
+- **(b) の片づけの失敗は、テストで起こしていない。** 古い `VoiceEntry` の削除の保存に失敗した場合、宣言の `VoiceEntry` が 2 件残り得る（約束は新しい録音を指す）。
+- **言い直しの間に来た着信・経路変更**も言い直しをやめる扱いになり、「1 回だけ」を使い切る。
+- 実機の `AVAudioSession` で、閉じたセッションを有効にし直して録音・再生できることは、モックでの呼び出しの確認までで、実機では確かめていない。
+- `replayDeclaration()`（昼の再生カード）が進行の外で直接再生する点は、そのまま残っている（task_043）。
+
+### 人間の確認待ち
+
+- 実機で、朝の会話を声で終えた後に「聞いてみる」を押し、いま録った宣言が鳴ること。もう一度押すと止まること。
+- 実機で「言い直す」を押し、録り終えた後に「聞いてみる」で新しい宣言が鳴ること。行動時刻の通知が従来どおり届き、昼の再生が新しい宣言になること。
+- 文言 7 つ（特に失敗時の 1 文）の言い回し。
+- 短縮版の朝フロー（昼・夜から始まるもの）でも 2 つのボタンを出すかどうか。

@@ -80,11 +80,22 @@ struct VoiceEntryDraft: Sendable {
     var commitmentID: UUID?
 }
 
+/// 宣言の言い直しで差し替える、新しい録音（task_038）。
+struct DeclarationReplacement: Sendable, Equatable {
+    /// 新しい宣言音声の相対パス。
+    var audioPath: String
+    var transcript: String
+    var durationSec: Double
+    var recordedAt: Date = .now
+}
+
 enum RepositoryError: Error, Equatable {
     /// 同じ日に 2 件目の `Commitment` を作ろうとした（実装計画 §10 の制約）。
     case commitmentAlreadyExists(dayKey: String)
     case commitmentNotFound(id: UUID)
     case voiceEntryNotFound(id: UUID)
+    /// 差し替える宣言の音声ファイルが置き場所に無い。
+    case declarationAudioMissing(path: String)
 }
 
 // MARK: - Repository
@@ -279,6 +290,55 @@ actor Repository {
         )
         guard remaining.isEmpty else { return }
         try audioFileStore().delete(relativePath: audioPath)
+    }
+
+    /// 宣言を新しい録音に差し替える（task_038。実装計画 §16.9）。行動と時刻は変えない。
+    ///
+    /// 順序を守る。先に新しい宣言の `VoiceEntry` を足し、`Commitment` の宣言文と音声を新しいものに
+    /// して保存する。それが成功してから、古い宣言の `VoiceEntry` と古い音声ファイルを消す。
+    /// 保存までのどこかで失敗したら巻き戻し、`Commitment` も古い `VoiceEntry` も古いファイルも
+    /// 元のまま残す。このとき新しい音声ファイルは残ることがあり、起動時の
+    /// `sweepOrphanAudioFiles()` が消す。
+    @discardableResult
+    func replaceDeclaration(
+        commitmentID: UUID,
+        with replacement: DeclarationReplacement
+    ) throws -> CommitmentSnapshot {
+        let commitment = try requireCommitment(id: commitmentID)
+        let oldEntries = commitment.voiceEntries.filter { $0.kind == .declaration }
+        let oldEntryIDs = oldEntries.map(\.id)
+
+        do {
+            let entry = VoiceEntry(
+                recordedAt: replacement.recordedAt,
+                sessionType: oldEntries.first?.sessionType ?? .morning,
+                kind: .declaration,
+                audioPath: replacement.audioPath,
+                transcript: replacement.transcript,
+                durationSec: replacement.durationSec
+            )
+            entry.commitment = commitment
+            modelContext.insert(entry)
+            commitment.declarationAudioPath = replacement.audioPath
+            commitment.declarationTranscript = replacement.transcript
+
+            // 鳴らせない録音を約束に指させない。確認と保存のどちらで失敗しても、同じ巻き戻しを通す。
+            guard try audioFileStore().fileExists(atRelativePath: replacement.audioPath) else {
+                throw RepositoryError.declarationAudioMissing(path: replacement.audioPath)
+            }
+            try modelContext.save()
+        } catch {
+            modelContext.rollback()
+            throw error
+        }
+
+        // ここから先は、差し替えが成立した後の片づけ。`deleteVoiceEntry` は「その音声を指す約束」の
+        // 参照を外すが、約束はもう新しいファイルを指しているので、新しい参照には触れない。
+        // 片づけに失敗しても差し替えは取り消さない（約束は新しい録音で成立している）。
+        for id in oldEntryIDs {
+            try? deleteVoiceEntry(id: id)
+        }
+        return snapshot(of: commitment)
     }
 
     /// `VoiceEntry` を持たない音声ファイルを消す。起動時に 1 回だけ呼ぶ（実装計画 §10）。

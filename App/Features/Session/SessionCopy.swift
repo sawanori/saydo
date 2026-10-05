@@ -42,6 +42,20 @@ enum SessionCopy {
     /// 左上に常にある「閉じる」の VoiceOver ラベル。完了画面の「閉じる」と区別して、会話をやめることを伝える。
     static let closeAccessibilityLabel = "会話を閉じる"
 
+    // MARK: 宣言を確かめる（完了画面。task_038）
+
+    /// いま録った宣言を聞く。
+    static let previewDeclaration = "聞いてみる"
+    /// 宣言の再生中に、同じボタンで止める。
+    static let stopDeclarationPreview = "止める"
+    /// 宣言だけを言い直す。1 回の会話で 1 回だけ出す。
+    static let retakeDeclaration = "言い直す"
+    static let previewDeclarationAccessibilityLabel = "いま録った宣言を聞く"
+    static let stopDeclarationPreviewAccessibilityLabel = "宣言の再生を止める"
+    static let retakeDeclarationAccessibilityLabel = "宣言を言い直す"
+    /// 言い直しを残せなかったとき。最初の宣言が残っていることだけを伝える。
+    static let declarationRetakeKept = "うまく録れませんでした。最初の宣言を、そのまま残しています。"
+
     // MARK: 操作
 
     /// M0 の文字起こしが違うときの録り直し（retention R7）。

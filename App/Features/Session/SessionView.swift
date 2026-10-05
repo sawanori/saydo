@@ -254,6 +254,13 @@ struct SessionView: View {
             VStack(spacing: Layout.blockSpacing) {
                 Text(SessionCopy.closing(for: completion))
                     .saydoText(.list)
+                if viewModel.declarationRetakeFailed {
+                    Text(SessionCopy.declarationRetakeKept)
+                        .saydoText(.list)
+                        .foregroundStyle(SaydoTheme.Palette.ink3)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
                 Button(action: onClose) {
                     Text(SessionCopy.close)
                         .saydoText(.list)
@@ -268,9 +275,57 @@ struct SessionView: View {
                         )
                 }
                 .buttonStyle(.plain)
+                declarationActions
             }
             .padding(.top, Layout.chipsTopSpacing)
         }
+    }
+
+    /// 完了画面の「聞いてみる」と「言い直す」（task_038）。主ボタンは「閉じる」のままにし、
+    /// この 2 つは控えめに置く。押さなければタップは増えない（企画原則 §22-2）。
+    @ViewBuilder
+    private var declarationActions: some View {
+        if viewModel.canPreviewDeclaration {
+            HStack(spacing: Layout.declarationActionSpacing) {
+                declarationAction(
+                    viewModel.isPreviewingDeclaration
+                        ? SessionCopy.stopDeclarationPreview
+                        : SessionCopy.previewDeclaration,
+                    accessibilityLabel: viewModel.isPreviewingDeclaration
+                        ? SessionCopy.stopDeclarationPreviewAccessibilityLabel
+                        : SessionCopy.previewDeclarationAccessibilityLabel
+                ) {
+                    Task { await viewModel.playDeclarationPreview() }
+                }
+                if viewModel.canRetakeDeclaration {
+                    declarationAction(
+                        SessionCopy.retakeDeclaration,
+                        accessibilityLabel: SessionCopy.retakeDeclarationAccessibilityLabel
+                    ) {
+                        Task { await viewModel.retakeDeclaration() }
+                    }
+                }
+            }
+        }
+    }
+
+    private func declarationAction(
+        _ title: String,
+        accessibilityLabel: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Text(title)
+                .saydoText(.status)
+                .foregroundStyle(SaydoTheme.Palette.accent)
+                .frame(
+                    minWidth: SaydoTheme.Metric.minimumTapTarget,
+                    minHeight: SaydoTheme.Metric.minimumTapTarget
+                )
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(accessibilityLabel)
     }
 
     // MARK: - 右下の補助（常時）
@@ -333,6 +388,7 @@ struct SessionView: View {
         static let chipsTopSpacing: CGFloat = 24
         static let noticePadding: CGFloat = 16
         static let closeButtonPadding: CGFloat = 24
+        static let declarationActionSpacing: CGFloat = 24
         static let questionLineLimit = 3
         static let questionMinimumScale: CGFloat = 0.6
         /// 「聞いています…」の呼吸（2.8 秒で 0.5 ↔ 1.0）。

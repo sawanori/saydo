@@ -289,6 +289,125 @@ final class RepositoryTests: XCTestCase {
         XCTAssertFalse(store.fileExists(atRelativePath: allocated.relativePath))
     }
 
+    // MARK: 宣言の差し替え（task_038）
+
+    /// 声で宣言した約束と、その宣言の音声ファイルを作る。
+    private func makeVoicedCommitment(
+        on day: Date
+    ) async throws -> (commitment: CommitmentSnapshot, audioPath: String) {
+        let allocated = try store.allocate(recordedAt: day)
+        try Data([0x00]).write(to: allocated.url)
+        let created = try await repository.createCommitment(
+            draft(at: day, audioPath: allocated.relativePath)
+        )
+        return (created, allocated.relativePath)
+    }
+
+    /// done_definition: 差し替えの後、約束が新しい録音を指し、古い録音ファイルが消えている。
+    func testReplacingTheDeclarationPointsAtTheNewRecordingAndDeletesTheOldOne() async throws {
+        let day = try date(2026, 3, 9)
+        let later = try date(2026, 3, 9, 10)
+        let (created, oldPath) = try await makeVoicedCommitment(on: day)
+        let fresh = try store.allocate(recordedAt: later)
+        try Data([0x01, 0x02]).write(to: fresh.url)
+
+        let replaced = try await repository.replaceDeclaration(
+            commitmentID: created.id,
+            with: DeclarationReplacement(
+                audioPath: fresh.relativePath,
+                transcript: "I will open the file at two",
+                durationSec: 7,
+                recordedAt: later
+            )
+        )
+
+        XCTAssertEqual(replaced.id, created.id)
+        XCTAssertEqual(replaced.declarationAudioPath, fresh.relativePath)
+        XCTAssertEqual(replaced.declarationTranscript, "I will open the file at two")
+        let reloaded = try await repository.commitment(id: created.id)
+        XCTAssertEqual(reloaded?.declarationAudioPath, fresh.relativePath)
+        XCTAssertEqual(reloaded?.declarationTranscript, "I will open the file at two")
+
+        // 宣言の VoiceEntry は 1 件で、約束と同じ新しいファイルを指す。
+        let entries = try await repository.entries(for: day)
+        let declarations = entries.filter { $0.kind == .declaration }
+        XCTAssertEqual(declarations.count, 1)
+        XCTAssertEqual(declarations.first?.audioPath, fresh.relativePath)
+        XCTAssertEqual(declarations.first?.transcript, "I will open the file at two")
+        XCTAssertEqual(declarations.first?.durationSec, 7)
+        XCTAssertEqual(declarations.first?.recordedAt, later)
+        XCTAssertEqual(declarations.first?.sessionType, .morning)
+        XCTAssertEqual(declarations.first?.commitmentID, created.id)
+
+        XCTAssertFalse(store.fileExists(atRelativePath: oldPath))
+        XCTAssertTrue(store.fileExists(atRelativePath: fresh.relativePath))
+        // 起動時の孤児掃除にかけても、新しい録音は残る。
+        let swept = try await repository.sweepOrphanAudioFiles()
+        XCTAssertEqual(swept, [])
+    }
+
+    /// done_definition: 差し替えに失敗しても古い録音が残り、約束が壊れない。
+    /// 新しい録音のファイルが置き場所に無い（書き込めなかった）場合で失敗させる。
+    func testAFailedReplacementKeepsTheOldDeclarationUntouched() async throws {
+        let day = try date(2026, 3, 9)
+        let later = try date(2026, 3, 9, 10)
+        let (created, oldPath) = try await makeVoicedCommitment(on: day)
+        // 置き場所だけ確保して、ファイルは書かない。
+        let missing = try store.allocate(recordedAt: later)
+
+        do {
+            _ = try await repository.replaceDeclaration(
+                commitmentID: created.id,
+                with: DeclarationReplacement(
+                    audioPath: missing.relativePath,
+                    transcript: "never saved",
+                    durationSec: 3,
+                    recordedAt: later
+                )
+            )
+            XCTFail("expected RepositoryError.declarationAudioMissing")
+        } catch let error as RepositoryError {
+            XCTAssertEqual(error, .declarationAudioMissing(path: missing.relativePath))
+        }
+
+        let reloaded = try await repository.commitment(id: created.id)
+        XCTAssertEqual(reloaded?.declarationAudioPath, oldPath)
+        XCTAssertEqual(reloaded?.declarationTranscript, "I will open the file")
+        let entries = try await repository.entries(for: day)
+        XCTAssertEqual(entries.count, 1)
+        XCTAssertEqual(entries.first?.kind, .declaration)
+        XCTAssertEqual(entries.first?.audioPath, oldPath)
+        XCTAssertEqual(entries.first?.transcript, "I will open the file")
+        XCTAssertEqual(entries.first?.commitmentID, created.id)
+        XCTAssertTrue(store.fileExists(atRelativePath: oldPath))
+    }
+
+    /// 無い約束への差し替えは拒否され、何も足されない。
+    func testReplacingTheDeclarationOfAnUnknownCommitmentThrows() async throws {
+        let day = try date(2026, 3, 9)
+        let fresh = try store.allocate(recordedAt: day)
+        try Data([0x01]).write(to: fresh.url)
+        let unknown = UUID()
+
+        do {
+            _ = try await repository.replaceDeclaration(
+                commitmentID: unknown,
+                with: DeclarationReplacement(
+                    audioPath: fresh.relativePath,
+                    transcript: "a",
+                    durationSec: 1,
+                    recordedAt: day
+                )
+            )
+            XCTFail("expected RepositoryError.commitmentNotFound")
+        } catch let error as RepositoryError {
+            XCTAssertEqual(error, .commitmentNotFound(id: unknown))
+        }
+
+        let entries = try await repository.entries(for: day)
+        XCTAssertTrue(entries.isEmpty)
+    }
+
     func testSweepRemovesOnlyFilesWithoutAVoiceEntry() async throws {
         let day = try date(2026, 3, 9)
         let kept = try store.allocate(recordedAt: day)
