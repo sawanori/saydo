@@ -1,10 +1,10 @@
 import UIKit
 import UserNotifications
 
-/// 通知から会話を開始する口。
+/// 通知のタップをアプリの入口へ渡す口。
 ///
-/// 実体は `AppRouter`（未実装）。`AppDelegate` は `DeepLink` を作るところまでを担い、
-/// どの画面をどう出すかは知らない。
+/// 実体は `AppRouter`。`AppDelegate` は `DeepLink` を作るところまでを担い、
+/// どの画面をどう出すかは知らない（`AppRouter` が起動時と同じ判定で決める。実装計画 §17.3）。
 @MainActor
 public protocol SessionLauncher: AnyObject {
     func launch(_ link: DeepLink)

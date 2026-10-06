@@ -2,52 +2,66 @@ import SaydoCore
 import SwiftUI
 import UIKit
 
-/// 通知以外から開いたときの入口（実装計画 §8 / docs/design/Today.dc.html）。
+/// 今日の画面（実装計画 §17.3「今日」）。
 ///
-/// 置くのは「今日の約束」1 件と「今話す」だけ。一覧・チェックボックス・進捗率・連続日数は
-/// 作らない（企画原則 §22-8）。宣言音声はここからも本人に返せる（§22-10）。
+/// 約束・アクション・追い始める時刻・結果を 1 枚で見せる。主ボタンは、約束が無い日は約束する画面、
+/// 答えがまだの日は答える画面を開く。追い始める前の日は「◯時から追いかけます」と「時間を変える」。
+/// 一覧・チェックボックス・進捗率・連続日数は作らない（企画原則 §22-8）。
+/// 約束の声はここからも本人に返せる（§22-10）。
 struct TodayView: View {
 
-    private let repository: Repository
-    private let player: any Playing
-    private let notificationHealth: NotificationHealth?
-    private let onStartSession: @MainActor (SessionType) -> Void
+    private let viewModel: TodayViewModel
+    /// 変わるたびに約束を読み直す（被せた画面を閉じたとき）。
+    private let reloadToken: Int
+    /// 朝の通知が断られているか。断られているときだけ掲示を出す。
+    private let notificationsDenied: Bool
+    private let onOpenPromise: @MainActor () -> Void
+    private let onOpenFollowUp: @MainActor (CommitmentSnapshot) -> Void
     private let onOpenSettings: @MainActor () -> Void
-    /// 宣言音声の相対パスを URL に直す。開けない環境では再生ボタンを出さない。
-    private let audioFiles: AudioFileStore?
 
     @Environment(\.openURL) private var openURL
-
-    @State private var commitment: CommitmentSnapshot?
-    /// 夜まで終えた日か（E1 の `VoiceEntry` が残っているか）。
-    @State private var isDayFinished = false
-    @State private var hasLoaded = false
+    @Environment(\.scenePhase) private var scenePhase
 
     init(
-        repository: Repository,
-        player: any Playing,
-        notificationHealth: NotificationHealth?,
-        onStartSession: @escaping @MainActor (SessionType) -> Void,
+        viewModel: TodayViewModel,
+        reloadToken: Int,
+        notificationsDenied: Bool,
+        onOpenPromise: @escaping @MainActor () -> Void,
+        onOpenFollowUp: @escaping @MainActor (CommitmentSnapshot) -> Void,
         onOpenSettings: @escaping @MainActor () -> Void
     ) {
-        self.repository = repository
-        self.player = player
-        self.notificationHealth = notificationHealth
-        self.onStartSession = onStartSession
+        self.viewModel = viewModel
+        self.reloadToken = reloadToken
+        self.notificationsDenied = notificationsDenied
+        self.onOpenPromise = onOpenPromise
+        self.onOpenFollowUp = onOpenFollowUp
         self.onOpenSettings = onOpenSettings
-        self.audioFiles = try? AudioFileStore.applicationSupport()
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             header
-            Spacer(minLength: 44)
-            promise
-            Spacer(minLength: 24)
-            if let notificationHealth, notificationHealth.needsAttention {
-                notificationNotice
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    promise
+                    if let notice = viewModel.notice {
+                        Text(notice)
+                            .saydoText(.list)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    if viewModel.stage == .beforeChase {
+                        changeTime
+                    }
+                    if notificationsDenied {
+                        notificationNotice
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.top, 44)
+                .padding(.bottom, 24)
             }
-            Spacer(minLength: 24)
+            .scrollBounceBehavior(.basedOnSize)
+            .scrollIndicators(.hidden)
             footer
         }
         .padding(.horizontal, 30)
@@ -55,11 +69,27 @@ struct TodayView: View {
         .padding(.bottom, 32)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .saydoGround()
-        .task {
-            guard !hasLoaded else { return }
-            hasLoaded = true
-            await load()
+        .task(id: reloadToken) {
+            await viewModel.load()
         }
+        .task(id: viewModel.commitment?.plannedAt) {
+            // 画面を出したまま追い始める時刻を過ぎたら読み直す（主ボタンが「答える」に変わる）。
+            guard viewModel.stage == .beforeChase, let start = viewModel.commitment?.plannedAt else { return }
+            let wait = start.timeIntervalSinceNow
+            if wait > 0 {
+                try? await Task.sleep(for: .seconds(wait + 1))
+            }
+            guard !Task.isCancelled else { return }
+            await viewModel.load()
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active {
+                Task { await viewModel.load() }
+            } else {
+                viewModel.stopVoice()
+            }
+        }
+        .onDisappear { viewModel.stopVoice() }
     }
 
     // MARK: 上部
@@ -75,7 +105,7 @@ struct TodayView: View {
                 Image(systemName: "gearshape")
                     .font(.footnote)
                     .foregroundStyle(SaydoTheme.Palette.ink4)
-                    .frame(width: 32, height: 32)
+                    .frame(width: SaydoTheme.Metric.minimumTapTarget, height: SaydoTheme.Metric.minimumTapTarget)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
@@ -90,9 +120,6 @@ struct TodayView: View {
         .day()
         .weekday(.abbreviated)
 
-    private static let timeStyle = Date.FormatStyle(date: .omitted, time: .shortened)
-        .locale(Locale(identifier: "ja_JP"))
-
     // MARK: 今日の約束
 
     @ViewBuilder
@@ -100,9 +127,9 @@ struct TodayView: View {
         VStack(alignment: .leading, spacing: 18) {
             Text(TodayCopy.promiseSectionLabel)
                 .saydoText(.sectionLabel)
-            if let commitment {
-                declarationCard(commitment)
-            } else {
+            if let commitment = viewModel.commitment {
+                promiseCard(commitment)
+            } else if viewModel.stage == .noPromise {
                 Text(TodayCopy.noPromiseYet)
                     .saydoText(.declaration)
                     .foregroundStyle(SaydoTheme.Palette.ink3)
@@ -110,42 +137,37 @@ struct TodayView: View {
         }
     }
 
-    private func declarationCard(_ commitment: CommitmentSnapshot) -> some View {
+    /// 約束・アクション・追い始める時刻（または結果）を 1 枚に置く。
+    private func promiseCard(_ commitment: CommitmentSnapshot) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text(commitment.microAction.text)
-                .saydoText(.declaration)
-                .fixedSize(horizontal: false, vertical: true)
+            labeled(PromiseCopy.followUpPromiseLabel, commitment.avoidanceTitle)
+            hairline
+            labeled(PromiseCopy.followUpActionLabel, commitment.microAction.text)
 
-            Rectangle()
-                .fill(SaydoTheme.Palette.hairline)
-                .frame(height: 1)
-                .padding(.top, 22)
-                .padding(.bottom, 18)
-
-            HStack(alignment: .center) {
-                if let plannedAt = commitment.plannedAt {
-                    VStack(alignment: .leading, spacing: 5) {
-                        Text(TodayCopy.actionTimeLabel)
-                            .saydoText(.sectionLabel)
-                        Text(
-                            TodayCopy.plannedLabel(
-                                time: plannedAt.formatted(Self.timeStyle),
-                                place: commitment.plannedPlace
-                            )
-                        )
-                        .font(.title3.weight(.medium).monospacedDigit())
-                        .foregroundStyle(SaydoTheme.Palette.accent)
+            if statusLine(for: commitment) != nil || viewModel.hasVoice {
+                hairline
+                HStack(alignment: .center) {
+                    if let status = statusLine(for: commitment) {
+                        VStack(alignment: .leading, spacing: 5) {
+                            Text(status.label)
+                                .saydoText(.sectionLabel)
+                            Text(status.text)
+                                .font(.title3.weight(.medium).monospacedDigit())
+                                .foregroundStyle(SaydoTheme.Palette.accent)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
                     }
-                }
-                Spacer(minLength: 12)
-                if commitment.declarationAudioPath != nil {
-                    playButton
+                    Spacer(minLength: 12)
+                    if viewModel.hasVoice {
+                        playButton
+                    }
                 }
             }
         }
         .padding(.horizontal, 22)
         .padding(.top, 24)
         .padding(.bottom, 20)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: SaydoTheme.Metric.cardCornerRadius, style: .continuous)
                 .fill(SaydoTheme.surface)
@@ -156,12 +178,41 @@ struct TodayView: View {
         )
     }
 
-    /// 48px の再生ボタン。朝の自分の声をその場で返す。
+    /// カードの下段。答えた日は結果、答える前は追い始める時刻。
+    private func statusLine(for commitment: CommitmentSnapshot) -> (label: String, text: String)? {
+        if let result = PromiseCopy.resultLabel(for: commitment.outcome) {
+            return (TodayCopy.resultLabel, result)
+        }
+        guard let start = commitment.plannedAt else { return nil }
+        let text = viewModel.stage == .awaitingAnswer
+            ? PromiseCopy.chasing(since: start)
+            : PromiseCopy.chaseStarts(at: start)
+        return (TodayCopy.chaseTimeLabel, text)
+    }
+
+    private func labeled(_ label: String, _ text: String) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(label)
+                .saydoText(.sectionLabel)
+            Text(text)
+                .saydoText(.declaration)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private var hairline: some View {
+        Rectangle()
+            .fill(SaydoTheme.Palette.hairline)
+            .frame(height: 1)
+            .padding(.vertical, 18)
+    }
+
+    /// 48px の再生ボタン。約束の声をその場で返す。押すたびに再生と停止が入れ替わる。
     private var playButton: some View {
         Button {
-            Task { await playDeclaration() }
+            viewModel.toggleVoice()
         } label: {
-            Image(systemName: "play.fill")
+            Image(systemName: viewModel.isPlayingVoice ? "stop.fill" : "play.fill")
                 .font(.footnote)
                 .foregroundStyle(SaydoTheme.Palette.accent)
                 .frame(width: 48, height: 48)
@@ -174,12 +225,77 @@ struct TodayView: View {
                 .contentShape(Circle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(TodayCopy.playDeclaration)
+        .accessibilityLabel(viewModel.isPlayingVoice ? TodayCopy.stopDeclaration : TodayCopy.playDeclaration)
+    }
+
+    // MARK: 時間を変える
+
+    /// 追い始める前の日だけ出す。チップで選び直すと、アラームを登録し直す。
+    @ViewBuilder
+    private var changeTime: some View {
+        if viewModel.isChoosingTime {
+            VStack(alignment: .leading, spacing: 14) {
+                Text(PromiseCopy.chipsPrompt)
+                    .saydoText(.list)
+                ChipFlowLayout(
+                    rowSpacing: 10,
+                    chipSpacing: 10,
+                    rowHeight: SaydoTheme.Metric.chipHeight
+                ) {
+                    ForEach(viewModel.timeOptions, id: \.chip) { option in
+                        timeChip(option)
+                    }
+                }
+                textButton(PromiseCopy.changeTimeCancel) {
+                    viewModel.cancelChoosingTime()
+                }
+            }
+            .disabled(viewModel.isRescheduling)
+            .opacity(viewModel.isRescheduling ? 0.5 : 1)
+        } else {
+            textButton(PromiseCopy.changeTimeButton) {
+                viewModel.beginChoosingTime()
+            }
+        }
+    }
+
+    private func timeChip(_ option: PromiseTimeOption) -> some View {
+        Button {
+            Task { await viewModel.changeTime(to: option.chip) }
+        } label: {
+            Text(option.label)
+                .saydoText(.list)
+                .foregroundStyle(SaydoTheme.Palette.ink1)
+                .lineLimit(1)
+                .padding(.horizontal, 16)
+                .frame(height: SaydoTheme.Metric.chipHeight)
+                .background(
+                    RoundedRectangle(cornerRadius: SaydoTheme.Metric.chipCornerRadius, style: .continuous)
+                        .fill(SaydoTheme.Palette.chipFill)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: SaydoTheme.Metric.chipCornerRadius, style: .continuous)
+                        .stroke(SaydoTheme.Palette.hairline, lineWidth: 1)
+                )
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func textButton(_ title: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.callout)
+                .foregroundStyle(SaydoTheme.Palette.accent)
+                .frame(minHeight: SaydoTheme.Metric.minimumTapTarget)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: 通知の再許可
 
-    /// 通知が唯一の入口なので、黙って壊れたままにしない（実装計画 §7.4）。
+    /// 朝の通知を断っているときだけ出す。黙って壊れたままにしない（実装計画 §7.4）。
     private var notificationNotice: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(TodayCopy.notificationsStopped)
@@ -205,44 +321,42 @@ struct TodayView: View {
 
     @ViewBuilder
     private var footer: some View {
-        if isDayFinished {
+        switch viewModel.stage {
+        case .noPromise:
+            primaryButton(PromiseCopy.todayPromiseButton) {
+                onOpenPromise()
+            }
+        case .awaitingAnswer:
+            primaryButton(PromiseCopy.todayAnswerButton) {
+                if let commitment = viewModel.commitment {
+                    onOpenFollowUp(commitment)
+                }
+            }
+        case .answered:
             Text(TodayCopy.dayFinished)
                 .saydoText(.status)
                 .frame(maxWidth: .infinity)
-        } else {
-            Button {
-                onStartSession(commitment == nil ? .morning : .adhoc)
-            } label: {
-                Text(TodayCopy.speakNow)
-                    .font(.body.weight(.medium))
-                    .tracking(1.7)
-                    .foregroundStyle(SaydoTheme.Palette.accentHighlight)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: SaydoTheme.Metric.primaryButtonHeight)
-                    .background(
-                        Capsule().fill(SaydoTheme.Palette.accent.opacity(0.12))
-                    )
-                    .overlay(
-                        Capsule().stroke(SaydoTheme.Palette.accent.opacity(0.3), lineWidth: 1)
-                    )
-                    .contentShape(Capsule())
-            }
-            .buttonStyle(.plain)
+        case .loading, .beforeChase, .promiseOnly:
+            EmptyView()
         }
     }
 
-    // MARK: 読み込み
-
-    private func load() async {
-        let today = Date.now
-        commitment = try? await repository.todayCommitment(on: today)
-        let entries = (try? await repository.entries(for: today)) ?? []
-        // 夜 E1 まで終えた日は「今日はここまで」。件数も達成率も出さない。
-        isDayFinished = entries.contains { $0.kind == .tomorrow }
-    }
-
-    private func playDeclaration() async {
-        guard let path = commitment?.declarationAudioPath, let audioFiles else { return }
-        try? await player.play(audioFiles.url(forRelativePath: path), preferReceiver: false)
+    private func primaryButton(_ title: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.body.weight(.medium))
+                .tracking(1.7)
+                .foregroundStyle(SaydoTheme.Palette.accentHighlight)
+                .frame(maxWidth: .infinity)
+                .frame(height: SaydoTheme.Metric.primaryButtonHeight)
+                .background(
+                    Capsule().fill(SaydoTheme.Palette.accent.opacity(0.12))
+                )
+                .overlay(
+                    Capsule().stroke(SaydoTheme.Palette.accent.opacity(0.3), lineWidth: 1)
+                )
+                .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
     }
 }

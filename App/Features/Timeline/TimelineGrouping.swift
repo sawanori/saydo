@@ -24,7 +24,7 @@ enum TimelineGrouping {
         calendar: Calendar = .current
     ) -> [DaySection] {
         var buckets: [Date: [VoiceEntrySnapshot]] = [:]
-        for entry in entries {
+        for entry in collapsingPromiseVoices(entries) {
             buckets[calendar.startOfDay(for: entry.recordedAt), default: []].append(entry)
         }
         return buckets
@@ -32,5 +32,39 @@ enum TimelineGrouping {
                 DaySection(date: day, entries: dayEntries.sorted { $0.recordedAt < $1.recordedAt })
             }
             .sorted { $0.date > $1.date }
+    }
+
+    /// 約束する画面（実装計画 §17.3）が残す声を、1 つの約束につき 1 件にまとめる。
+    ///
+    /// 約束する画面は、約束の言葉（`.avoidance`）・アクションの言葉（`.declaration`）・
+    /// 2 つをつないだ声（`.declaration`。`Repository.createCommitment` が作る）の 3 件を残す。
+    /// そのまま並べると同じ声が 2 回出るので、同じ約束に宣言が 2 件以上ある日は、
+    /// いちばん後に残した 1 件（つないだ声。文字は「約束。アクション」）だけを見せる。
+    /// 旧い会話の宣言は 1 つの約束につき 1 件なので、ここでは何も隠れない。
+    static func collapsingPromiseVoices(_ entries: [VoiceEntrySnapshot]) -> [VoiceEntrySnapshot] {
+        var declarations: [UUID: [VoiceEntrySnapshot]] = [:]
+        for entry in entries where entry.kind == .declaration {
+            guard let commitmentID = entry.commitmentID else { continue }
+            declarations[commitmentID, default: []].append(entry)
+        }
+
+        var joinedByCommitment: [UUID: VoiceEntrySnapshot] = [:]
+        for (commitmentID, group) in declarations where group.count >= 2 {
+            // 同じ時刻なら、声のある方・文字の長い方（つないだ文）を採る。
+            joinedByCommitment[commitmentID] = group.max { lhs, rhs in
+                if lhs.recordedAt != rhs.recordedAt { return lhs.recordedAt < rhs.recordedAt }
+                if (lhs.audioPath != nil) != (rhs.audioPath != nil) { return lhs.audioPath == nil }
+                return lhs.transcript.count < rhs.transcript.count
+            }
+        }
+        guard !joinedByCommitment.isEmpty else { return entries }
+
+        return entries.filter { entry in
+            guard let commitmentID = entry.commitmentID,
+                  let joined = joinedByCommitment[commitmentID] else { return true }
+            if entry.id == joined.id { return true }
+            let isPromisePart = entry.kind == .declaration || entry.kind == .avoidance
+            return !(isPromisePart && entry.sessionType == joined.sessionType)
+        }
     }
 }

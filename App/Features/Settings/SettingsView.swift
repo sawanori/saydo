@@ -370,10 +370,16 @@ struct SettingsView: View {
     private func scheduleReschedule() {
         rescheduleTask?.cancel()
         let notificationSettings = settings.notificationSettings
+        let container = modelContext.container
         rescheduleTask = Task {
             try? await Task.sleep(for: .milliseconds(400))
             guard !Task.isCancelled else { return }
-            await NotificationScheduler.shared.reschedule(settings: notificationSettings)
+            // 登録するのは約束を促す朝の 1 通だけ（実装計画 §17.4）。昼・夜の時刻は登録しない。
+            let today = try? await Repository(modelContainer: container).todayCommitment()
+            await NotificationScheduler.shared.rescheduleMorningOnly(
+                settings: notificationSettings,
+                hasPromiseToday: today != nil
+            )
         }
     }
 

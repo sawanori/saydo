@@ -2,13 +2,11 @@ import AVFoundation
 import Foundation
 import Observation
 import UIKit
-import UserNotifications
 
-/// マイクと通知の許可状態（実装計画 §8 の `OnboardingView`、task_013）。
+/// マイクとアラームの許可（実装計画 §17.6 のオンボーディング 3 画面、task_056）。
 ///
-/// 拒否されても止めない。マイクが無ければ文字だけで完走でき（fix-decisions P2.3）、
-/// 通知が無くてもアプリを開けば会話は始まる。画面はこの型の状態を読んで
-/// 「許可を求める」か「設定アプリへの導線を出す」かだけを決める。
+/// 拒否されても止めない。マイクが無ければ文字だけで約束でき、アラームが無くても約束は残る。
+/// 朝の通知の許可はここでは求めない（最初の約束が保存された後に `AppRouter` が求める）。
 @MainActor
 @Observable
 final class PermissionsViewModel {
@@ -24,43 +22,21 @@ final class PermissionsViewModel {
     }
 
     private(set) var microphone: MicrophoneState
-    private(set) var notifications: UNAuthorizationStatus
+    /// アラームの許可を求めた結果。まだ求めていなければ nil。
+    private(set) var alarmGranted: Bool?
 
-    @ObservationIgnored private let scheduler: NotificationScheduler
+    @ObservationIgnored private let alarms: any AlarmScheduling
 
-    init(scheduler: NotificationScheduler = .shared) {
-        self.scheduler = scheduler
+    init(alarms: any AlarmScheduling) {
+        self.alarms = alarms
         microphone = Self.currentMicrophoneState()
-        notifications = .notDetermined
     }
 
     // MARK: - 読み取り
 
-    /// 声で会話できるか。
-    var isMicrophoneGranted: Bool { microphone == .granted }
-
-    /// 通知を送れるか（`provisional` と `ephemeral` も含む）。
-    var isNotificationGranted: Bool {
-        switch notifications {
-        case .authorized, .provisional, .ephemeral: true
-        default: false
-        }
-    }
-
-    /// ダイアログではなく設定アプリへ送る状態か。
-    var needsSystemSettingsForMicrophone: Bool { microphone == .denied }
-
-    var needsSystemSettingsForNotifications: Bool {
-        switch notifications {
-        case .notDetermined: false
-        default: !isNotificationGranted
-        }
-    }
-
     /// 画面に戻ってきたときに読み直す（設定アプリで変えられている可能性がある）。
-    func refresh() async {
+    func refresh() {
         microphone = Self.currentMicrophoneState()
-        notifications = await scheduler.authorizationStatus()
     }
 
     // MARK: - 要求
@@ -72,14 +48,9 @@ final class PermissionsViewModel {
         microphone = Self.currentMicrophoneState()
     }
 
-    /// 通知のダイアログを出す。既に答えが出ているときは状態を読み直すだけ。
-    func requestNotifications() async {
-        guard notifications == .notDetermined else {
-            notifications = await scheduler.authorizationStatus()
-            return
-        }
-        _ = await scheduler.requestAuthorization()
-        notifications = await scheduler.authorizationStatus()
+    /// アラームのダイアログを出す。既に答えが出ているときは、その答えが返るだけ。
+    func requestAlarm() async {
+        alarmGranted = await alarms.requestAuthorization()
     }
 
     /// 設定アプリのこのアプリのページを開く。

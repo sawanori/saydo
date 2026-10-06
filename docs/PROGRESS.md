@@ -3584,3 +3584,66 @@ done_definition との対応:
 - 画面の見た目（シミュレータ・実機とも目視していない）。
 - 実機での録音・文字起こし・2 つの録音をつないだ声の音（つなぐ処理はシミュレータ上の AAC ファイルでだけ確かめた）。
 - 足した文言の言い回し（`PromiseCopy` の `completionWithoutVoice`、`completionNotAuthorized`、`completionAlarmUnavailable`、`holdLonger`、`notHeard`、`captureUnavailable`、`saveUnavailable`、`voiceInputButton`）。
+
+## task_056 — 入口のつなぎ替え: 起動で約束の画面、アラームから答える画面、今日、オンボーディング
+
+- 日時: 2026-10-06
+- 状態: needs-device（コードとテストは完了。約束 → アラーム → 答える、の通しは実機でしか確かめられない）
+- ブランチ / コミット: task/056-entry-rewire / `git log` の `task_056:` 行
+
+### 証拠
+
+| コマンド | exit | 全文ログ |
+|---|---|---|
+| `scripts/test-ios.sh` | 0（`Executed 299 tests, with 0 failures`、`** TEST SUCCEEDED **`、lint-principles `OK`） | `docs/logs/task_056-1.txt` |
+| `scripts/test-core.sh` | 0（`Executed 285 tests, with 0 failures` と `Executed 33 tests, with 0 failures`、lint-principles `OK`） | — |
+| `SAYDO_TEAM_ID=2WWB6ZA7A9 scripts/build-device.sh Saydo` | 未実行（実機へのインストールは統合担当が行う指示） | — |
+
+| done_definition | 証拠 |
+|---|---|
+| 約束の無い日の起動で PromiseView が出る | `AppRouterTests.testLaunchWithoutPromiseShowsPromiseScreen`。シミュレータ（iPhone 17 / iOS 26.3）でオンボーディング済みにして起動し、約束する画面が全画面で出ることを画面の写しで 1 回確かめた |
+| 追い始めた後で答えがまだの日の起動で FollowUpView が出る | `testLaunchAfterChaseStartedShowsFollowUpScreen`、「開く」の合図は `testOpenSignalShowsFollowUpScreen` |
+| オンボーディングが 3 画面で、終えると PromiseView が出る | `testCompletingOnboardingShowsPromiseScreen`、`OnboardingView.Step`（concept / microphone / alarm）。1 画面目はシミュレータの写しで「1 / 3」を確かめた |
+| `scripts/test-ios.sh` が exit 0 | 上の表 |
+| 実機で、約束 → アラーム → 答える、を本人が 1 回通せる | **未検証**（実機確認待ち） |
+
+### 実装の要点
+
+- 判定は `AppRouter.destination(...)`（純粋な関数）と `resolveEntry(openRequested:ignoringDismissal:)`。起動時（`RootView.task`）、前面復帰（`scenePhase`）、アラームの「開く」（`FollowUpOpenRequest.consume()` と `didRequest`）、朝の通知のタップ（`AppRouter.launch`）がすべて同じ判定を通る。
+- 被せる画面は `fullScreenCover` ではなく、`RootView` の `ZStack` でタブの上に全画面で重ねる（設定のシートや起動直後と競合しない。最初の判定が済むまで今日の画面は見せない）。
+- その日に約束する画面を閉じたことは `AppSettings.promiseDismissedDayKey` に残す。朝の通知のタップと今日の画面の主ボタンは、閉じた後でも開く。
+- 通知は `NotificationPlan.makeMorningOnly` / `NotificationScheduler.rescheduleMorningOnly` で朝の 1 通だけ（約束がある日の当日分は出さない）。設定画面の再計画も同じ経路にした。通知の許可は、約束が保存されて約束する画面が閉じた時点で求める。
+- 「やった」は `RepositoryFollowUpStore.saveOutcome` で `AvoidanceItem.status = .done` にする（結果の保存が済んだ後なので、状態の更新の失敗では答えを取り消さない）。
+- 記録タブは `TimelineGrouping.collapsingPromiseVoices` で、同じ約束に宣言が 2 件以上ある日は、つないだ声 1 件だけを見せる。
+- 全削除の後は、前日・当日・翌日の連鎖アラームを取り消す（答える先の無いアラームを残さない。`AppRouter.reloadOnboardingState`）。
+- Info.plist の `NSAlarmKitUsageDescription` と `NSMicrophoneUsageDescription` は既に入っていたので、足した設定は無い。
+
+### 削除・変更した既存のテストとコード
+
+- `AppRouterTests` を全面的に書き換えた（20 件）。旧い 7 件のうち、`SessionRequest` を開く経路を見ていた 5 件（`testOpenLinkStartsMatchingSession`、`testMorningLinkKeepsMorningSessionType`、`testManualSessionWithoutTodayCommitmentOpensMorning`、`testManualSessionWithTodayCommitmentOpensAdhoc`、`testDismissClearsActiveSession`）は、対象の経路（`activeSession` / `startManualSession` / `dismissSession`）を `AppRouter` から外したので削除。`testRestLinkDoesNotOpenAnything` と `testCompleteOnboardingIsRemembered` は新しい形で残した。
+- 追加: `TodayViewModelTests`（6 件）、`TimelineGroupingTests` に 3 件、`RepositoryTests` に 1 件、`NotificationPlanTests` に 2 件。
+- `App/Features/Onboarding/AssetDownloadView.swift` を削除（オンボーディングから外した段階の画面で、ほかに使う所が無い）。`OnboardingCopy` の通知・時刻・アセット・バックアップの文言も外した。
+- `SessionView` / `SessionViewModel` / フロー / `NotificationScheduler+SessionScheduling` は触っていない（アプリからは開かれなくなった。撤去は task_057）。
+
+### 足した文言
+
+- `PromiseCopy`（Guardrails の検査に入れた）: 「約束する」「答える」「◯時から追いかけます」「◯時から追いかけています」「時間を変える」「このままにする」「今回はアラームを登録し直せませんでした。時刻は元のままです。」
+- `TodayCopy`: 「追い始める時刻」「結果」「約束の声を聞く」「声を止める」「朝の通知が届かない設定になっています。」
+- `OnboardingCopy`: 「今日の約束を声にして、やるまで追いかけてもらう。」「約束と、最初にやることを話します。決めた時刻から、アプリで答えるまでアラームが鳴ります。」「録った声はこの端末の中だけに置き、アラームの音としてあなた自身に返します。」「マイクは使わないままでも、文字だけで約束できます。」「アラームで追いかけます」「約束の時刻から 3 分おきに鳴ります。アプリを開いて答えると止まります。」「許可しない場合、約束は残りますがアラームは鳴りません。あとで設定アプリから変えられます。」「アラームを許可する」
+
+### 未解決
+
+1. 朝の通知の本文は「今日、何から逃げそう？」のまま（`NotificationCopy`。SaydoCore のテストが文言を固定している）。約束を促す言い回しに変えるかは本人の判断。通知の長押しの「今は話せない」「今日は休む」も残っている。
+2. 設定画面には、昼・夜の時刻と通知の本数の項目が残っている（選んでも朝の 1 通しか登録されない）。整理は task_057。
+3. アプリを前面に出したまま追い始める時刻を過ぎたとき、答える画面は自動では被さらない（今日の画面の主ボタンが「答える」に変わる。「開く」か前面復帰で答える画面が出る）。
+4. アラームの権限が無いことは、約束の完了の 1 行と「時間を変える」の失敗でしか伝えていない（今日の画面に常設の掲示は無い）。
+5. オンボーディングの主ボタンの文字が地の色に近く読みにくい（`OnboardingPrimaryButtonStyle`。task_013 からの見た目で、今回は触っていない）。
+
+### 人間の確認待ち（実機）
+
+- 起動 → 約束する画面 → 2 つ話して「約束する」→ 完了の 1 行の 3 秒後に今日の画面へ戻り、通知の許可のダイアログが出ること。
+- 今日の画面に約束・最初にやること・「◯時から追いかけます」・再生ボタンが出ること。「時間を変える」でチップを選ぶと時刻が変わり、その時刻から鳴ること。
+- アラームの「開く」で（アプリが終了中・裏・前面のどれでも）答える画面が出ること。答えた後は鳴らず、今日の画面に結果が出ること。
+- 答えずにアプリを閉じて開き直すと、答える画面が出ること。
+- 記録タブに、その日の声が 1 件（約束。アクション）だけ並ぶこと。
+- 旧い版で登録済みだった昼・行動時刻の通知が、起動後に届かないこと。
