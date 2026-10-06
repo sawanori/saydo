@@ -4,218 +4,358 @@ import Observation
 import OSLog
 import SwiftData
 import SaydoCore
+import UserNotifications
 
-/// どの会話をどこから開くか（実装計画 §7.4 / §8）。
+/// 朝の 1 通（約束を促す通知）の入口。`AppRouter` が使うぶんだけを切り出してある
+/// （テストでは許可のダイアログを出さない実装に差し替える）。
+@MainActor
+protocol MorningNotifying: AnyObject {
+    func authorizationStatus() async -> UNAuthorizationStatus
+    func requestAuthorization() async -> Bool
+    /// 朝の 1 通だけを登録し直す。昼・行動時刻・夜は登録しない（実装計画 §17.4）。
+    func rescheduleMorning(now: Date, settings: SaydoCore.NotificationSettings, hasPromiseToday: Bool) async
+}
+
+extension NotificationScheduler: MorningNotifying {
+    func rescheduleMorning(now: Date, settings: SaydoCore.NotificationSettings, hasPromiseToday: Bool) async {
+        await rescheduleMorningOnly(now: now, settings: settings, hasPromiseToday: hasPromiseToday)
+    }
+}
+
+/// 開いたときに何を出すか（実装計画 §17.3）。
 ///
-/// 通知タップは `AppDelegate` → `SessionLauncher.launch(_:)` で、手動は「今話す」から入る。
-/// 画面の出し方は `RootView` が決め、この型は「いま開くべき会話」と、その会話の
-/// `SessionViewModel` を持つだけにする。
+/// 起動時・前面に戻ったとき・アラームの「開く」・朝の通知のタップは、すべて同じ判定
+/// （`destination(...)`）を通る。画面の出し方は `RootView` が決め、この型は「いま被せる画面」
+/// （`cover`）と、その画面の頭脳の組み立てだけを持つ。
 @MainActor
 @Observable
 final class AppRouter: SessionLauncher {
 
-    /// いま開いている会話。
-    struct SessionRequest: Identifiable, Equatable {
-        enum Source: Equatable {
-            case notification
-            case manual
-        }
+    /// 判定の結果。
+    enum Destination: Equatable {
+        /// オンボーディングが済んでいない。
+        case onboarding
+        /// 追い始めた後で答えがまだ（または「開く」の合図があった）。答える画面を全画面で出す。
+        case followUp(CommitmentSnapshot)
+        /// 今日の約束が無い。約束する画面を全画面で出す。
+        case promise
+        /// 今日の画面。
+        case today
+    }
 
-        let id = UUID()
-        var sessionType: SessionType
-        var commitmentID: UUID?
-        var source: Source
+    /// 今日の画面の上に全画面で被せる画面。
+    enum Cover: Equatable, Identifiable {
+        /// 約束する画面。`token` は開くたびに変わる（開き直したら新しい画面にする）。
+        case promise(token: UUID)
+        /// 答える画面。
+        case followUp(CommitmentSnapshot)
+
+        var id: String {
+            switch self {
+            case .promise(let token): "promise-\(token.uuidString)"
+            case .followUp(let commitment): "followUp-\(commitment.id.uuidString)"
+            }
+        }
     }
 
     // MARK: 公開する状態
 
-    private(set) var activeSession: SessionRequest?
-    /// 会話画面が読む頭脳。`beginSession()` で作る（音声スタックの実体を持つ）。
-    private(set) var sessionViewModel: SessionViewModel?
+    /// いま被せている画面。無ければ今日の画面が見えている。
+    private(set) var cover: Cover?
     /// オンボーディングを終えているか。`RootView` の分岐に使う。
     private(set) var hasCompletedOnboarding: Bool
-    /// 会話を閉じるたびに増える。`TodayView` を作り直して今日の宣言を読み直すための印。
-    private(set) var sessionGeneration = 0
+    /// 起動してから 1 回でも判定を終えたか。終えるまで `RootView` は今日の画面を見せない
+    /// （約束する画面の前に今日の画面が一瞬見えるのを避ける）。
+    private(set) var hasResolvedEntry = false
+    /// 被せた画面を閉じるたびに増える。`TodayView` が約束を読み直すための印。
+    private(set) var generation = 0
 
     // MARK: 依存
 
     let repository: Repository
-    /// Today / Timeline の再生に使う共有プレイヤー（同時再生はしない）。
+    /// Today / Timeline / 答える画面の再生に使う共有プレイヤー（同時再生はしない）。
     let sharedPlayer: VoicePlayer
-    private let notifications: NotificationScheduler
-    /// 会話中の AVAudioSession（.playAndRecord・経路・音量）。会話ごとの音声スタックと共有する。
+    /// 連鎖アラームの入口。約束する画面・答える画面・今日の画面・オンボーディングで共有する。
+    let alarms: any AlarmScheduling
+    /// 録音の置き場所。保存先が開けない端末では一時ディレクトリになる。
+    let audioFiles: AudioFileStore
+    private let notifications: any MorningNotifying
+    /// 録音中の AVAudioSession。約束する画面と再生で共有する。
     private let audioSession: AudioSessionController
     private let settings: AppSettings
     private let now: @Sendable () -> Date
     private let calendar: Calendar
-    /// 永続ストアで開けたか。メモリ内ストアで起動した日は false で、会話は「届きます」と言わない。
-    private let isStorePersistent: Bool
-    private let logger = Logger(subsystem: "com.nonturn.saydo", category: "router")
-
-    /// 保存先が開けず、一時ディレクトリに録音するしかない状態か。
-    /// この日は音声を残せないのでテキスト経路で始める（会話は諦めない）。
-    private var isAudioStorageDegraded = false
-    private var hasStartedActiveSession = false
+    private static let logger = Logger(subsystem: "com.nonturn.saydo", category: "router")
 
     init(
         modelContainer: ModelContainer,
-        notifications: NotificationScheduler = .shared,
+        notifications: (any MorningNotifying)? = nil,
+        alarms: (any AlarmScheduling)? = nil,
+        audioFiles: AudioFileStore? = nil,
         settings: AppSettings = .shared,
         calendar: Calendar = .current,
-        now: @escaping @Sendable () -> Date = { .now },
-        isStorePersistent: Bool = true
+        now: @escaping @Sendable () -> Date = { .now }
     ) {
         self.repository = Repository(modelContainer: modelContainer)
         let audioSession = AudioSessionController()
         self.audioSession = audioSession
         self.sharedPlayer = VoicePlayer(sessionController: audioSession)
-        self.notifications = notifications
+        let files = audioFiles ?? Self.defaultAudioFileStore()
+        self.audioFiles = files
+        self.alarms = alarms ?? AlarmScheduler(audioFileStore: files)
+        self.notifications = notifications ?? NotificationScheduler.shared
         self.settings = settings
         self.calendar = calendar
         self.now = now
-        self.isStorePersistent = isStorePersistent
         self.hasCompletedOnboarding = settings.hasCompletedOnboarding
+    }
+
+    // MARK: - 判定
+
+    /// 開いたときに出す画面を決める（純粋な判定。実装計画 §17.3）。
+    ///
+    /// - Parameters:
+    ///   - openRequested: アラームの「開く」の合図があったか。
+    ///   - awaiting: 追い始めた後で答えがまだの約束（`Repository.commitmentAwaitingAnswer`）。
+    ///   - inPlay: いま扱っている約束（`Repository.commitmentInPlay`）。無ければ今日は約束できる。
+    ///   - promiseDismissedToday: その日に本人が約束する画面を閉じたか。
+    nonisolated static func destination(
+        hasCompletedOnboarding: Bool,
+        openRequested: Bool,
+        awaiting: CommitmentSnapshot?,
+        inPlay: CommitmentSnapshot?,
+        promiseDismissedToday: Bool
+    ) -> Destination {
+        guard hasCompletedOnboarding else { return .onboarding }
+        if let awaiting { return .followUp(awaiting) }
+        // 「開く」はアラームが鳴ったから押せる。時計のずれで「追い始めた後」に入らなくても、
+        // 答えがまだの約束があれば答える画面を出す。
+        if openRequested, let inPlay, inPlay.outcome == .pending, inPlay.plannedAt != nil {
+            return .followUp(inPlay)
+        }
+        if inPlay == nil, !promiseDismissedToday { return .promise }
+        return .today
+    }
+
+    /// 起動時・前面に戻ったとき・「開く」の合図・朝の通知のタップで呼ぶ。判定して `cover` に反映する。
+    ///
+    /// - Parameters:
+    ///   - openRequested: アラームの「開く」の合図があったか（`FollowUpOpenRequest.consume()`）。
+    ///   - ignoringDismissal: その日に約束する画面を閉じていても、約束が無ければ出す
+    ///     （朝の通知をタップしたとき、オンボーディングを終えたとき）。
+    @discardableResult
+    func resolveEntry(openRequested: Bool = false, ignoringDismissal: Bool = false) async -> Destination {
+        await resolveEntry(
+            hasCompletedOnboarding: hasCompletedOnboarding,
+            openRequested: openRequested,
+            ignoringDismissal: ignoringDismissal
+        )
+    }
+
+    private func resolveEntry(
+        hasCompletedOnboarding: Bool,
+        openRequested: Bool,
+        ignoringDismissal: Bool
+    ) async -> Destination {
+        let moment = now()
+        let awaiting = try? await repository.commitmentAwaitingAnswer(asOf: moment, calendar: calendar)
+        let inPlay = try? await repository.commitmentInPlay(asOf: moment, calendar: calendar)
+        let dismissedToday = settings.promiseDismissedDayKey == DayKey.make(from: moment, calendar: calendar)
+        let destination = Self.destination(
+            hasCompletedOnboarding: hasCompletedOnboarding,
+            openRequested: openRequested,
+            awaiting: awaiting,
+            inPlay: inPlay,
+            promiseDismissedToday: dismissedToday && !ignoringDismissal
+        )
+        apply(destination)
+        hasResolvedEntry = true
+        Self.logger.info("entry resolved: \(Self.name(of: destination), privacy: .public) open=\(openRequested, privacy: .public)")
+        return destination
+    }
+
+    /// 判定を `cover` に反映する。すでに同じ画面を出していれば、作り直さない（入力の途中を壊さない）。
+    private func apply(_ destination: Destination) {
+        switch destination {
+        case .onboarding:
+            cover = nil
+        case .followUp(let commitment):
+            if case .followUp(let current) = cover, current.id == commitment.id { return }
+            cover = .followUp(commitment)
+        case .promise:
+            if case .promise = cover { return }
+            cover = .promise(token: UUID())
+        case .today:
+            // 今日の画面でよい判定のときに、開いている画面を勝手に閉じない
+            // （本人が今日の画面から開いた約束する画面、答え終えた 1 行を出している答える画面）。
+            break
+        }
+    }
+
+    private static func name(of destination: Destination) -> String {
+        switch destination {
+        case .onboarding: "onboarding"
+        case .followUp: "followUp"
+        case .promise: "promise"
+        case .today: "today"
+        }
     }
 
     // MARK: - 通知から開く
 
-    /// `AppDelegate` から来る起動要求（`SessionLauncher`）。
+    /// `AppDelegate` から来る起動要求（`SessionLauncher`）。朝の通知のタップ。
     ///
-    /// - `.open`（通知本体のタップ）だけが会話を開く。
-    /// - `.rest`（「今日は休む」）は `AppDelegate` が当日の保留通知を取り消し済みなので、
-    ///   ここでは何もしない。会話を開かないことが「休む」の意味（retention R3）。
-    /// - 将来増える操作（「今は話せない」など）も、開くと決めるまでは無視する。
+    /// - `.open`（通知本体のタップ）だけが画面を開く。開くのは旧い会話ではなく、起動時と同じ判定
+    ///   （約束が無ければ約束する画面、答えがまだなら答える画面）。
+    /// - `.rest`（「今日は休む」）は `AppDelegate` が当日の保留通知を取り消し済みなので、何もしない。
     func launch(_ link: DeepLink) {
-        guard link.action == .open else { return }
-        present(
-            SessionRequest(
-                sessionType: link.sessionType,
-                commitmentID: link.commitmentID,
-                source: .notification
-            )
-        )
+        Task { await open(link) }
     }
 
-    // MARK: - 手動で開く
-
-    /// 「今話す」から開く。今日の宣言がまだ無ければ朝、あれば手動チェックイン。
-    func startManualSession() async {
-        let today = try? await repository.todayCommitment(on: now(), calendar: calendar)
-        await startManualSession(today == nil ? .morning : .adhoc)
+    /// `launch(_:)` の中身。テストから待てるように分けてある。
+    func open(_ link: DeepLink) async {
+        guard link.action == .open, hasCompletedOnboarding else { return }
+        await resolveEntry(ignoringDismissal: true)
     }
 
-    /// `TodayView` が種類を決めて開く（宣言前は朝、宣言後は手動チェックイン、夜は夜）。
-    func startManualSession(_ sessionType: SessionType) async {
-        let today = try? await repository.todayCommitment(on: now(), calendar: calendar)
-        present(
-            SessionRequest(
-                sessionType: sessionType,
-                commitmentID: today?.id,
-                source: .manual
-            )
-        )
+    // MARK: - 今日の画面から開く
+
+    /// 今日の画面の主ボタン（約束が無い日）。約束する画面を開く。
+    func openPromise() {
+        if case .promise = cover { return }
+        cover = .promise(token: UUID())
     }
 
-    // MARK: - 起動時の再計画
-
-    /// 起動ごとに今日からの通知計画を作り直す（実装計画 §7.4、task_009 scope）。
-    /// 今日の宣言があれば行動時刻と結果を計画に反映する。
-    func rescheduleOnLaunch() async {
-        let today = try? await repository.todayCommitment(on: now(), calendar: calendar)
-        let day = today.map { DayCommitment(plannedAt: $0.plannedAt, outcome: $0.outcome) } ?? .noCommitment
-        _ = await notifications.reschedule(
-            now: now(),
-            settings: settings.notificationSettings,
-            today: day,
-            commitmentID: today?.id
-        )
+    /// 今日の画面の主ボタン（答えがまだの日）。答える画面を開く。
+    func openFollowUp(for commitment: CommitmentSnapshot) {
+        cover = .followUp(commitment)
     }
 
-    // MARK: - 開始と終了
+    // MARK: - 閉じる
 
-    /// 会話画面が出た直後に呼ぶ。マイクの許可を確かめてから読み上げを始める。
+    /// 約束する画面を閉じた（「閉じる」、または完了の 1 行を出し終えた）。
     ///
-    /// 起動から 1.5 秒以内に TTS を始めるため、余計な待ちを入れない。
-    func beginSession() async {
-        guard let request = activeSession, !hasStartedActiveSession else { return }
-        hasStartedActiveSession = true
+    /// その日は、起動のたびに約束する画面を出し直さない。約束が保存されていれば、
+    /// 朝の通知の許可を（まだなら）ここで求め、朝の 1 通を登録し直す。
+    func closePromise() async {
+        guard case .promise = cover else { return }
+        settings.promiseDismissedDayKey = DayKey.make(from: now(), calendar: calendar)
+        cover = nil
+        generation += 1
 
-        let viewModel = makeSessionViewModel()
-        sessionViewModel = viewModel
-
-        let granted = isAudioStorageDegraded ? false : await Self.microphonePermission()
-        // 「話せない時を自動で使う時間帯」（task_013）なら最初から選択肢 + テキスト経路で始める。
-        await viewModel.start(
-            sessionType: request.sessionType,
-            microphoneGranted: granted,
-            voicelessMode: settings.isQuietMode(at: now())
-        )
+        let saved = try? await repository.commitmentInPlay(asOf: now(), calendar: calendar)
+        guard saved != nil else { return }
+        if await notifications.authorizationStatus() == .notDetermined {
+            _ = await notifications.requestAuthorization()
+        }
+        await refreshMorningNotification()
     }
 
-    /// 会話を閉じる。途中で閉じた場合は中断として保存し、録音と読み上げを止める。
-    func dismissSession() {
-        if let viewModel = sessionViewModel, viewModel.phase != .done {
-            Task { await viewModel.interrupt() }
+    /// 答える画面を閉じた。答えていなければ、アラームはそのまま追い続ける。
+    func closeFollowUp() {
+        guard case .followUp = cover else { return }
+        cover = nil
+        generation += 1
+    }
+
+    // MARK: - 朝の 1 通
+
+    /// 起動ごとに、約束を促す朝の 1 通だけを登録し直す（実装計画 §17.4）。
+    /// 旧い版が登録した昼・行動時刻・夜の保留通知は、ここで取り消される。
+    /// 通知が許可されていなければ何もしない（許可は最初の約束の後に求める）。
+    func refreshMorningNotification() async {
+        switch await notifications.authorizationStatus() {
+        case .authorized, .provisional, .ephemeral:
+            break
+        default:
+            return
         }
-        activeSession = nil
-        sessionViewModel = nil
-        hasStartedActiveSession = false
-        sessionGeneration += 1
+        let moment = now()
+        let today = try? await repository.todayCommitment(on: moment, calendar: calendar)
+        await notifications.rescheduleMorning(
+            now: moment,
+            settings: settings.notificationSettings,
+            hasPromiseToday: today != nil
+        )
     }
 
     // MARK: - オンボーディング
 
-    /// オンボーディングを終えた。統合後は `OnboardingView`（task_013）から呼ぶ。
-    func completeOnboarding() {
+    /// オンボーディングを終えた。約束が無ければ、そのまま約束する画面が出る。
+    func completeOnboarding() async {
         settings.hasCompletedOnboarding = true
+        // 先に被せる画面を決めてから切り替える（今日の画面が一瞬見えるのを避ける）。
+        _ = await resolveEntry(hasCompletedOnboarding: true, openRequested: false, ignoringDismissal: true)
         hasCompletedOnboarding = true
     }
 
     /// 設定の「全削除」で `AppSettings.reset()` が走った後など、保存値から状態を読み直す。
+    ///
+    /// 全削除の後は約束が残っていないので、鳴り続けるアラームに答える先が無くなる。
+    /// 前日・当日・翌日に始まる連鎖をここで取り消す。
     func reloadOnboardingState() {
         hasCompletedOnboarding = settings.hasCompletedOnboarding
+        guard !hasCompletedOnboarding else { return }
+        cover = nil
+        let alarms = self.alarms
+        let calendar = self.calendar
+        let moment = now()
+        Task {
+            for offset in -1...1 {
+                guard let day = calendar.date(byAdding: .day, value: offset, to: moment) else { continue }
+                await alarms.cancelChain(startedOn: day)
+            }
+        }
+    }
+
+    // MARK: - 画面の頭脳の組み立て
+
+    /// 約束する画面の頭脳。録音・文字起こしの実体を持つので、画面を出すときに 1 回だけ作る。
+    func makePromiseViewModel() -> PromiseViewModel {
+        PromiseViewModel(
+            store: RepositoryPromiseStore(repository, calendar: calendar),
+            capture: VoiceCapture(),
+            transcriber: TranscriptionService(),
+            alarms: alarms,
+            audioFiles: audioFiles,
+            audioSession: audioSession,
+            calendar: calendar,
+            now: now
+        )
+    }
+
+    /// 答える画面の頭脳。
+    func makeFollowUpViewModel(for commitment: CommitmentSnapshot) -> FollowUpViewModel {
+        FollowUpViewModel(
+            commitment: commitment,
+            store: RepositoryFollowUpStore(repository),
+            alarms: alarms,
+            player: sharedPlayer,
+            audioFileStore: audioFiles,
+            onClose: { [weak self] in self?.closeFollowUp() }
+        )
+    }
+
+    /// 今日の画面の頭脳。
+    func makeTodayViewModel() -> TodayViewModel {
+        TodayViewModel(
+            repository: repository,
+            alarms: alarms,
+            player: sharedPlayer,
+            audioFiles: audioFiles,
+            calendar: calendar,
+            now: now
+        )
     }
 
     // MARK: - 内部
 
-    private func present(_ request: SessionRequest) {
-        // 会話中に別の通知が来たら、いまの会話を中断してから開き直す。
-        if activeSession != nil {
-            dismissSession()
-        }
-        activeSession = request
-        hasStartedActiveSession = false
-    }
-
-    /// 音声スタックと保存を束ねた `SessionViewModel` を作る。
-    ///
-    /// 保存先が開けない場合でも会話は諦めず、一時ディレクトリに落としてテキスト経路で始める。
-    private func makeSessionViewModel() -> SessionViewModel {
-        let audioFiles = audioFileStore()
-        return SessionViewModel(
-            store: RepositorySessionStore(repository),
-            synthesizer: SpeechSynthesisService(sessionController: audioSession),
-            capture: VoiceCapture(),
-            transcriber: TranscriptionService(),
-            player: VoicePlayer(sessionController: audioSession),
-            notifications: notifications,
-            audioFiles: audioFiles,
-            // 再生前の配慮（R8）の判定に使う。渡さないと確認は一度も出ない。
-            audioSession: audioSession,
-            calendar: calendar,
-            now: now,
-            isStorePersistent: isStorePersistent
-        )
-    }
-
-    private func audioFileStore() -> AudioFileStore {
+    /// 本番の録音の置き場所。開けない端末では一時ディレクトリに落とす（約束は諦めない）。
+    private static func defaultAudioFileStore() -> AudioFileStore {
         do {
-            let store = try AudioFileStore.applicationSupport()
-            isAudioStorageDegraded = false
-            return store
+            return try AudioFileStore.applicationSupport()
         } catch {
             logger.error("audio storage unavailable: \(error.localizedDescription, privacy: .public)")
-            isAudioStorageDegraded = true
             return AudioFileStore(
                 rootDirectory: FileManager.default.temporaryDirectory
                     .appending(path: "SaydoAudio", directoryHint: .isDirectory)
@@ -225,8 +365,8 @@ final class AppRouter: SessionLauncher {
 
     /// マイクの許可。未決定なら 1 回だけ要求する。
     ///
-    /// 拒否されていても会話は開く（テキストで完走できる。fix-decisions P2.3）。
-    private static func microphonePermission() async -> Bool {
+    /// 拒否されていても約束する画面は開く（文字で約束できる。実装計画 §17.8-4）。
+    static func microphonePermission() async -> Bool {
         switch AVAudioApplication.shared.recordPermission {
         case .granted:
             return true

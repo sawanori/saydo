@@ -1,40 +1,56 @@
 import SwiftUI
 import SaydoCore
 
-/// アプリの外枠（実装計画 §8）。
+/// アプリの外枠（実装計画 §8 / §17.3）。
 ///
-/// `TabView` は「今日」「記録」の 2 タブだけ。設定は「今日」の右上（task_013）。
-/// 通知タップは `TodayView` を経由せず `SessionView` を直接出して即開始する。
-///
-/// 「今日」は `TodayView`（task_010）、「記録」は `VoiceTimelineView`（task_012）で上部に
-/// `InsightCardView`（task_016）。初回だけ `OnboardingView`（task_013）を出す。
+/// `TabView` は「今日」「記録」の 2 タブだけ。設定は「今日」の右上。
+/// 起動時・前面に戻ったとき・アラームの「開く」・朝の通知のタップは、どれも `AppRouter.resolveEntry`
+/// の同じ判定を通り、約束する画面か答える画面を全画面で被せる（無ければ今日の画面のまま）。
+/// 初回だけ `OnboardingView` を出す。
 struct RootView: View {
 
     let router: AppRouter
 
-    @State private var notificationHealth: NotificationHealth?
+    /// 朝の通知が断られているか。「今日」の掲示に使う。
+    @State private var notificationsDenied = false
     @State private var insightModel: InsightViewModel?
+    @State private var todayModel: TodayViewModel?
     @State private var isSettingsPresented = false
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         Group {
-            if router.hasCompletedOnboarding {
-                tabs
+            if !router.hasCompletedOnboarding {
+                OnboardingView(alarms: router.alarms) {
+                    Task { await router.completeOnboarding() }
+                }
+            } else if router.hasResolvedEntry {
+                ZStack {
+                    tabs
+                        // 被せた画面の下は、読み上げにも操作にも出さない。
+                        .accessibilityHidden(router.cover != nil)
+                        .allowsHitTesting(router.cover == nil)
+                    cover
+                }
+                .animation(.easeOut(duration: 0.2), value: router.cover?.id)
             } else {
-                OnboardingView { router.completeOnboarding() }
+                // 起動して最初の判定が済むまでの 1 フレーム。今日の画面を先に見せない。
+                Color.clear
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .saydoGround()
             }
-        }
-        .fullScreenCover(isPresented: isSessionPresented) {
-            SessionCover(router: router)
         }
         .sheet(isPresented: $isSettingsPresented) {
             SettingsView { router.reloadOnboardingState() }
         }
         .task(id: router.hasCompletedOnboarding) {
             guard router.hasCompletedOnboarding else { return }
-            await router.rescheduleOnLaunch()
-            notificationHealth = await NotificationScheduler.shared.health()
+            if todayModel == nil {
+                todayModel = router.makeTodayViewModel()
+            }
+            await router.resolveEntry(openRequested: FollowUpOpenRequest.consume())
+            await router.refreshMorningNotification()
+            await refreshNotificationState()
             if insightModel == nil {
                 insightModel = InsightViewModel(repository: router.repository)
             }
@@ -42,31 +58,49 @@ struct RootView: View {
         .onChange(of: scenePhase) { _, phase in
             guard phase == .active, router.hasCompletedOnboarding else { return }
             Task {
-                notificationHealth = await NotificationScheduler.shared.health()
+                await router.resolveEntry(openRequested: FollowUpOpenRequest.consume())
+                await refreshNotificationState()
                 await insightModel?.load()
             }
         }
-        .onChange(of: router.sessionGeneration) { _, _ in
-            Task { await insightModel?.load() }
+        // アプリが前面にあるときにアラームの「開く」が押された。
+        .onReceive(NotificationCenter.default.publisher(for: FollowUpOpenRequest.didRequest)) { _ in
+            guard router.hasCompletedOnboarding, FollowUpOpenRequest.consume() else { return }
+            Task { await router.resolveEntry(openRequested: true) }
+        }
+        .onChange(of: router.cover?.id) { _, coverID in
+            // 設定を開いたままだと、被せた画面がその下に隠れる。
+            if coverID != nil { isSettingsPresented = false }
+        }
+        .onChange(of: router.generation) { _, _ in
+            Task {
+                await refreshNotificationState()
+                await insightModel?.load()
+            }
         }
     }
 
     private var tabs: some View {
         TabView {
-            TodayView(
-                repository: router.repository,
-                player: router.sharedPlayer,
-                notificationHealth: notificationHealth,
-                onStartSession: { sessionType in
-                    Task { await router.startManualSession(sessionType) }
-                },
-                onOpenSettings: { isSettingsPresented = true }
-            )
-            // 会話を閉じたら作り直して、今日の宣言を読み直す。
-            .id(router.sessionGeneration)
+            Group {
+                if let todayModel {
+                    TodayView(
+                        viewModel: todayModel,
+                        reloadToken: router.generation,
+                        notificationsDenied: notificationsDenied,
+                        onOpenPromise: { router.openPromise() },
+                        onOpenFollowUp: { commitment in router.openFollowUp(for: commitment) },
+                        onOpenSettings: { isSettingsPresented = true }
+                    )
+                } else {
+                    Color.clear
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .saydoGround()
+                }
+            }
             .tabItem { Text(RootCopy.todayTab) }
 
-            VoiceTimelineView(player: router.sharedPlayer) {
+            VoiceTimelineView(player: router.sharedPlayer, audioFileStore: router.audioFiles) {
                 if let insightModel {
                     InsightCardView(model: insightModel)
                 }
@@ -76,38 +110,88 @@ struct RootView: View {
         .tint(SaydoTheme.Palette.accent)
     }
 
-    private var isSessionPresented: Binding<Bool> {
-        Binding(
-            get: { router.activeSession != nil },
-            set: { isPresented in
-                if !isPresented { router.dismissSession() }
-            }
-        )
+    /// 全画面で被せる画面。約束する画面か、答える画面。
+    @ViewBuilder
+    private var cover: some View {
+        switch router.cover {
+        case .promise(let token):
+            PromiseCover(router: router)
+                .id(token)
+                .transition(.opacity)
+                .zIndex(1)
+        case .followUp(let commitment):
+            FollowUpCover(router: router, commitment: commitment)
+                .id(commitment.id)
+                .transition(.opacity)
+                .zIndex(1)
+        case nil:
+            EmptyView()
+        }
+    }
+
+    private func refreshNotificationState() async {
+        notificationsDenied = await NotificationScheduler.shared.authorizationStatus() == .denied
     }
 }
 
-// MARK: - 会話の被せ
+// MARK: - 被せる画面
 
-/// `SessionView` を出し、出た瞬間に会話を始める（起動 1.5 秒以内に TTS）。
-private struct SessionCover: View {
+/// 約束する画面。出た時点でマイクの許可を確かめ（未決定なら 1 回だけ求め）、頭脳を 1 回だけ作る。
+private struct PromiseCover: View {
 
     let router: AppRouter
 
+    private struct Prepared {
+        let viewModel: PromiseViewModel
+        let microphoneGranted: Bool
+    }
+
+    @State private var prepared: Prepared?
+
     var body: some View {
         Group {
-            if let viewModel = router.sessionViewModel {
-                SessionView(viewModel: viewModel) {
-                    router.dismissSession()
+            if let prepared {
+                PromiseView(
+                    viewModel: prepared.viewModel,
+                    microphoneGranted: prepared.microphoneGranted
+                ) {
+                    Task { await router.closePromise() }
                 }
             } else {
-                Text(RootCopy.preparing)
-                    .saydoText(.status)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .saydoGround()
+                Color.clear
             }
         }
-        .task(id: router.activeSession?.id) {
-            await router.beginSession()
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .saydoGround()
+        .task {
+            guard prepared == nil else { return }
+            let granted = await AppRouter.microphonePermission()
+            prepared = Prepared(viewModel: router.makePromiseViewModel(), microphoneGranted: granted)
+        }
+    }
+}
+
+/// 答える画面。頭脳は 1 回だけ作る。
+private struct FollowUpCover: View {
+
+    let router: AppRouter
+    let commitment: CommitmentSnapshot
+
+    @State private var viewModel: FollowUpViewModel?
+
+    var body: some View {
+        Group {
+            if let viewModel {
+                FollowUpView(viewModel: viewModel)
+            } else {
+                Color.clear
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .saydoGround()
+        .task {
+            guard viewModel == nil else { return }
+            viewModel = router.makeFollowUpViewModel(for: commitment)
         }
     }
 }

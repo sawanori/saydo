@@ -90,11 +90,12 @@ final class AppSettings {
         static let quietModeScheduleEnabled = "saydo.settings.quietModeScheduleEnabled"
         static let quietModeStart = "saydo.settings.quietModeStartMinutes"
         static let quietModeEnd = "saydo.settings.quietModeEndMinutes"
+        static let promiseDismissedDayKey = "saydo.settings.promiseDismissedDayKey"
 
         static let all = [
             morningTime, noonTime, nightTime, silenceThreshold, speechVoiceIdentifier,
             notificationMode, weekendNotificationsEnabled, aloneTime, hasCompletedOnboarding,
-            quietModeScheduleEnabled, quietModeStart, quietModeEnd
+            quietModeScheduleEnabled, quietModeStart, quietModeEnd, promiseDismissedDayKey
         ]
     }
 
@@ -262,6 +263,21 @@ final class AppSettings {
             return defaults.bool(forKey: Key.hasCompletedOnboarding)
         }
         set { defaults.set(newValue, forKey: Key.hasCompletedOnboarding) }
+    }
+
+    // MARK: 約束する画面
+
+    /// 本人が約束する画面を閉じた日（`DayKey`）。その日は、起動のたびに約束する画面を出し直さない
+    /// （今日の画面の主ボタンからは開ける。実装計画 §17.3）。
+    var promiseDismissedDayKey: String? {
+        get { defaults.string(forKey: Key.promiseDismissedDayKey) }
+        set {
+            if let newValue {
+                defaults.set(newValue, forKey: Key.promiseDismissedDayKey)
+            } else {
+                defaults.removeObject(forKey: Key.promiseDismissedDayKey)
+            }
+        }
     }
 
     /// 全部の設定を既定に戻す（テストと「データを全部消す」で使う）。

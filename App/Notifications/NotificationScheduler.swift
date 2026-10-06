@@ -221,6 +221,26 @@ public final class NotificationScheduler {
         return plan
     }
 
+    /// 朝の 1 通だけの再計画（実装計画 §17.4）。昼・夜・行動時刻の通知は登録しない。
+    ///
+    /// 既存の管理下の保留通知（旧い昼・夜・行動時刻を含む）はすべて取り消してから登録し直す。
+    /// その日の約束がもうある日は、当日の朝の 1 通も出さない。
+    @discardableResult
+    public func rescheduleMorningOnly(
+        now: Date = Date(),
+        settings: NotificationSettings,
+        hasPromiseToday: Bool
+    ) async -> NotificationPlan {
+        let plan = NotificationPlan.makeMorningOnly(
+            now: now,
+            settings: settings,
+            hasPromiseToday: hasPromiseToday,
+            calendar: calendar
+        )
+        await apply(plan)
+        return plan
+    }
+
     /// 朝の宣言（M4）が終わった時点の再計画。
     ///
     /// 行動時刻通知（`action-yyyyMMdd`、`.timeSensitive`）が加わり、

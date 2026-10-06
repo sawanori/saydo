@@ -206,6 +206,15 @@ actor Repository {
         try modelContext.save()
     }
 
+    /// 追い始める時刻を変える（今日の画面の「時間を変える」。実装計画 §17.3）。
+    @discardableResult
+    func updatePlannedAt(commitmentID: UUID, plannedAt: Date) throws -> CommitmentSnapshot {
+        let commitment = try requireCommitment(id: commitmentID)
+        commitment.plannedAt = plannedAt
+        try modelContext.save()
+        return snapshot(of: commitment)
+    }
+
     /// 昼 N3 / 夜 E0 の「もっと小さく」。`shrinkCount` が 1 増える。
     @discardableResult
     func shrink(

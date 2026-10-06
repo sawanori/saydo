@@ -1,34 +1,28 @@
 import SwiftUI
 
-/// 初回だけ出る設定（実装計画 §8、task_013）。
+/// 初回だけ出る 3 画面（実装計画 §17.6、task_056）: 何をするアプリか、マイクの許可、アラームの許可。
 ///
-/// 1 画面に 1 つだけ置く。権限を断られても先へ進める（マイクが無ければ文字だけ、
-/// 通知が無ければ本人が開いたときに会話する）。最後に `hasCompletedOnboarding` を立て、
-/// 決めた時刻で通知を計画し直してから `onFinished()` を呼ぶ。
-///
-/// 画面の出し分け（初回だけ表示する分岐）は `RootView` の担当。
+/// 1 画面に 1 つだけ置く。許可は画面下の主ボタンで求め、断られても先へ進める
+/// （マイクが無ければ文字だけ、アラームが無くても約束は残る）。
+/// 朝の通知の許可はここでは求めない（最初の約束が保存された後に求める）。
+/// 終えると `onFinished()` を呼び、`AppRouter` が約束する画面を出す。
 @MainActor
 struct OnboardingView: View {
 
-    /// オンボーディングが終わったことを親へ返す。`RootView` はここで会話画面へ移る。
+    /// オンボーディングが終わったことを親へ返す。
     private let onFinished: @MainActor () -> Void
-    private let settings: AppSettings
 
-    @State private var permissions = PermissionsViewModel()
+    @State private var permissions: PermissionsViewModel
     @State private var step: Step = .concept
+    /// 許可のダイアログを出している間、主ボタンを二度押させない。
+    @State private var isRequesting = false
+    /// 日本語の聞き取りモデルの取得を、画面の裏で始めておく（約束する画面で待たせないため）。
+    @State private var transcription = TranscriptionService()
+    @Environment(\.scenePhase) private var scenePhase
 
-    @State private var mode: NotificationMode
-    @State private var morningTime: Date
-    @State private var noonTime: Date
-    @State private var nightTime: Date
-
-    init(settings: AppSettings = .shared, onFinished: @escaping @MainActor () -> Void) {
-        self.settings = settings
+    init(alarms: any AlarmScheduling, onFinished: @escaping @MainActor () -> Void) {
         self.onFinished = onFinished
-        _mode = State(initialValue: settings.notificationMode)
-        _morningTime = State(initialValue: settings.morningTime.date())
-        _noonTime = State(initialValue: settings.noonTime.date())
-        _nightTime = State(initialValue: settings.nightTime.date())
+        _permissions = State(initialValue: PermissionsViewModel(alarms: alarms))
     }
 
     // MARK: - 段階
@@ -36,14 +30,10 @@ struct OnboardingView: View {
     private enum Step: Int, CaseIterable {
         case concept
         case microphone
-        case notifications
-        case schedule
-        case assets
-        case backup
+        case alarm
 
         var next: Step? { Step(rawValue: rawValue + 1) }
         var previous: Step? { Step(rawValue: rawValue - 1) }
-        var isLast: Bool { next == nil }
     }
 
     // MARK: - 本体
@@ -61,7 +51,13 @@ struct OnboardingView: View {
         }
         .tint(SaydoTheme.Palette.accent)
         .saydoGround()
-        .task { await permissions.refresh() }
+        .task {
+            // 取得できなくても先へ進める。約束する画面が、録音のたびにもう一度確かめる。
+            _ = try? await transcription.prepare()
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { permissions.refresh() }
+        }
     }
 
     private var header: some View {
@@ -70,6 +66,7 @@ struct OnboardingView: View {
                 Button(OnboardingCopy.back) { step = previous }
                     .buttonStyle(.plain)
                     .saydoText(.status)
+                    .disabled(isRequesting)
             }
             Spacer()
             Text(verbatim: "\(step.rawValue + 1) / \(Step.allCases.count)")
@@ -84,25 +81,53 @@ struct OnboardingView: View {
         switch step {
         case .concept: conceptStep
         case .microphone: microphoneStep
-        case .notifications: notificationStep
-        case .schedule: scheduleStep
-        case .assets: AssetDownloadView()
-        case .backup: backupStep
+        case .alarm: alarmStep
         }
     }
 
+    /// 画面下の主ボタン。許可の画面では、このボタンで許可を求めてから進む。
     private var footer: some View {
-        Button(step.isLast ? OnboardingCopy.finish : OnboardingCopy.next) {
-            if let next = step.next {
-                step = next
-            } else {
-                Task { await finish() }
-            }
+        Button(primaryTitle) {
+            Task { await advance() }
         }
         .buttonStyle(OnboardingPrimaryButtonStyle())
+        .disabled(isRequesting)
         .padding(.horizontal, 28)
         .padding(.bottom, 24)
         .padding(.top, 12)
+    }
+
+    private var primaryTitle: String {
+        switch step {
+        case .concept:
+            OnboardingCopy.next
+        case .microphone:
+            permissions.microphone == .undetermined ? OnboardingCopy.microphoneRequest : OnboardingCopy.next
+        case .alarm:
+            OnboardingCopy.alarmRequest
+        }
+    }
+
+    /// 主ボタン。許可を求め、答えがどちらでも次へ進む。
+    private func advance() async {
+        guard !isRequesting else { return }
+        isRequesting = true
+        defer { isRequesting = false }
+
+        switch step {
+        case .concept:
+            break
+        case .microphone:
+            await permissions.requestMicrophone()
+        case .alarm:
+            await permissions.requestAlarm()
+        }
+
+        if let next = step.next {
+            step = next
+        } else {
+            onFinished()
+        }
     }
 
     // MARK: - 各段階
@@ -127,10 +152,7 @@ struct OnboardingView: View {
 
             switch permissions.microphone {
             case .undetermined:
-                Button(OnboardingCopy.microphoneRequest) {
-                    Task { await permissions.requestMicrophone() }
-                }
-                .buttonStyle(OnboardingSecondaryButtonStyle())
+                EmptyView()
             case .granted:
                 Text(OnboardingCopy.microphoneGranted)
                     .saydoText(.status)
@@ -147,89 +169,15 @@ struct OnboardingView: View {
         }
     }
 
-    private var notificationStep: some View {
+    private var alarmStep: some View {
         VStack(alignment: .leading, spacing: 18) {
-            Text(OnboardingCopy.notificationTitle)
+            Text(OnboardingCopy.alarmTitle)
                 .saydoText(.screenTitle)
-            Text(OnboardingCopy.notificationBody)
+            Text(OnboardingCopy.alarmBody)
                 .saydoText(.list)
-
-            if permissions.isNotificationGranted {
-                Text(OnboardingCopy.notificationGranted)
-                    .saydoText(.status)
-            } else if permissions.needsSystemSettingsForNotifications {
-                Text(OnboardingCopy.notificationDenied)
-                    .saydoText(.list)
-                Text(OnboardingCopy.notificationDeniedHint)
-                    .saydoText(.status)
-                Button(OnboardingCopy.openSystemSettings) {
-                    permissions.openSystemSettings()
-                }
-                .buttonStyle(OnboardingSecondaryButtonStyle())
-            } else {
-                Button(OnboardingCopy.notificationRequest) {
-                    Task { await permissions.requestNotifications() }
-                }
-                .buttonStyle(OnboardingSecondaryButtonStyle())
-            }
-        }
-    }
-
-    private var scheduleStep: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            Text(OnboardingCopy.scheduleTitle)
-                .saydoText(.screenTitle)
-            Text(OnboardingCopy.scheduleBody)
-                .saydoText(.list)
-
-            Picker(OnboardingCopy.modeLabel, selection: $mode) {
-                Text(OnboardingCopy.modeTwoPerDay).tag(NotificationMode.twoPerDay)
-                Text(OnboardingCopy.modeThreePerDay).tag(NotificationMode.threePerDay)
-            }
-            .pickerStyle(.segmented)
-
-            timeRow(OnboardingCopy.morningTimeLabel, selection: $morningTime)
-            if mode == .threePerDay {
-                timeRow(OnboardingCopy.noonTimeLabel, selection: $noonTime)
-                timeRow(OnboardingCopy.nightTimeLabel, selection: $nightTime)
-            }
-        }
-    }
-
-    private var backupStep: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            Text(OnboardingCopy.backupTitle)
-                .saydoText(.screenTitle)
-            Text(OnboardingCopy.backupBody)
-                .saydoText(.list)
-            Text(OnboardingCopy.backupWarning)
-                .saydoText(.list)
-            Text(OnboardingCopy.backupSizeNote)
+            Text(OnboardingCopy.alarmDetail)
                 .saydoText(.status)
         }
-    }
-
-    private func timeRow(_ label: String, selection: Binding<Date>) -> some View {
-        HStack {
-            Text(label)
-                .saydoText(.list)
-            Spacer()
-            DatePicker(label, selection: selection, displayedComponents: .hourAndMinute)
-                .labelsHidden()
-        }
-    }
-
-    // MARK: - 保存
-
-    private func finish() async {
-        settings.notificationMode = mode
-        settings.morningTime = TimeOfDay(date: morningTime)
-        settings.noonTime = TimeOfDay(date: noonTime)
-        settings.nightTime = TimeOfDay(date: nightTime)
-        settings.hasCompletedOnboarding = true
-
-        await NotificationScheduler.shared.reschedule(settings: settings.notificationSettings)
-        onFinished()
     }
 }
 

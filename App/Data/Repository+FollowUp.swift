@@ -21,6 +21,19 @@ extension Repository {
         }
         return candidates.first { FollowUpRule.isAwaitingAnswer($0, asOf: now, calendar: calendar) }
     }
+
+    /// いま扱っている約束。今日の約束か、前日の深夜に約束して追い始める時刻が今日になった、答えがまだの約束。
+    /// 無ければ nil（＝今日は約束できる）。入口の判定と今日の画面が同じものを見るために使う（task_056）。
+    func commitmentInPlay(asOf now: Date = .now, calendar: Calendar = .current) throws -> CommitmentSnapshot? {
+        if let today = try todayCommitment(on: now, calendar: calendar) {
+            return today
+        }
+        guard let previousDay = calendar.date(byAdding: .day, value: -1, to: now),
+              let previous = try todayCommitment(on: previousDay, calendar: calendar),
+              FollowUpRule.isCarriedIntoToday(previous, asOf: now, calendar: calendar)
+        else { return nil }
+        return previous
+    }
 }
 
 /// 「追い始めた後で答えがまだ」の判定と、連鎖の開始日。
@@ -41,6 +54,12 @@ enum FollowUpRule {
         return commitment.dayKey == DayKey.make(from: now, calendar: calendar)
             || calendar.isDate(start, inSameDayAs: now)
     }
+
+    /// 前日に約束して、追い始める時刻が今日になった、答えがまだの約束か（深夜の「1時間後」）。
+    static func isCarriedIntoToday(_ commitment: CommitmentSnapshot, asOf now: Date, calendar: Calendar = .current) -> Bool {
+        guard commitment.outcome == .pending, let start = commitment.plannedAt else { return false }
+        return calendar.isDate(start, inSameDayAs: now)
+    }
 }
 
 /// 答える画面が結果を書く先。`Repository` は `@ModelActor` の具象アクターなので、
@@ -60,5 +79,10 @@ struct RepositoryFollowUpStore: FollowUpStore {
 
     func saveOutcome(commitmentID: UUID, outcome: CommitmentOutcome) async throws {
         try await repository.updateOutcome(commitmentID: commitmentID, outcome: outcome)
+        // 「やった」は、逃げていた対象を終わったものにする（旧い昼の会話と同じ扱い）。
+        // 結果はもう保存できているので、ここで失敗しても答えは成立させる（アラームを止めるのが先）。
+        if outcome == .done {
+            try? await repository.updateAvoidanceStatus(commitmentID: commitmentID, status: .done)
+        }
     }
 }

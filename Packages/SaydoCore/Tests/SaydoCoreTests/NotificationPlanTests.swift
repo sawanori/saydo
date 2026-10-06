@@ -51,6 +51,35 @@ final class NotificationPlanTests: XCTestCase {
         plan.registrations.map(\.identifier)
     }
 
+    // MARK: - 朝の 1 通だけ（実装計画 §17.4）
+
+    func testMorningOnlyPlanRegistersOnlyMorningEvenInThriceMode() {
+        let plan = NotificationPlan.makeMorningOnly(
+            now: date(2026, 9, 4, 6, 0),
+            settings: settings(mode: .thrice),
+            hasPromiseToday: false,
+            calendar: calendar
+        )
+
+        XCTAssertFalse(plan.registrations.isEmpty)
+        XCTAssertTrue(plan.registrations.allSatisfy { $0.slot == .morning })
+        XCTAssertEqual(identifiers(plan).first, "morning-20260904")
+        XCTAssertTrue(plan.cancelledIdentifiers.isEmpty)
+    }
+
+    func testMorningOnlyPlanSkipsTodayWhenThePromiseAlreadyExists() {
+        let plan = NotificationPlan.makeMorningOnly(
+            now: date(2026, 9, 4, 6, 0),
+            settings: settings(mode: .twice),
+            hasPromiseToday: true,
+            calendar: calendar
+        )
+
+        XCTAssertFalse(identifiers(plan).contains("morning-20260904"))
+        XCTAssertEqual(identifiers(plan).first, "morning-20260905")
+        XCTAssertTrue(plan.registrations.allSatisfy { $0.slot == .morning })
+    }
+
     // MARK: - モード別の日数
 
     func testPlanningDayCountIsThirtyForTwiceMode() {

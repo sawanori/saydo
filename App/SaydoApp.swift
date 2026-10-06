@@ -4,19 +4,19 @@ import SwiftUI
 
 @main
 struct SaydoApp: App {
-    /// 通知デリゲート（実装計画 §7.4）。通知が唯一の入口なので、起動時から必ず生かす。
+    /// 通知デリゲート（実装計画 §7.4）。朝の通知のタップを受けるので、起動時から必ず生かす。
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
     private static let logger = Logger(subsystem: "com.nonturn.saydo", category: "startup")
 
     private let modelContainer: ModelContainer
-    /// どの会話をどこから開くか。`AppDelegate` の起動要求はここへ流す。
+    /// 開いたときに何を出すか。`AppDelegate` の起動要求（朝の通知のタップ）はここへ流す。
     private let router: AppRouter
 
     init() {
         let (container, isPersistent) = Self.makeModelContainer()
         modelContainer = container
-        router = AppRouter(modelContainer: container, isStorePersistent: isPersistent)
+        router = AppRouter(modelContainer: container)
         if Self.shouldSweepOrphanAudio(isPersistent: isPersistent) {
             Task { await Self.sweepOrphanAudioFiles(in: container) }
         } else {

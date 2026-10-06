@@ -95,6 +95,26 @@ final class RepositoryTests: XCTestCase {
         XCTAssertNotEqual(third.avoidanceID, first.avoidanceID)
     }
 
+    /// task_056: 答える画面の「やった」は、逃げていた対象を終わったものにする（旧い昼の会話と同じ）。
+    /// 終わった対象は翌日に同じ言葉で言っても使い回されない。「少しやった」は現役のまま残る。
+    func testFollowUpStoreMarksTheAvoidanceDoneOnlyWhenDone() async throws {
+        let store = RepositoryFollowUpStore(repository)
+        let day1 = try date(2026, 3, 9)
+        let day2 = try date(2026, 3, 10)
+        let day3 = try date(2026, 3, 11)
+
+        let first = try await repository.createCommitment(draft(at: day1))
+        try await store.saveOutcome(commitmentID: first.id, outcome: .partial)
+        let second = try await repository.createCommitment(draft(at: day2))
+        XCTAssertEqual(second.avoidanceID, first.avoidanceID)
+
+        try await store.saveOutcome(commitmentID: second.id, outcome: .done)
+        let stored = try await repository.commitment(id: second.id)
+        XCTAssertEqual(stored?.outcome, .done)
+        let third = try await repository.createCommitment(draft(at: day3))
+        XCTAssertNotEqual(third.avoidanceID, first.avoidanceID)
+    }
+
     /// done_definition: 同じ dayKey で 2 件目の Commitment を作ると拒否される。
     func testSecondCommitmentOnTheSameDayIsRejected() async throws {
         let morning = try date(2026, 3, 9, 8)

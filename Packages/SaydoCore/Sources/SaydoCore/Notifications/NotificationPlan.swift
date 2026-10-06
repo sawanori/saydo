@@ -350,6 +350,28 @@ public struct NotificationPlan: Sendable, Hashable {
         return NotificationPlan(registrations: registrations, cancelledIdentifiers: cancelled)
     }
 
+    // MARK: - 朝の 1 通だけ（実装計画 §17.4）
+
+    /// 約束を促す朝の 1 通だけの計画。昼・夜・行動時刻は登録しない（後追いはアラームが担う）。
+    ///
+    /// - 設定のモードが何であっても、固定の枠は朝だけにする。
+    /// - その日の約束がもうある日（`hasPromiseToday`）は、当日の朝の 1 通も出さない。
+    public static func makeMorningOnly(
+        now: Date,
+        settings: NotificationSettings,
+        hasPromiseToday: Bool,
+        calendar: Calendar = .current
+    ) -> NotificationPlan {
+        var morningOnly = settings
+        morningOnly.mode = .twice
+        let plan = make(now: now, settings: morningOnly, today: .noCommitment, calendar: calendar)
+        let todayMorning = identifier(for: .morning, day: now, calendar: calendar)
+        let registrations = plan.registrations.filter { registration in
+            registration.slot == .morning && !(hasPromiseToday && registration.identifier == todayMorning)
+        }
+        return NotificationPlan(registrations: registrations, cancelledIdentifiers: [])
+    }
+
     // MARK: - 内部
 
     /// 当日の固定の昼通知を出さない条件（規則 3）。
