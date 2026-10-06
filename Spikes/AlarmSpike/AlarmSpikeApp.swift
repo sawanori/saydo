@@ -216,9 +216,64 @@ final class AlarmSpikeModel {
 
     // MARK: 連鎖アラーム
 
-    func scheduleChain() async {
+    /// 実機を手で操作せずに試すための入口。`-autoChain a|b|c [-autoDelay 秒]` で起動すると、
+    /// 画面を開いた時点で音を選んで連鎖を登録する（devicectl の起動引数から渡す）。
+    func runAutoChainIfRequested() async {
+        let arguments = ProcessInfo.processInfo.arguments
+        if arguments.contains("-autoMax") {
+            await probeMaximumCount()
+            return
+        }
+        guard let index = arguments.firstIndex(of: "-autoChain"), arguments.indices.contains(index + 1) else { return }
+        switch arguments[index + 1] {
+        case "b": soundMode = .bundledChime
+        case "c": soundMode = .recordedDeclaration
+        default: soundMode = .systemDefault
+        }
+        var delay = Self.firstDelay
+        if let delayIndex = arguments.firstIndex(of: "-autoDelay"), arguments.indices.contains(delayIndex + 1),
+           let seconds = TimeInterval(arguments[delayIndex + 1]) {
+            delay = seconds
+        }
+        AlarmChainStore.cancelChain(reason: "自動登録の前に取り消し")
+        AlarmChainStore.appendLog("自動登録を開始・権限=\(Self.describe(AlarmManager.shared.authorizationState))・最初は \(Int(delay)) 秒後")
+        await scheduleChain(firstDelay: delay)
+        if let lastError {
+            AlarmChainStore.appendLog("エラー: \(lastError)")
+        }
+    }
+
+    /// 同時に登録できる件数の上限を調べる。翌日の時刻に 1 分間隔で登録し続け、失敗した件数を記録して全部取り消す。
+    func probeMaximumCount() async {
+        AlarmChainStore.cancelChain(reason: "上限調査の前に取り消し")
+        let base = Date().addingTimeInterval(24 * 60 * 60)
+        var scheduled: [UUID] = []
+        var failure = "失敗なし"
+        for index in 0..<200 {
+            let id = UUID()
+            let configuration = AlarmManager.AlarmConfiguration.alarm(
+                schedule: .fixed(base.addingTimeInterval(Double(index) * 60)),
+                attributes: makeAttributes(),
+                secondaryIntent: OpenSaydoIntent(),
+                sound: .default
+            )
+            do {
+                _ = try await AlarmManager.shared.schedule(id: id, configuration: configuration)
+                scheduled.append(id)
+            } catch {
+                failure = "\(error)"
+                break
+            }
+        }
+        AlarmChainStore.savePending(scheduled)
+        AlarmChainStore.appendLog("上限調査: \(scheduled.count) 件まで登録できた・止まった理由=\(failure)")
+        AlarmChainStore.cancelChain(reason: "上限調査の後片づけ")
+        refresh()
+    }
+
+    func scheduleChain(firstDelay: TimeInterval = AlarmSpikeModel.firstDelay) async {
         lastError = nil
-        let base = Date().addingTimeInterval(Self.firstDelay)
+        let base = Date().addingTimeInterval(firstDelay)
         var scheduled: [UUID] = []
 
         for index in 0..<Self.chainCount {

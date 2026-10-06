@@ -21,6 +21,7 @@ struct AlarmSpikeView: View {
             .listStyle(.insetGrouped)
             .task {
                 model.activateSessionForVolumeReading()
+                await model.runAutoChainIfRequested()
                 // 音量の上書き挙動を実機で目視するため、表示中は 1 秒ごとに読み直す。
                 while !Task.isCancelled {
                     model.refresh()

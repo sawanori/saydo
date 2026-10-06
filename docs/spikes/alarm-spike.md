@@ -374,3 +374,26 @@ XcodeGen は `.caf` を Resources コピーフェーズに自動で入れる（`
 
 `AlarmSpike` は SaydoCore に依存しない。`App/` と `Packages/` は変更していない。
 `scripts/lint-principles.sh` は `App/` と `Packages/*/Sources` だけを見るので `Spikes/` は対象外。
+
+---
+
+## 9. 実機での結果（2026-10-06、iPhone 16 Pro Max / iOS 26.6）
+
+手で操作しなくても試せるよう、スパイクに起動引数を足した（`-autoChain a|b|c [-autoDelay 秒]` と `-autoMax`。`xcrun devicectl device process launch … -- -autoChain c -autoDelay 45` で渡す）。結果はアプリの記録（UserDefaults）と `idevicesyslog` の `mobiletimerd(AlarmKitCore)` の行で確かめた。ログは `build/devicelogs/syslog-6-alarm.txt`（リポジトリ外）。
+
+| # | 項目 | 結果 | 根拠 |
+|---|---|---|---|
+| (0) | `NSAlarmKitUsageDescription` | 正しいキー。権限は「許可」になった | アプリの記録 `requestAuthorization → 許可` |
+| (1) | 消音スイッチを越えて鳴るか | 鳴った（本人が聞いた）。鳴動中、システムが消音スイッチの方針を迂回している | `stopped bypassing ringer switch policy`（鳴動の終了時） |
+| (2) | 停止しても次が鳴るか | **鳴った** | 9:17:22 `Stopping alarm` の後、9:18:11 に次の `Firing event` |
+| (3) | 「開く」でインテントが走るか | 走った。スパイクの実装どおり残りを取り消した | 9:18:16 `Executing intent`、アプリの記録 `Open インテント実行: 4/5 件を取り消した` |
+| (4) | バンドル外（`Library/Sounds`）の音 | **使われた** | `toneIdentifier = "externalTone:…/Library/Sounds/declaration.caf"`（`type = alarm`） |
+| (4b) | 拡張子 | `.caf` を含めた名前で鳴った。含めない場合は未確認 | 同上 |
+| (7) | 同時に持てる件数 | **200 件を登録しても失敗しない**（上限は 200 以上） | アプリの記録 `上限調査: 200 件まで登録できた・止まった理由=失敗なし` |
+| (8) | Widget Extension 無しでアラートが出るか | 出た | (1) |
+
+未確認: 集中モード中の鳴動、アプリを強制終了した状態での鳴動 (5)、音量の扱い (6)、バンドル同梱の音 (4c)、「開く」でアプリが前面に出たかどうか（インテントの実行までは確認）、聞こえた音が録音した声だったかの本人の確認。
+
+### 判定
+
+**Go。** AlarmKit の連鎖アラームを、後追いの土台として採用する。本番では「開く」を押しただけでは連鎖を取り消さず、アプリの中で答えたときにだけ取り消す。
