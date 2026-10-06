@@ -2969,6 +2969,58 @@
         "scripts/test-ios.sh"
       ],
       "risk_level": "medium"
+    },
+    {
+      "task_id": "task_058",
+      "title": "1 つの約束を、朝・昼・晩の 3 回追う",
+      "goal": "決まった時刻に 1 日 3 回、答えるまで追い続ける。朝は、約束がまだなら約束を促す",
+      "scope": [
+        "実装計画 §17.9 の 1〜6"
+      ],
+      "non_scope": [
+        "1 日に複数の約束",
+        "スキーマの変更",
+        "旧い会話の撤去（task_057）"
+      ],
+      "files_to_read": [
+        "docs/implementation-plan.md（§17、特に §17.9）",
+        "docs/PROGRESS.md 末尾の task_053〜056"
+      ],
+      "files_to_create": [],
+      "files_to_modify": [
+        "Packages/SaydoCore/Sources/SaydoCore/Notifications/AlarmPlan.swift",
+        "App/Alarms/AlarmScheduling.swift",
+        "App/Alarms/AlarmScheduler.swift",
+        "App/Features/Promise/PromiseViewModel.swift",
+        "App/Features/Promise/PromiseView.swift",
+        "App/Features/FollowUp/FollowUpViewModel.swift",
+        "App/Features/FollowUp/FollowUpView.swift",
+        "App/AppRouter.swift",
+        "App/Features/Today/TodayView.swift",
+        "App/Features/Today/TodayViewModel.swift",
+        "App/Data/AppSettings.swift"
+      ],
+      "dependencies": [
+        "task_056"
+      ],
+      "implementation_steps": [
+        "§17.9 を読む",
+        "実装し、対応するテストを書く",
+        "scripts/test-core.sh と scripts/test-ios.sh を実行し、修正後の全文ログを 1 本残す",
+        "docs/PROGRESS.md に追記してコミットする"
+      ],
+      "done_definition": [
+        "約束すると、その日の残りの回がすべて登録される（テスト）",
+        "「少しやった」「まだ」はその回だけを取り消し、次の回が残る。「やった」「今日はやめる」はその日の全部を取り消す（テスト）",
+        "次の回の時刻を過ぎると、また答える画面が出る（テスト）",
+        "約束の無い朝の回は、開くと約束する画面が出る（テスト）",
+        "scripts/test-core.sh と scripts/test-ios.sh が exit 0"
+      ],
+      "verify_commands": [
+        "scripts/test-core.sh",
+        "scripts/test-ios.sh"
+      ],
+      "risk_level": "high"
     }
   ]
 }
