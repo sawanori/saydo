@@ -1,0 +1,47 @@
+import Foundation
+
+/// 答える画面とアラームのボタンの文言（実装計画 §17.3、task_055）。
+///
+/// `PromiseCopy` の続き。`PromiseCopy.allLines` に連結してあるので、`Guardrails` の検査は同じ経路を通る。
+extension PromiseCopy {
+
+    // MARK: - アラームのボタン
+
+    /// アラームの「開く」。アプリを前面に出すだけで、連鎖は取り消さない。
+    public static let alarmOpenButton = "開く"
+
+    /// アラームの「とめる」。その 1 回だけを止める（iOS 26.0 でだけアプリの文言が使われる）。
+    public static let alarmStopButton = "とめる"
+
+    // MARK: - 答える画面
+
+    /// 約束の文字の上のラベル。
+    public static let followUpPromiseLabel = "約束"
+
+    /// 最初のアクションの文字の上のラベル。
+    public static let followUpActionLabel = "最初にやること"
+
+    /// 本人の声を再生するボタン。
+    public static let followUpPlayVoice = "自分の声を聞く"
+
+    /// 再生を止めるボタン。
+    public static let followUpStopVoice = "声を止める"
+
+    /// 画面を閉じるボタン。
+    public static let followUpClose = "閉じる"
+
+    /// 結果を保存できなかったときの 1 行。アラームは取り消していない。
+    public static let followUpSaveFailed = "うまく保存できませんでした。もう一度、押してみてください。"
+
+    /// このファイルの全文言。
+    public static let followUpLines: [CopyLine] = [
+        CopyLine(alarmOpenButton, .statement),
+        CopyLine(alarmStopButton, .statement),
+        CopyLine(followUpPromiseLabel, .statement),
+        CopyLine(followUpActionLabel, .statement),
+        CopyLine(followUpPlayVoice, .statement),
+        CopyLine(followUpStopVoice, .statement),
+        CopyLine(followUpClose, .statement),
+        CopyLine(followUpSaveFailed, .statement),
+    ]
+}
