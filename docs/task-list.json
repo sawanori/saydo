@@ -1,6 +1,6 @@
 {
   "feature": "SAYDO — 音声主体の現実逃避伴走アプリ（iOS ネイティブ / 機種依存ストレージ / オンデバイス AI）",
-  "version": 3,
+  "version": 4,
   "notes": [
     "Phase 0 = task_001〜004、Phase 1 = task_005・005b・006〜013・013b、Phase 2 = task_014〜017、Phase 3 = task_018〜021。",
     "2026-09-04 の敵対的レビュー採否（docs/review/fix-decisions-2026-09-04.md）を反映。task_005 を task_005 / task_005b に、task_013 を task_013 / task_013b に分割した。",
@@ -10,7 +10,8 @@
     "optional: true のタスク（task_017 / task_021）は前提が満たされない場合スキップしてよい。",
     "risk_level は high = 実機や Apple の新 API の挙動に依存 / medium = 設計判断を含む / low = 定型。ただし実装はすべて Opus が行う（risk_level で担当を変えない）。",
     "task_030〜task_052 は 2026-10-06 に追加した UI/UX 改善（実装計画 §16、入力は docs/review/ux-weak-areas-2026-10-05.md。GPT-6 と Gemini のレビューを反映して同日に改訂）。番号順に 1 つずつ進める。並行してよいのは、task_030（どれとでも）と、task_045（task_036 の後、task_037〜044 と）だけである。",
-    "task_030〜task_052 の各タスクは、最初の手順で苦手分野リストの該当行をコードで確かめる。食い違っていたら実装せず、docs/PROGRESS.md に書いて止まる。"
+    "task_030〜task_052 の各タスクは、最初の手順で苦手分野リストの該当行をコードで確かめる。食い違っていたら実装せず、docs/PROGRESS.md に書いて止まる。",
+    "task_053〜task_057 は 2026-10-06 の実機確認 1 を受けた作り直し（実装計画 §17）。task_041〜task_051 はこれで置き換え、未着手のまま廃止する。task_052 も行わない（自動の聞き取りをやめるため）。"
   ],
   "tasks": [
     {
@@ -2694,6 +2695,280 @@
       ],
       "risk_level": "high",
       "optional": true
+    },
+    {
+      "task_id": "task_053",
+      "title": "SaydoCore: アラームの計画・時刻のチップ・約束の文言",
+      "goal": "新しい会話とアラームが使う純粋な部分を用意する",
+      "scope": [
+        "AlarmPlan: 開始時刻・間隔（既定 3 分）・本数（既定 60）から、発火時刻と識別子（UUID を日付と連番から決定的に作る）の列を返す。同じ日なら同じ識別子になる",
+        "PromiseTime: いまの時刻とカレンダーから、チップ（30分後 / 1時間後 / 昼 12:00 / 夕方 18:00）の日時を返す。過ぎたチップは返さない。既定は 1時間後",
+        "PromiseCopy: 質問 2 つ、ボタン、チップ、完了の 1 行、答える画面の文言、アラームの題。すべて Guardrails を通す"
+      ],
+      "non_scope": [
+        "アプリ側の実装",
+        "既存のフローの変更"
+      ],
+      "files_to_read": [
+        "docs/implementation-plan.md（§17）",
+        "Packages/SaydoCore/Sources/SaydoCore/Notifications/NotificationPlan.swift",
+        "Packages/SaydoCore/Sources/SaydoCore/Dialogue/Guardrails.swift",
+        "Packages/SaydoCore/Sources/SaydoCore/Dialogue/DialogueCopy.swift"
+      ],
+      "files_to_create": [
+        "Packages/SaydoCore/Sources/SaydoCore/Notifications/AlarmPlan.swift",
+        "Packages/SaydoCore/Sources/SaydoCore/Dialogue/PromiseTime.swift",
+        "Packages/SaydoCore/Sources/SaydoCore/Dialogue/PromiseCopy.swift",
+        "Packages/SaydoCore/Tests/SaydoCoreTests/AlarmPlanTests.swift",
+        "Packages/SaydoCore/Tests/SaydoCoreTests/PromiseTimeTests.swift",
+        "Packages/SaydoCore/Tests/SaydoCoreTests/PromiseCopyTests.swift"
+      ],
+      "files_to_modify": [],
+      "dependencies": [],
+      "implementation_steps": [
+        "§17 の該当箇所と files_to_read を読む",
+        "scope を実装し、done_definition に対応するテストを書く",
+        "verify_commands を実行し、修正後の全文ログを 1 本だけ docs/logs に残す",
+        "docs/PROGRESS.md に追記してコミットする"
+      ],
+      "done_definition": [
+        "AlarmPlan が開始時刻から 3 分おき 60 本の時刻を返し、同じ入力で同じ識別子になる（AlarmPlanTests）",
+        "PromiseTime が過ぎたチップを返さず、既定が 1 時間後である（PromiseTimeTests）",
+        "PromiseCopy の全文言が Guardrails を通る（PromiseCopyTests）",
+        "scripts/test-core.sh が exit 0"
+      ],
+      "verify_commands": [
+        "scripts/test-core.sh"
+      ],
+      "risk_level": "low"
+    },
+    {
+      "task_id": "task_054",
+      "title": "約束する画面: 押して話す・質問 2 つ・時刻のチップ・保存",
+      "goal": "押している間だけ録音し、2 つ話して 1 回タップで約束が残る",
+      "scope": [
+        "PromiseViewModel: 段階（約束 / アクション / 時刻 / 完了）、押下で録音開始・離して停止と文字起こしの確定、0.5 秒未満は無視、上限 30 秒、言い直し、文字での入力、保存",
+        "保存: Commitment（約束 = AvoidanceItem の題、アクション = microActionText、plannedAt = 選んだ時刻）、約束とアクションの VoiceEntry、2 つの録音をつないだ声（declarationAudioPath）。保存の後にアラームの登録を頼む（AlarmScheduling プロトコル越し。実装は task_055、ここではプロトコルとモック）",
+        "PromiseView: 質問 1 行、押して話すボタン（押下中は波形と経過秒数）、聞き取った 1 行と「言い直す」、キーボードのボタン、時刻のチップと「約束する」、完了の 1 行、左上の「閉じる」。読み上げはしない",
+        "閉じたら録音を止め、途中の録音ファイルは残さない"
+      ],
+      "non_scope": [
+        "アラームの登録の実装と答える画面（task_055）",
+        "起動時の入口のつなぎ替え（task_056）",
+        "無音の判定・読み上げ・FlowMachine の利用"
+      ],
+      "files_to_read": [
+        "docs/implementation-plan.md（§17）",
+        "App/Audio/VoiceCapture.swift",
+        "App/Audio/TranscriptionService.swift",
+        "App/Audio/AudioSessionController.swift",
+        "App/Data/AudioFileStore.swift",
+        "App/Data/Repository.swift",
+        "App/Features/Session/WaveformView.swift",
+        "App/Features/Shared/SaydoTheme.swift",
+        "Packages/SaydoCore/Sources/SaydoCore/Dialogue/PromiseCopy.swift",
+        "Packages/SaydoCore/Sources/SaydoCore/Dialogue/PromiseTime.swift"
+      ],
+      "files_to_create": [
+        "App/Features/Promise/PromiseViewModel.swift",
+        "App/Features/Promise/PromiseView.swift",
+        "App/Alarms/AlarmScheduling.swift",
+        "Tests/SaydoTests/PromiseViewModelTests.swift"
+      ],
+      "files_to_modify": [
+        "App/Data/Repository.swift"
+      ],
+      "dependencies": [
+        "task_053"
+      ],
+      "implementation_steps": [
+        "§17 の該当箇所と files_to_read を読む",
+        "scope を実装し、done_definition に対応するテストを書く",
+        "verify_commands を実行し、修正後の全文ログを 1 本だけ docs/logs に残す",
+        "docs/PROGRESS.md に追記してコミットする"
+      ],
+      "done_definition": [
+        "録音は押下から離すまでだけ動き、離した後に録音が続かない（PromiseViewModelTests）",
+        "0.5 秒未満の押下では段階が進まない（PromiseViewModelTests）",
+        "2 つ話して「約束する」を押すと、約束が 1 件保存され、選んだ時刻でアラームの登録が 1 回頼まれる（PromiseViewModelTests）",
+        "文字だけでも約束が保存される（PromiseViewModelTests）",
+        "会話の間、読み上げが 1 回も呼ばれない（コードに SpeechSynthesisService の利用が無い）",
+        "scripts/test-ios.sh が exit 0"
+      ],
+      "verify_commands": [
+        "scripts/test-ios.sh"
+      ],
+      "risk_level": "high"
+    },
+    {
+      "task_id": "task_055",
+      "title": "アラームの登録と取り消し、答える画面",
+      "goal": "約束の時刻から、答えるまで本人の声で追い続ける",
+      "scope": [
+        "AlarmScheduler（AlarmScheduling の実装）: 権限の要求、AlarmPlan の列を AlarmKit に登録、その日の全識別子の取り消し。音は本人の声（Library/Sounds の .caf、30 秒以内に切る）。声が無い日は既定の音",
+        "AlarmIntents: 「開く」でアプリを前面に出す（連鎖は取り消さない）。Spikes/AlarmSpike の実装と docs/spikes/alarm-spike.md §3 の注意に従う",
+        "FollowUpViewModel / FollowUpView: 約束とアクションの文字、本人の声の再生、「やった」「少しやった」「今日はやめる」。押すと結果を保存し、その日のアラームをすべて取り消す",
+        "project.yml: Saydo ターゲットに NSAlarmKitUsageDescription"
+      ],
+      "non_scope": [
+        "起動時の入口のつなぎ替え（task_056）",
+        "アラームの間隔と回数の設定",
+        "Critical Alerts"
+      ],
+      "files_to_read": [
+        "docs/implementation-plan.md（§17）",
+        "Spikes/AlarmSpike/AlarmSpikeApp.swift",
+        "docs/spikes/alarm-spike.md",
+        "project.yml",
+        "App/Data/Repository.swift",
+        "App/Audio/VoicePlayer.swift",
+        "App/Alarms/AlarmScheduling.swift",
+        "Packages/SaydoCore/Sources/SaydoCore/Notifications/AlarmPlan.swift",
+        "Packages/SaydoCore/Sources/SaydoCore/Dialogue/PromiseCopy.swift"
+      ],
+      "files_to_create": [
+        "App/Alarms/AlarmScheduler.swift",
+        "App/Alarms/AlarmIntents.swift",
+        "App/Alarms/AlarmSoundStore.swift",
+        "App/Features/FollowUp/FollowUpViewModel.swift",
+        "App/Features/FollowUp/FollowUpView.swift",
+        "Tests/SaydoTests/FollowUpViewModelTests.swift"
+      ],
+      "files_to_modify": [
+        "project.yml",
+        "App/Data/Repository.swift"
+      ],
+      "dependencies": [
+        "task_053"
+      ],
+      "implementation_steps": [
+        "§17 の該当箇所と files_to_read を読む",
+        "scope を実装し、done_definition に対応するテストを書く",
+        "verify_commands を実行し、修正後の全文ログを 1 本だけ docs/logs に残す",
+        "docs/PROGRESS.md に追記してコミットする"
+      ],
+      "done_definition": [
+        "3 つのどのボタンでも、結果が保存され、その日のアラームの取り消しが 1 回頼まれる（FollowUpViewModelTests）",
+        "取り消しは AlarmPlan の全識別子に対して行われる（テスト）",
+        "アラーム音のファイルが Library/Sounds に .caf で置かれ、30 秒を超えない（テスト）",
+        "scripts/build-ios.sh と scripts/test-ios.sh が exit 0"
+      ],
+      "verify_commands": [
+        "scripts/build-ios.sh",
+        "scripts/test-ios.sh"
+      ],
+      "risk_level": "high"
+    },
+    {
+      "task_id": "task_056",
+      "title": "入口のつなぎ替え: 起動で約束の画面、アラームから答える画面、今日、オンボーディング",
+      "goal": "開いたらすぐ約束でき、追われたらすぐ答えられる",
+      "scope": [
+        "起動時: 今日の約束が無ければ PromiseView、追い始めた後で答えがまだなら FollowUpView、それ以外は今日の画面",
+        "アラームの「開く」と、アプリが前面に戻ったときも同じ判定をする",
+        "TodayView: 約束・アクション・追い始める時刻・結果を 1 枚で見せる。「時間を変える」でアラームを登録し直せる",
+        "オンボーディングを 3 画面にする（何をするアプリか、マイクの許可、アラームの許可）。朝の通知の許可は最初の約束の後に求める",
+        "通知は朝の 1 通だけ登録し、昼・行動時刻・夜は登録しない",
+        "旧い会話の入口（今話す、通知から SessionView）を新しい画面に向ける"
+      ],
+      "non_scope": [
+        "旧い会話のコードの削除（task_057）",
+        "記録・週次の画面の作り直し"
+      ],
+      "files_to_read": [
+        "docs/implementation-plan.md（§17）",
+        "App/AppRouter.swift",
+        "App/RootView.swift",
+        "App/SaydoApp.swift",
+        "App/AppDelegate.swift",
+        "App/Features/Today/TodayView.swift",
+        "App/Features/Onboarding/OnboardingView.swift",
+        "App/Notifications/NotificationScheduler.swift",
+        "App/Features/Promise/PromiseView.swift",
+        "App/Features/FollowUp/FollowUpView.swift"
+      ],
+      "files_to_create": [],
+      "files_to_modify": [
+        "App/AppRouter.swift",
+        "App/RootView.swift",
+        "App/SaydoApp.swift",
+        "App/AppDelegate.swift",
+        "App/Features/Today/TodayView.swift",
+        "App/Features/Today/TodayCopy.swift",
+        "App/Features/Onboarding/OnboardingView.swift",
+        "App/Features/Onboarding/OnboardingCopy.swift",
+        "App/Features/Onboarding/PermissionsViewModel.swift",
+        "Tests/SaydoTests/AppRouterTests.swift"
+      ],
+      "dependencies": [
+        "task_054",
+        "task_055"
+      ],
+      "implementation_steps": [
+        "§17 の該当箇所と files_to_read を読む",
+        "scope を実装し、done_definition に対応するテストを書く",
+        "verify_commands を実行し、修正後の全文ログを 1 本だけ docs/logs に残す",
+        "docs/PROGRESS.md に追記してコミットする"
+      ],
+      "done_definition": [
+        "約束の無い日の起動で PromiseView が出る（AppRouterTests）",
+        "追い始めた後で答えがまだの日の起動で FollowUpView が出る（AppRouterTests）",
+        "オンボーディングが 3 画面で、終えると PromiseView が出る（AppRouterTests とコード）",
+        "scripts/test-ios.sh が exit 0",
+        "実機で、約束 → アラーム → 答える、を本人が 1 回通せる"
+      ],
+      "verify_commands": [
+        "scripts/test-ios.sh",
+        "SAYDO_TEAM_ID=2WWB6ZA7A9 scripts/build-device.sh Saydo"
+      ],
+      "risk_level": "medium"
+    },
+    {
+      "task_id": "task_057",
+      "title": "旧い会話の撤去、設定の整理、原則の更新",
+      "goal": "使わなくなったものを残さず、文書を実態に合わせる",
+      "scope": [
+        "SessionView / SessionViewModel と、朝・昼・夜のフロー（FlowMachine ほか）のうち、どこからも使われなくなったものを削除する。テストも合わせて削除する",
+        "設定から、無くなった機能の項目（話し終わりの間、話せない時、通知の回数など）を外す",
+        "CLAUDE.md の §1 と §4 を実態に合わせる（原則 3 は「開いた瞬間に話せる」、後追いはアラーム）",
+        "docs/app-store の文言で、通知の回数に触れる箇所に印を付ける"
+      ],
+      "non_scope": [
+        "記録・週次の画面の作り直し",
+        "App Store 提出"
+      ],
+      "files_to_read": [
+        "docs/implementation-plan.md（§17）",
+        "CLAUDE.md",
+        "App/Features/Session",
+        "App/Features/Settings/SettingsView.swift",
+        "Packages/SaydoCore/Sources/SaydoCore/Flows"
+      ],
+      "files_to_create": [],
+      "files_to_modify": [
+        "CLAUDE.md",
+        "App/Features/Settings/SettingsView.swift",
+        "App/Features/Settings/SettingsCopy.swift"
+      ],
+      "dependencies": [
+        "task_056"
+      ],
+      "implementation_steps": [
+        "§17 の該当箇所と files_to_read を読む",
+        "scope を実装し、done_definition に対応するテストを書く",
+        "verify_commands を実行し、修正後の全文ログを 1 本だけ docs/logs に残す",
+        "docs/PROGRESS.md に追記してコミットする"
+      ],
+      "done_definition": [
+        "App/ に、どこからも参照されない旧い会話の型が残っていない（ビルドが通り、grep で入口が無い）",
+        "設定画面に、効かない項目が無い",
+        "scripts/test-core.sh と scripts/test-ios.sh が exit 0"
+      ],
+      "verify_commands": [
+        "scripts/test-core.sh",
+        "scripts/test-ios.sh"
+      ],
+      "risk_level": "medium"
     }
   ]
 }

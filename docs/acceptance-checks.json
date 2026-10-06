@@ -672,6 +672,54 @@
       "expected_result": "scripts/test-core.sh と scripts/test-ios.sh と scripts/lint-principles.sh が exit 0 で、Guardrails の禁止語と既存のテストケースが削られていない",
       "manual_or_automated": "automated",
       "verification_method": "3 つのスクリプトを実行して末尾の出力を docs/logs に保存し、git diff で Guardrails.swift と GuardrailsTests.swift の削除行を確かめる"
+    },
+    {
+      "id": "check_085",
+      "target": "押して話す（task_054）",
+      "rule": "録音は押している間だけ動かす",
+      "expected_result": "離した後に録音が続かず、0.5 秒未満の押下では進まない",
+      "manual_or_automated": "automated",
+      "verification_method": "Tests/SaydoTests/PromiseViewModelTests"
+    },
+    {
+      "id": "check_086",
+      "target": "約束の保存（task_054）",
+      "rule": "2 つ話して 1 回タップで約束を保存し、アラームの登録を頼む",
+      "expected_result": "約束が 1 件保存され、選んだ時刻でアラームの登録が 1 回頼まれる。文字だけでも同じ",
+      "manual_or_automated": "automated",
+      "verification_method": "Tests/SaydoTests/PromiseViewModelTests"
+    },
+    {
+      "id": "check_087",
+      "target": "答えるまで追う（task_055）",
+      "rule": "アプリで答えたときにだけ、その日のアラームをすべて取り消す",
+      "expected_result": "3 つのどのボタンでも結果が保存され、取り消しが全識別子に対して 1 回行われる",
+      "manual_or_automated": "automated",
+      "verification_method": "Tests/SaydoTests/FollowUpViewModelTests"
+    },
+    {
+      "id": "check_088",
+      "target": "入口（task_056）",
+      "rule": "起動時とアラームから、状態に合う画面を出す",
+      "expected_result": "約束の無い日は約束の画面、追い始めた後で答えがまだの日は答える画面が出る",
+      "manual_or_automated": "automated",
+      "verification_method": "Tests/SaydoTests/AppRouterTests"
+    },
+    {
+      "id": "check_089",
+      "target": "実機の通し（task_056）",
+      "rule": "本人が約束してから答えるまでを実機で通せる",
+      "expected_result": "選んだ時刻に本人の声でアラームが鳴り、止めても 3 分後にまた鳴り、アプリで答えると鳴らなくなる",
+      "manual_or_automated": "manual",
+      "verification_method": "SAYDO_TEAM_ID=2WWB6ZA7A9 scripts/build-device.sh Saydo の後、本人が 1 回通す"
+    },
+    {
+      "id": "check_090",
+      "target": "文言（task_053）",
+      "rule": "新しい文言がすべて Guardrails を通る",
+      "expected_result": "PromiseCopy の全文言が禁止語に当たらない",
+      "manual_or_automated": "automated",
+      "verification_method": "Packages/SaydoCore の PromiseCopyTests"
     }
   ]
 }
