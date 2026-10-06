@@ -3482,3 +3482,27 @@ Guardrails の禁止語とテストは変えていない。
 ### 人間の確認待ち
 
 - 作り直しの方向（押して話す・質問 2 つ・アラームによる後追い）のうち、追い始める時刻、質問の読み上げの有無、止め方が未決。
+
+## task_053 — SaydoCore: アラームの計画・時刻のチップ・約束の文言
+
+- 日時: 2026-10-06
+- 状態: done
+- ブランチ / コミット: task/053-promise-core / `git log` の `task_053:` 行
+
+### 証拠
+
+| コマンド | exit code | ログ |
+|---|---|---|
+| `scripts/test-core.sh` | 0 | `docs/logs/task_053-1.txt` |
+
+- SaydoCore: `Executed 277 tests, with 0 failures`（新規は AlarmPlanTests 9、PromiseTimeTests 9、PromiseCopyTests 6）。続く lint-principles は `OK`。
+- 追加した公開 API: `AlarmPlan` / `AlarmSlot`（Notifications/AlarmPlan.swift）、`PromiseTime` / `PromiseChip` / `PromiseTimeOption`（Dialogue/PromiseTime.swift）、`PromiseCopy`（Dialogue/PromiseCopy.swift）。既存のコードとテストは変えていない。
+
+### 未解決
+
+- 識別子は開始時刻の日で決める。日付をまたぐ連鎖（23 時台に始めた分）も開始日の識別子で取り消す。
+- 「1時間後」は 23 時台なら翌日になる。task_055 で、その場合の取り消しの日付を開始日に揃えること。
+
+### 人間の確認待ち
+
+- 文言の言い回し（特に答えた後の 3 行、チップの「昼 12:00」「夕方 18:00」）。
