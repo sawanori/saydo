@@ -4,7 +4,8 @@ import SaydoCore
 /// 約束する画面（実装計画 §17.3）。
 ///
 /// 画面にあるのは、質問 1 行、大きな「押して話す」ボタン、聞き取った 1 行、キーボードのボタンだけ。
-/// 質問は読み上げない。2 つ答えたら、追い始める時刻のチップと「約束する」を出す。
+/// 質問は読み上げない。2 つ答えたら、聞き取った 2 行と「約束する」を出す（追う時刻は選ばない。§17.9）。
+/// 約束の無い朝は、下に小さく「今日はやめる」を出す（その日の朝の回を止める）。
 /// 文言はすべて `PromiseCopy` から採る。
 struct PromiseView: View {
 
@@ -25,7 +26,7 @@ struct PromiseView: View {
         repository: Repository,
         capture: any VoiceCapturing,
         transcriber: any Transcribing,
-        alarms: any AlarmScheduling,
+        chase: ChaseCoordinator,
         audioFiles: AudioFileStore,
         audioSession: (any AudioSessionControlling)? = nil,
         microphoneGranted: Bool,
@@ -37,7 +38,7 @@ struct PromiseView: View {
                 store: RepositoryPromiseStore(repository, calendar: calendar),
                 capture: capture,
                 transcriber: transcriber,
-                alarms: alarms,
+                chase: chase,
                 audioFiles: audioFiles,
                 audioSession: audioSession,
                 calendar: calendar
@@ -91,6 +92,12 @@ struct PromiseView: View {
             guard !Task.isCancelled else { return }
             onClose()
         }
+        .onChange(of: viewModel.didStopToday) { _, stopped in
+            // 「今日はやめる」。朝の回を止め終えたら閉じる。
+            guard stopped else { return }
+            viewModel.close()
+            onClose()
+        }
     }
 
     // MARK: 上段
@@ -141,8 +148,8 @@ struct PromiseView: View {
                     if viewModel.showsTalkButton {
                         talkButton
                     }
-                } else if viewModel.stage == .time {
-                    timeSection
+                } else if viewModel.stage == .confirm {
+                    confirmSection
                 }
             }
         }
@@ -235,24 +242,11 @@ struct PromiseView: View {
         }
     }
 
-    /// 追い始める時刻のチップと「約束する」。
-    private var timeSection: some View {
+    /// 聞き取った 2 行の下の「約束する」。追う時刻は選ばない（朝・昼・晩の決まった時刻に追う）。
+    private var confirmSection: some View {
         VStack(spacing: Layout.sectionSpacing) {
-            Text(PromiseCopy.chipsPrompt)
-                .saydoText(.question)
-                .multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
             if let notice = viewModel.notice {
                 noticeLine(notice.text)
-            }
-            ChipFlowLayout(
-                rowSpacing: Layout.chipSpacing,
-                chipSpacing: Layout.chipSpacing,
-                rowHeight: SaydoTheme.Metric.chipHeight
-            ) {
-                ForEach(viewModel.timeOptions, id: \.chip) { option in
-                    timeChip(option)
-                }
             }
             Button {
                 Task { await viewModel.commit() }
@@ -274,37 +268,35 @@ struct PromiseView: View {
         }
     }
 
-    private func timeChip(_ option: PromiseTimeOption) -> some View {
-        let isSelected = option.chip == viewModel.selectedChip
-        return Button {
-            viewModel.selectChip(option.chip)
+    /// 約束の無い朝だけ出す、小さい文字ボタン。約束はせず、その日の朝の回を止める。
+    private var stopTodayButton: some View {
+        Button {
+            Task { await viewModel.stopToday() }
         } label: {
-            Text(option.label)
-                .saydoText(.list)
-                .foregroundStyle(isSelected ? SaydoTheme.Palette.groundBottom : SaydoTheme.Palette.ink1)
-                .lineLimit(1)
-                .padding(.horizontal, Layout.chipPadding)
-                .frame(height: SaydoTheme.Metric.chipHeight)
-                .background(
-                    RoundedRectangle(cornerRadius: SaydoTheme.Metric.chipCornerRadius, style: .continuous)
-                        .fill(isSelected ? SaydoTheme.Palette.accent : SaydoTheme.Palette.chipFill)
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: SaydoTheme.Metric.chipCornerRadius, style: .continuous)
-                        .stroke(SaydoTheme.Palette.hairline, lineWidth: 1)
-                )
+            Text(PromiseCopy.notTodayButton)
+                .font(.footnote)
+                .foregroundStyle(SaydoTheme.Palette.ink3)
+                .frame(minHeight: SaydoTheme.Metric.minimumTapTarget)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .disabled(viewModel.isSaving)
-        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
     // MARK: 下段
 
-    /// 文字の入力欄、またはキーボードのボタン。
-    @ViewBuilder
+    /// 文字の入力欄、またはキーボードのボタン。その下に、約束の無い朝だけ「今日はやめる」。
     private var footer: some View {
+        VStack(spacing: Layout.answerInnerSpacing) {
+            inputFooter
+            if viewModel.showsStopToday, viewModel.stage != .done {
+                stopTodayButton
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var inputFooter: some View {
         if viewModel.showsTextField {
             VStack(spacing: Layout.answerInnerSpacing) {
                 TextAnswerField(acceptsAnswer: true, isFocused: $isTextFocused) { text in
@@ -354,8 +346,6 @@ struct PromiseView: View {
         static let talkAnimation: Double = 0.15
         static let holdingAreaHeight: CGFloat = 100
         static let busyOpacity: Double = 0.5
-        static let chipSpacing: CGFloat = 10
-        static let chipPadding: CGFloat = 16
         static let footerGlyphSize: CGFloat = 20
         static let keyboardSymbol = "keyboard"
         static let voiceSymbol = "mic"

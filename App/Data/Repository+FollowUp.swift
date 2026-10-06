@@ -6,11 +6,13 @@ import SaydoCore
 /// `Repository.swift` 本体には足さない（並行する task_054 が同じファイルを触るため）。
 extension Repository {
 
-    /// 追い始めた後で、まだ答えていない約束。無ければ nil（実装計画 §17.3「答える」）。
+    /// 答えを待っている約束。無ければ nil（実装計画 §17.9）。
     ///
-    /// 当日の約束を先に見る。深夜に「1時間後」で約束すると追い始める時刻が翌日になるので、
-    /// 当日に無ければ前日の約束も見る（その約束の追い始めが `now` より前のときだけ該当する）。
-    func commitmentAwaitingAnswer(asOf now: Date = .now, calendar: Calendar = .current) throws -> CommitmentSnapshot? {
+    /// その日の結果が「やった」でも「今日はやめる」でもなく、すでに始まっている回のうち、
+    /// まだ答えていない回がある約束。当日の約束を先に見る。深夜に約束すると追う回が翌日になるので、
+    /// 当日に無ければ前日の約束も見る（その回が今日始まったときだけ該当する）。
+    func commitmentAwaitingAnswer(asOf now: Date = .now, rules: ChaseRules) throws -> CommitmentSnapshot? {
+        let calendar = rules.calendar
         var candidates: [CommitmentSnapshot] = []
         if let today = try todayCommitment(on: now, calendar: calendar) {
             candidates.append(today)
@@ -19,53 +21,28 @@ extension Repository {
            let previous = try todayCommitment(on: previousDay, calendar: calendar) {
             candidates.append(previous)
         }
-        return candidates.first { FollowUpRule.isAwaitingAnswer($0, asOf: now, calendar: calendar) }
+        return candidates.first { rules.isAwaitingAnswer($0, asOf: now) }
     }
 
-    /// いま扱っている約束。今日の約束か、前日の深夜に約束して追い始める時刻が今日になった、答えがまだの約束。
-    /// 無ければ nil（＝今日は約束できる）。入口の判定と今日の画面が同じものを見るために使う（task_056）。
-    func commitmentInPlay(asOf now: Date = .now, calendar: Calendar = .current) throws -> CommitmentSnapshot? {
+    /// いま扱っている約束。今日の約束か、前日の深夜に約束して追う回が今日になった、答えがまだの約束。
+    /// 無ければ nil（＝今日は約束できる）。入口の判定と今日の画面が同じものを見るために使う。
+    func commitmentInPlay(asOf now: Date = .now, rules: ChaseRules) throws -> CommitmentSnapshot? {
+        let calendar = rules.calendar
         if let today = try todayCommitment(on: now, calendar: calendar) {
             return today
         }
         guard let previousDay = calendar.date(byAdding: .day, value: -1, to: now),
               let previous = try todayCommitment(on: previousDay, calendar: calendar),
-              FollowUpRule.isCarriedIntoToday(previous, asOf: now, calendar: calendar)
+              rules.isCarriedIntoToday(previous, asOf: now)
         else { return nil }
         return previous
-    }
-}
-
-/// 「追い始めた後で答えがまだ」の判定と、連鎖の開始日。
-enum FollowUpRule {
-
-    /// 連鎖の開始時刻。アラームの識別子は**この日付**で決まる（`AlarmPlan`）。
-    /// 追い始める時刻を持たない古い約束は、作った時刻で代える。
-    static func chainStart(of commitment: CommitmentSnapshot) -> Date {
-        commitment.plannedAt ?? commitment.createdAt
-    }
-
-    /// 追い始めていて、まだ答えていないか。
-    ///
-    /// 対象は、今日の約束か、追い始める時刻が今日の約束（前日の深夜に約束した分）だけ。
-    /// 昨日のうちに追い終えた約束を、翌日に蒸し返さない。
-    static func isAwaitingAnswer(_ commitment: CommitmentSnapshot, asOf now: Date, calendar: Calendar = .current) -> Bool {
-        guard commitment.outcome == .pending, let start = commitment.plannedAt, start <= now else { return false }
-        return commitment.dayKey == DayKey.make(from: now, calendar: calendar)
-            || calendar.isDate(start, inSameDayAs: now)
-    }
-
-    /// 前日に約束して、追い始める時刻が今日になった、答えがまだの約束か（深夜の「1時間後」）。
-    static func isCarriedIntoToday(_ commitment: CommitmentSnapshot, asOf now: Date, calendar: Calendar = .current) -> Bool {
-        guard commitment.outcome == .pending, let start = commitment.plannedAt else { return false }
-        return calendar.isDate(start, inSameDayAs: now)
     }
 }
 
 /// 答える画面が結果を書く先。`Repository` は `@ModelActor` の具象アクターなので、
 /// テストで保存の失敗を起こせるようにこの契約を挟む（`SessionStore` と同じ理由）。
 protocol FollowUpStore: Sendable {
-    /// 結果を書く。やった = `.done`、少しやった = `.partial`、今日はやめる = `.notYet`。
+    /// 結果を書く。やった = `.done`、少しやった = `.partial`、まだ・今日はやめる = `.notYet`。
     func saveOutcome(commitmentID: UUID, outcome: CommitmentOutcome) async throws
 }
 

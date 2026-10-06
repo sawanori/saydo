@@ -16,6 +16,10 @@ struct SaydoApp: App {
     init() {
         let (container, isPersistent) = Self.makeModelContainer()
         modelContainer = container
+        #if DEBUG
+        // 試験用の短縮（task_058）。回の時刻を「いまから数分後」に差し替える起動引数を読む。
+        DebugRounds.applyLaunchArguments(ProcessInfo.processInfo.arguments, defaults: .standard, now: .now)
+        #endif
         router = AppRouter(modelContainer: container)
         if Self.shouldSweepOrphanAudio(isPersistent: isPersistent) {
             Task { await Self.sweepOrphanAudioFiles(in: container) }

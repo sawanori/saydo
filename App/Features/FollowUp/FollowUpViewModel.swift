@@ -4,14 +4,15 @@ import SaydoCore
 
 /// 答える画面の頭脳（実装計画 §17.3「答える」）。
 ///
-/// 3 つのボタンのどれかが押されたときにだけ、結果を保存し、その日の連鎖アラームをすべて取り消す。
+/// ボタンのどれかが押されたときにだけ、結果を保存し、アラームを取り消す（実装計画 §17.9 の 3）。
+/// 「やった」「今日はやめる」はその日の全部を、「少しやった」「まだ」はその回だけを取り消す。
 /// 画面を閉じただけ、声を聞いただけでは取り消さない（答えるまで追う。§17.1-6）。
 @MainActor
 @Observable
 final class FollowUpViewModel {
 
     enum Phase: Equatable {
-        /// 3 つのボタンを出している。
+        /// 答えのボタンを出している。
         case asking
         /// 保存している。
         case saving
@@ -40,7 +41,8 @@ final class FollowUpViewModel {
 
     private let commitment: CommitmentSnapshot
     private let store: any FollowUpStore
-    private let alarms: any AlarmScheduling
+    private let chase: ChaseCoordinator
+    private let calendar: Calendar
     private let player: any Playing
     private let onClose: @MainActor () -> Void
 
@@ -51,21 +53,23 @@ final class FollowUpViewModel {
     /// - Parameters:
     ///   - commitment: 答える約束（`Repository.commitmentAwaitingAnswer(asOf:)` などで取ったもの）。
     ///   - store: 結果を書く先。本番は `RepositoryFollowUpStore(repository)`。
-    ///   - alarms: 連鎖アラームの入口。本番は `AlarmScheduler(audioFileStore:)`。
+    ///   - chase: アラームの段取り。答えに応じて、その回だけ・その日の全部を取り消す。
     ///   - player: 本人の声の再生。
     ///   - audioFileStore: 声の相対パスを URL に直す。nil なら再生ボタンを出さない。
     ///   - onClose: 画面を閉じるときに呼ぶ。
     init(
         commitment: CommitmentSnapshot,
         store: any FollowUpStore,
-        alarms: any AlarmScheduling,
+        chase: ChaseCoordinator,
         player: any Playing,
         audioFileStore: AudioFileStore?,
+        calendar: Calendar = .current,
         onClose: @escaping @MainActor () -> Void
     ) {
         self.commitment = commitment
         self.store = store
-        self.alarms = alarms
+        self.chase = chase
+        self.calendar = calendar
         self.player = player
         self.onClose = onClose
         self.promiseText = commitment.avoidanceTitle
@@ -81,26 +85,26 @@ final class FollowUpViewModel {
 
     // MARK: - 答える
 
-    /// 3 つのボタン。やった = `.done`、少しやった = `.partial`、今日はやめる = `.notYet`。
+    /// 答えのボタン。やった = `.done`、少しやった = `.partial`、まだ・今日はやめる = `.notYet`。
     ///
-    /// 保存できたときにだけ、その日のアラームを取り消す。保存に失敗したら取り消さず、
-    /// 1 行で伝えて、もう一度押せる状態に戻す。
-    func answer(_ outcome: CommitmentOutcome) async {
-        guard phase == .asking, let reply = PromiseCopy.reply(for: outcome) else { return }
+    /// 保存できたときにだけ、アラームを取り消す。保存に失敗したら取り消さず、
+    /// 1 行で伝えて、もう一度押せる状態に戻す。押した後の 1 行は、次の回があればその時刻を伝える。
+    func answer(_ answer: FollowUpAnswer) async {
+        guard phase == .asking else { return }
         phase = .saving
         notice = nil
         stopVoice()
 
         do {
-            try await store.saveOutcome(commitmentID: commitment.id, outcome: outcome)
+            try await store.saveOutcome(commitmentID: commitment.id, outcome: answer.outcome)
         } catch {
             notice = PromiseCopy.followUpSaveFailed
             phase = .asking
             return
         }
 
-        await alarms.cancelChain(startedOn: FollowUpRule.chainStart(of: commitment))
-        phase = .answered(reply: reply)
+        let next = await chase.answered(answer, for: commitment)
+        phase = .answered(reply: PromiseCopy.reply(for: answer, nextRoundAt: next, calendar: calendar))
     }
 
     // MARK: - 本人の声

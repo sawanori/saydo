@@ -8,7 +8,7 @@ import XCTest
 actor RecordingAlarmBackend: AlarmBackend {
     enum Event: Equatable, Sendable {
         case cancel(UUID)
-        case schedule(id: UUID, fireDate: Date, soundName: String?)
+        case schedule(id: UUID, fireDate: Date, soundName: String?, title: String)
     }
 
     struct Refused: Error {}
@@ -24,6 +24,8 @@ actor RecordingAlarmBackend: AlarmBackend {
     private var failingAttempts: Set<Int>
     private var failsEverySchedule: Bool
     private var attempts = 0
+    /// 一覧（`scheduledIDs`）を失敗させるか。
+    private var failsListing = false
 
     init(
         state: AlarmAuthorization = .authorized,
@@ -45,12 +47,26 @@ actor RecordingAlarmBackend: AlarmBackend {
         return state
     }
 
-    func schedule(id: UUID, fireDate: Date, soundName: String?) async throws {
+    func schedule(id: UUID, fireDate: Date, soundName: String?, title: String) async throws {
         let attempt = attempts
         attempts += 1
         if failsEverySchedule || failingAttempts.contains(attempt) { throw Refused() }
         registered.insert(id)
-        events.append(.schedule(id: id, fireDate: fireDate, soundName: soundName))
+        events.append(.schedule(id: id, fireDate: fireDate, soundName: soundName, title: title))
+    }
+
+    func scheduledIDs() async throws -> [UUID] {
+        if failsListing { throw Refused() }
+        return Array(registered)
+    }
+
+    func failListing() {
+        failsListing = true
+    }
+
+    /// 旧い版が登録したアラームなど、テストの外で登録されていたことにする。
+    func seed(_ ids: [UUID]) {
+        registered.formUnion(ids)
     }
 
     func cancel(id: UUID) async throws {
@@ -62,9 +78,13 @@ actor RecordingAlarmBackend: AlarmBackend {
         events.compactMap { if case .cancel(let id) = $0 { id } else { nil } }
     }
 
-    var scheduled: [(id: UUID, fireDate: Date, soundName: String?)] {
+    var scheduled: [(id: UUID, fireDate: Date, soundName: String?, title: String)] {
         events.compactMap {
-            if case .schedule(let id, let fireDate, let soundName) = $0 { (id, fireDate, soundName) } else { nil }
+            if case .schedule(let id, let fireDate, let soundName, let title) = $0 {
+                (id, fireDate, soundName, title)
+            } else {
+                nil
+            }
         }
     }
 
@@ -115,144 +135,184 @@ final class AlarmSchedulerTests: XCTestCase {
         return (store, audioFiles)
     }
 
+    private func chase(_ round: AlarmRound, at start: Date, voice: String? = nil) -> AlarmRoundRequest {
+        AlarmRoundRequest(round: round, start: start, voiceRelativePath: voice, purpose: .chase)
+    }
+
     // MARK: 登録
 
-    func testScheduleChainCancelsTheWholeDayBeforeRegisteringEveryThreeMinutes() async throws {
-        let start = try date(6, 16)
+    func testScheduleRoundsCancelsTheWholeDayBeforeRegisteringEachRoundEveryThreeMinutes() async throws {
+        let day = try date(6, 10)
         let backend = RecordingAlarmBackend()
-        let scheduler = makeScheduler(backend: backend, now: try date(6, 15, 30))
+        let scheduler = makeScheduler(backend: backend, now: day)
 
-        let outcome = await scheduler.scheduleChain(start: start, voiceRelativePath: nil)
+        let outcome = await scheduler.scheduleRounds(
+            [chase(.noon, at: try date(6, 13)), chase(.evening, at: try date(6, 21))],
+            on: day
+        )
 
-        XCTAssertEqual(outcome, .scheduled(count: 60))
+        XCTAssertEqual(outcome, .scheduled(count: 80))
         let events = await backend.events
-        let dayIDs = AlarmPlan.identifiers(on: start, calendar: tokyo)
-        XCTAssertEqual(dayIDs.count, 60)
+        let dayIDs = AlarmPlan.allIdentifiers(on: day, calendar: tokyo)
+        XCTAssertEqual(dayIDs.count, 160)
 
-        // 先頭の 60 件が、その日の全識別子の取り消し。登録はその後にだけ並ぶ。
-        XCTAssertEqual(Array(events.prefix(60)), dayIDs.map { .cancel($0) })
-        let registrations = Array(events.dropFirst(60))
-        XCTAssertEqual(registrations.count, 60)
-        for (index, event) in registrations.enumerated() {
+        // 先頭が、その日の全識別子（3 回 + 追加の 1 回）の取り消し。登録はその後にだけ並ぶ。
+        XCTAssertEqual(Array(events.prefix(160)), dayIDs.map { .cancel($0) })
+        let registrations = Array(events.dropFirst(160))
+        XCTAssertEqual(registrations.count, 80)
+        let noonIDs = AlarmPlan.identifiers(on: day, round: .noon, calendar: tokyo)
+        let eveningIDs = AlarmPlan.identifiers(on: day, round: .evening, calendar: tokyo)
+        for index in 0..<40 {
             XCTAssertEqual(
-                event,
-                .schedule(id: dayIDs[index], fireDate: start.addingTimeInterval(180 * Double(index)), soundName: nil)
+                registrations[index],
+                .schedule(
+                    id: noonIDs[index],
+                    fireDate: try date(6, 13).addingTimeInterval(180 * Double(index)),
+                    soundName: nil,
+                    title: PromiseCopy.alarmTitle
+                )
+            )
+            XCTAssertEqual(
+                registrations[40 + index],
+                .schedule(
+                    id: eveningIDs[index],
+                    fireDate: try date(6, 21).addingTimeInterval(180 * Double(index)),
+                    soundName: nil,
+                    title: PromiseCopy.alarmTitle
+                )
             )
         }
-        let lastFireDate = await backend.scheduled.last?.fireDate
-        XCTAssertEqual(lastFireDate, try date(6, 18, 57))
+        // 朝の回は頼んでいないので、登録されない。
+        let registered = await backend.registered
+        XCTAssertEqual(registered, Set(noonIDs + eveningIDs))
     }
 
-    func testScheduleChainReplacesAChainAlreadyRegisteredOnTheSameDay() async throws {
+    func testScheduleRoundsReplacesWhatWasRegisteredOnTheSameDay() async throws {
+        let day = try date(6, 7)
         let backend = RecordingAlarmBackend()
-        let scheduler = makeScheduler(backend: backend, now: try date(6, 9))
-        _ = await scheduler.scheduleChain(start: try date(6, 12), voiceRelativePath: nil)
-        await backend.clearEvents()
+        let scheduler = makeScheduler(backend: backend, now: day)
+        _ = await scheduler.scheduleRounds([chase(.morning, at: try date(6, 8))], on: day)
 
-        let outcome = await scheduler.scheduleChain(start: try date(6, 18), voiceRelativePath: nil)
+        let outcome = await scheduler.scheduleRounds([chase(.evening, at: try date(6, 21))], on: day)
 
-        XCTAssertEqual(outcome, .scheduled(count: 60))
-        let events = await backend.events
-        XCTAssertEqual(events.prefix(60).map { $0 }, AlarmPlan.identifiers(on: try date(6, 18), calendar: tokyo).map { .cancel($0) })
+        XCTAssertEqual(outcome, .scheduled(count: 40))
+        let registered = await backend.registered
+        XCTAssertEqual(registered, Set(AlarmPlan.identifiers(on: day, round: .evening, calendar: tokyo)))
+    }
+
+    func testScheduleRoundsUsesTheIntervalOfTheRequest() async throws {
+        let day = try date(6, 7)
+        let backend = RecordingAlarmBackend()
+        var request = chase(.morning, at: try date(6, 8))
+        request.interval = 60
+
+        _ = await makeScheduler(backend: backend, now: day).scheduleRounds([request], on: day)
+
         let fireDates = await backend.scheduled.map(\.fireDate)
-        XCTAssertEqual(fireDates.first, try date(6, 18))
-        let registered = await backend.registered
-        XCTAssertEqual(registered.count, 60)
+        XCTAssertEqual(fireDates.count, 40)
+        XCTAssertEqual(fireDates.last, try date(6, 8, 39))
     }
 
-    func testScheduleChainSkipsTheSlotsThatHaveAlreadyPassed() async throws {
-        let start = try date(6, 16)
+    func testScheduleRoundsSkipsTheSlotsThatHaveAlreadyPassed() async throws {
+        let day = try date(6, 13, 7)
         let backend = RecordingAlarmBackend()
-        // 16:07。16:00 / 16:03 / 16:06 は過ぎている。
-        let scheduler = makeScheduler(backend: backend, now: try date(6, 16, 7))
+        // 13:07。13:00 / 13:03 / 13:06 は過ぎている。
+        let scheduler = makeScheduler(backend: backend, now: day)
 
-        let outcome = await scheduler.scheduleChain(start: start, voiceRelativePath: nil)
+        let outcome = await scheduler.scheduleRounds([chase(.noon, at: try date(6, 13))], on: day)
 
-        XCTAssertEqual(outcome, .scheduled(count: 57))
+        XCTAssertEqual(outcome, .scheduled(count: 37))
         let scheduled = await backend.scheduled
-        XCTAssertEqual(scheduled.first?.fireDate, try date(6, 16, 9))
-        XCTAssertEqual(scheduled.first?.id, AlarmPlan.identifier(on: start, index: 3, calendar: tokyo))
-        let now = try date(6, 16, 7)
-        XCTAssertTrue(scheduled.allSatisfy { $0.fireDate > now })
+        XCTAssertEqual(scheduled.first?.fireDate, try date(6, 13, 9))
+        XCTAssertEqual(scheduled.first?.id, AlarmPlan.identifier(on: day, round: .noon, index: 3, calendar: tokyo))
+        XCTAssertTrue(scheduled.allSatisfy { $0.fireDate > day })
     }
 
-    func testScheduleChainFailsWhenEverySlotHasPassed() async throws {
+    /// 回が空、または全部の本が過ぎているときは、その日を取り消すだけになる。
+    func testScheduleRoundsWithNothingToRegisterOnlyCancelsTheDay() async throws {
+        let day = try date(6, 7)
         let backend = RecordingAlarmBackend()
-        let scheduler = makeScheduler(backend: backend, now: try date(6, 20))
+        let scheduler = makeScheduler(backend: backend, now: day)
+        _ = await scheduler.scheduleRounds([chase(.morning, at: try date(6, 8))], on: day)
 
-        let outcome = await scheduler.scheduleChain(start: try date(6, 16), voiceRelativePath: nil)
-
-        XCTAssertEqual(outcome, .failed)
-        let scheduled = await backend.scheduled
-        XCTAssertTrue(scheduled.isEmpty)
-    }
-
-    func testScheduleChainFailsWhenNothingCouldBeRegistered() async throws {
-        let backend = RecordingAlarmBackend(failsEverySchedule: true)
-        let scheduler = makeScheduler(backend: backend, now: try date(6, 15))
-
-        let outcome = await scheduler.scheduleChain(start: try date(6, 16), voiceRelativePath: nil)
-
-        XCTAssertEqual(outcome, .failed)
-    }
-
-    func testScheduleChainCountsOnlyTheAlarmsThatWereRegistered() async throws {
-        let backend = RecordingAlarmBackend(failingAttempts: [0, 10])
-        let scheduler = makeScheduler(backend: backend, now: try date(6, 15))
-
-        let outcome = await scheduler.scheduleChain(start: try date(6, 16), voiceRelativePath: nil)
-
-        XCTAssertEqual(outcome, .scheduled(count: 58))
-        let registered = await backend.registered
-        XCTAssertEqual(registered.count, 58)
-    }
-
-    func testAChainThatCrossesMidnightUsesTheStartDaysIdentifiers() async throws {
-        let start = try date(6, 23, 30)
-        let backend = RecordingAlarmBackend()
-        let scheduler = makeScheduler(backend: backend, now: try date(6, 23))
-
-        _ = await scheduler.scheduleChain(start: start, voiceRelativePath: nil)
-        let scheduled = await backend.scheduled
-        XCTAssertEqual(scheduled.map(\.id), AlarmPlan.identifiers(on: start, calendar: tokyo))
-        XCTAssertEqual(scheduled.last?.fireDate, try date(7, 2, 27))
-
-        // 取り消しも開始日で行う。翌日の日付では 1 本も消えない。
-        await scheduler.cancelChain(startedOn: try date(7, 1))
+        let empty = await scheduler.scheduleRounds([], on: day)
+        XCTAssertEqual(empty, .scheduled(count: 0))
         var registered = await backend.registered
-        XCTAssertEqual(registered.count, 60)
-        await scheduler.cancelChain(startedOn: start)
+        XCTAssertTrue(registered.isEmpty)
+
+        let late = makeScheduler(backend: backend, now: try date(6, 20))
+        let passed = await late.scheduleRounds([chase(.noon, at: try date(6, 13))], on: day)
+        XCTAssertEqual(passed, .scheduled(count: 0))
+        registered = await backend.registered
+        XCTAssertTrue(registered.isEmpty)
+    }
+
+    func testScheduleRoundsFailsWhenNothingCouldBeRegistered() async throws {
+        let backend = RecordingAlarmBackend(failsEverySchedule: true)
+        let scheduler = makeScheduler(backend: backend, now: try date(6, 12))
+
+        let outcome = await scheduler.scheduleRounds([chase(.noon, at: try date(6, 13))], on: try date(6, 12))
+
+        XCTAssertEqual(outcome, .failed)
+    }
+
+    func testScheduleRoundsCountsOnlyTheAlarmsThatWereRegistered() async throws {
+        let backend = RecordingAlarmBackend(failingAttempts: [0, 10])
+        let scheduler = makeScheduler(backend: backend, now: try date(6, 12))
+
+        let outcome = await scheduler.scheduleRounds([chase(.noon, at: try date(6, 13))], on: try date(6, 12))
+
+        XCTAssertEqual(outcome, .scheduled(count: 38))
+        let registered = await backend.registered
+        XCTAssertEqual(registered.count, 38)
+    }
+
+    /// 23:45 の約束の、30 分後の 1 回。鳴るのは翌日でも、識別子は約束の日のもの。
+    func testTheExtraRoundThatCrossesMidnightUsesThePromiseDaysIdentifiers() async throws {
+        let promiseDay = try date(6, 23, 45)
+        let backend = RecordingAlarmBackend()
+        let scheduler = makeScheduler(backend: backend, now: promiseDay)
+
+        _ = await scheduler.scheduleRounds([chase(.extra, at: try date(7, 0, 15))], on: promiseDay)
+        let scheduled = await backend.scheduled
+        XCTAssertEqual(scheduled.map(\.id), AlarmPlan.identifiers(on: promiseDay, round: .extra, calendar: tokyo))
+        XCTAssertEqual(scheduled.last?.fireDate, try date(7, 2, 12))
+
+        // 取り消しも約束の日で行う。翌日の日付では 1 本も消えない。
+        await scheduler.cancelDay(try date(7, 1))
+        var registered = await backend.registered
+        XCTAssertEqual(registered.count, 40)
+        await scheduler.cancelDay(promiseDay)
         registered = await backend.registered
         XCTAssertTrue(registered.isEmpty)
     }
 
     // MARK: 権限
 
-    func testScheduleChainReturnsNotAuthorizedWhenDenied() async throws {
+    func testScheduleRoundsReturnsNotAuthorizedWhenDenied() async throws {
         let backend = RecordingAlarmBackend(state: .denied)
-        let scheduler = makeScheduler(backend: backend, now: try date(6, 15))
+        let scheduler = makeScheduler(backend: backend, now: try date(6, 12))
 
-        let outcome = await scheduler.scheduleChain(start: try date(6, 16), voiceRelativePath: nil)
+        let outcome = await scheduler.scheduleRounds([chase(.noon, at: try date(6, 13))], on: try date(6, 12))
 
         XCTAssertEqual(outcome, .notAuthorized)
         let events = await backend.events
         XCTAssertTrue(events.isEmpty)
     }
 
-    func testScheduleChainAsksOnceWhenAuthorizationIsUndetermined() async throws {
-        let granted = RecordingAlarmBackend(state: .notDetermined, stateAfterRequest: .authorized)
-        let grantedOutcome = await makeScheduler(backend: granted, now: try date(6, 15))
-            .scheduleChain(start: try date(6, 16), voiceRelativePath: nil)
-        XCTAssertEqual(grantedOutcome, .scheduled(count: 60))
-        let grantedRequests = await granted.authorizationRequests
-        XCTAssertEqual(grantedRequests, 1)
+    /// 登録は起動や前面復帰のたびに呼ばれるので、ここでは権限を求めない
+    /// （求めるのは約束する画面とオンボーディング）。
+    func testScheduleRoundsDoesNotAskForAuthorization() async throws {
+        let backend = RecordingAlarmBackend(state: .notDetermined, stateAfterRequest: .authorized)
+        let scheduler = makeScheduler(backend: backend, now: try date(6, 12))
 
-        let refused = RecordingAlarmBackend(state: .notDetermined, stateAfterRequest: .denied)
-        let refusedOutcome = await makeScheduler(backend: refused, now: try date(6, 15))
-            .scheduleChain(start: try date(6, 16), voiceRelativePath: nil)
-        XCTAssertEqual(refusedOutcome, .notAuthorized)
-        let refusedScheduled = await refused.scheduled
-        XCTAssertTrue(refusedScheduled.isEmpty)
+        let outcome = await scheduler.scheduleRounds([chase(.noon, at: try date(6, 13))], on: try date(6, 12))
+
+        XCTAssertEqual(outcome, .notAuthorized)
+        let requests = await backend.authorizationRequests
+        XCTAssertEqual(requests, 0)
+        let scheduled = await backend.scheduled
+        XCTAssertTrue(scheduled.isEmpty)
     }
 
     func testRequestAuthorizationReportsWhetherItWasGranted() async throws {
@@ -273,87 +333,151 @@ final class AlarmSchedulerTests: XCTestCase {
 
     // MARK: 取り消し
 
-    func testCancelChainCancelsEveryIdentifierOfThatDay() async throws {
-        let start = try date(6, 16)
+    private func scheduleThreeRounds(_ scheduler: AlarmScheduler, on day: Date, dayOfMonth: Int) async throws {
+        _ = await scheduler.scheduleRounds(
+            [
+                chase(.morning, at: try date(dayOfMonth, 8)),
+                chase(.noon, at: try date(dayOfMonth, 13)),
+                chase(.evening, at: try date(dayOfMonth, 21)),
+            ],
+            on: day
+        )
+    }
+
+    func testCancelRoundCancelsOnlyThatRound() async throws {
+        let day = try date(6, 7)
         let backend = RecordingAlarmBackend()
-        let scheduler = makeScheduler(backend: backend, now: try date(6, 15))
-        _ = await scheduler.scheduleChain(start: start, voiceRelativePath: nil)
+        let scheduler = makeScheduler(backend: backend, now: day)
+        try await scheduleThreeRounds(scheduler, on: day, dayOfMonth: 6)
         await backend.clearEvents()
 
-        // 開始時刻ではなく、その日のどの時刻を渡しても同じ識別子になる。
-        await scheduler.cancelChain(startedOn: try date(6, 21, 45))
+        // その日のどの時刻を渡しても同じ識別子になる。
+        await scheduler.cancelRound(.noon, on: try date(6, 13, 10))
 
         let cancelled = await backend.cancelledIDs
-        XCTAssertEqual(cancelled, AlarmPlan.identifiers(on: start, calendar: tokyo))
-        XCTAssertEqual(cancelled.count, AlarmPlan.defaultCount)
+        XCTAssertEqual(cancelled, AlarmPlan.identifiers(on: day, round: .noon, calendar: tokyo))
+        let registered = await backend.registered
+        XCTAssertEqual(
+            registered,
+            Set(
+                AlarmPlan.identifiers(on: day, round: .morning, calendar: tokyo)
+                    + AlarmPlan.identifiers(on: day, round: .evening, calendar: tokyo)
+            )
+        )
+    }
+
+    func testCancelDayCancelsEveryIdentifierOfThatDay() async throws {
+        let day = try date(6, 7)
+        let backend = RecordingAlarmBackend()
+        let scheduler = makeScheduler(backend: backend, now: day)
+        try await scheduleThreeRounds(scheduler, on: day, dayOfMonth: 6)
+        await backend.clearEvents()
+
+        await scheduler.cancelDay(try date(6, 21, 45))
+
+        // 1 本も登録していない識別子（追加の 1 回）の取り消しはエラーになるが、最後まで進む。
+        let cancelled = await backend.cancelledIDs
+        XCTAssertEqual(cancelled, AlarmPlan.allIdentifiers(on: day, calendar: tokyo))
         let registered = await backend.registered
         XCTAssertTrue(registered.isEmpty)
     }
 
-    func testCancelChainIgnoresIdentifiersThatWereNeverRegistered() async throws {
+    func testCancelDayLeavesAnotherDayAlone() async throws {
         let backend = RecordingAlarmBackend()
-        let scheduler = makeScheduler(backend: backend, now: try date(6, 15))
+        let scheduler = makeScheduler(backend: backend, now: try date(6, 7))
+        try await scheduleThreeRounds(scheduler, on: try date(6, 7), dayOfMonth: 6)
+        _ = await scheduler.scheduleRounds([chase(.morning, at: try date(7, 8))], on: try date(7, 7))
 
-        // 1 本も登録していない日。全部の取り消しがエラーになるが、最後まで進む。
-        await scheduler.cancelChain(startedOn: try date(6, 16))
-
-        let cancelled = await backend.cancelledIDs
-        XCTAssertEqual(cancelled, AlarmPlan.identifiers(on: try date(6, 16), calendar: tokyo))
-    }
-
-    func testCancelChainLeavesAnotherDaysChainAlone() async throws {
-        let backend = RecordingAlarmBackend()
-        let scheduler = makeScheduler(backend: backend, now: try date(6, 15))
-        _ = await scheduler.scheduleChain(start: try date(6, 16), voiceRelativePath: nil)
-        _ = await scheduler.scheduleChain(start: try date(7, 16), voiceRelativePath: nil)
-
-        await scheduler.cancelChain(startedOn: try date(6, 16))
+        await scheduler.cancelDay(try date(6, 16))
 
         let registered = await backend.registered
-        XCTAssertEqual(registered, Set(AlarmPlan.identifiers(on: try date(7, 16), calendar: tokyo)))
+        XCTAssertEqual(registered, Set(AlarmPlan.identifiers(on: try date(7, 16), round: .morning, calendar: tokyo)))
     }
 
-    // MARK: 音
+    /// 旧い識別子（回を持たない、日付 + 連番）で登録済みのアラームも、一覧からまとめて取り消す。
+    func testCancelAllCancelsEverythingRegisteredIncludingLegacyIdentifiers() async throws {
+        let day = try date(6, 7)
+        let backend = RecordingAlarmBackend()
+        let scheduler = makeScheduler(backend: backend, now: day)
+        try await scheduleThreeRounds(scheduler, on: day, dayOfMonth: 6)
+        let legacy = AlarmPlan.legacyIdentifiers(on: try date(4, 16), calendar: tokyo)
+        await backend.seed(legacy)
 
-    func testScheduleChainUsesTheExportedVoiceAsTheSound() async throws {
+        await scheduler.cancelAll()
+
+        let registered = await backend.registered
+        XCTAssertTrue(registered.isEmpty)
+        let cancelled = await backend.cancelledIDs
+        XCTAssertTrue(Set(cancelled).isSuperset(of: legacy))
+    }
+
+    /// 一覧が取れないときは、前日・当日・翌日の、いまの識別子と旧い識別子を取り消す。
+    func testCancelAllFallsBackToKnownIdentifiersWhenTheListIsUnavailable() async throws {
+        let day = try date(6, 7)
+        let backend = RecordingAlarmBackend()
+        let scheduler = makeScheduler(backend: backend, now: day)
+        try await scheduleThreeRounds(scheduler, on: day, dayOfMonth: 6)
+        await backend.seed(AlarmPlan.legacyIdentifiers(on: try date(5, 16), calendar: tokyo))
+        await backend.failListing()
+
+        await scheduler.cancelAll()
+
+        let registered = await backend.registered
+        XCTAssertTrue(registered.isEmpty)
+    }
+
+    // MARK: 音と題
+
+    func testChaseRoundsUseTheExportedVoiceAndThePromptRoundUsesTheDefaultSound() async throws {
         let (soundStore, audioFiles) = makeSoundStore()
-        let start = try date(6, 16)
-        let allocation = try audioFiles.allocate(recordedAt: start, calendar: tokyo)
+        let day = try date(6, 7)
+        let allocation = try audioFiles.allocate(recordedAt: day, calendar: tokyo)
         try AlarmTestAudio.writeVoice(to: allocation.url, seconds: 2)
         let backend = RecordingAlarmBackend()
-        let scheduler = makeScheduler(backend: backend, soundStore: soundStore, now: try date(6, 15))
+        let scheduler = makeScheduler(backend: backend, soundStore: soundStore, now: day)
 
-        let outcome = await scheduler.scheduleChain(start: start, voiceRelativePath: allocation.relativePath)
+        let outcome = await scheduler.scheduleRounds(
+            [
+                AlarmRoundRequest(round: .morning, start: try date(6, 8), voiceRelativePath: nil, purpose: .prompt),
+                chase(.noon, at: try date(6, 13), voice: allocation.relativePath),
+            ],
+            on: day
+        )
 
-        XCTAssertEqual(outcome, .scheduled(count: 60))
-        let expectedName = soundStore.fileName(for: start, calendar: tokyo)
-        let soundNames = await backend.scheduled.map(\.soundName)
-        XCTAssertEqual(Set(soundNames), [expectedName])
-        let soundURL = soundStore.url(for: start, calendar: tokyo)
+        XCTAssertEqual(outcome, .scheduled(count: 80))
+        let expectedName = soundStore.fileName(for: day, calendar: tokyo)
+        let scheduled = await backend.scheduled
+        let prompt = scheduled.prefix(40)
+        let noon = scheduled.suffix(40)
+        XCTAssertTrue(prompt.allSatisfy { $0.soundName == nil && $0.title == PromiseCopy.alarmPromptTitle })
+        XCTAssertTrue(noon.allSatisfy { $0.soundName == expectedName && $0.title == PromiseCopy.alarmTitle })
+        let soundURL = soundStore.url(for: day, calendar: tokyo)
         XCTAssertTrue(FileManager.default.fileExists(atPath: soundURL.path(percentEncoded: false)))
 
-        // 取り消すと音のファイルも消える。
-        await scheduler.cancelChain(startedOn: start)
+        // 1 回分を取り消しても、ほかの回が使う音は残す。その日の全部を取り消すと音のファイルも消える。
+        await scheduler.cancelRound(.noon, on: day)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: soundURL.path(percentEncoded: false)))
+        await scheduler.cancelDay(day)
         XCTAssertFalse(FileManager.default.fileExists(atPath: soundURL.path(percentEncoded: false)))
     }
 
-    func testScheduleChainFallsBackToTheDefaultSound() async throws {
+    func testScheduleRoundsFallsBackToTheDefaultSound() async throws {
         let (soundStore, _) = makeSoundStore()
-        let start = try date(6, 16)
+        let day = try date(6, 12)
 
         // 文字で約束した日（声が無い）。
         let voiceless = RecordingAlarmBackend()
-        _ = await makeScheduler(backend: voiceless, soundStore: soundStore, now: try date(6, 15))
-            .scheduleChain(start: start, voiceRelativePath: nil)
+        _ = await makeScheduler(backend: voiceless, soundStore: soundStore, now: day)
+            .scheduleRounds([chase(.noon, at: try date(6, 13))], on: day)
         let voicelessNames = await voiceless.scheduled.map(\.soundName)
-        XCTAssertEqual(voicelessNames.count, 60)
+        XCTAssertEqual(voicelessNames.count, 40)
         XCTAssertTrue(voicelessNames.allSatisfy { $0 == nil })
 
         // 声のファイルが見つからず、書き出せなかった日。
         let missing = RecordingAlarmBackend()
-        let outcome = await makeScheduler(backend: missing, soundStore: soundStore, now: try date(6, 15))
-            .scheduleChain(start: start, voiceRelativePath: "2026/10/missing.m4a")
-        XCTAssertEqual(outcome, .scheduled(count: 60))
+        let outcome = await makeScheduler(backend: missing, soundStore: soundStore, now: day)
+            .scheduleRounds([chase(.noon, at: try date(6, 13), voice: "2026/10/missing.m4a")], on: day)
+        XCTAssertEqual(outcome, .scheduled(count: 40))
         let missingNames = await missing.scheduled.map(\.soundName)
         XCTAssertTrue(missingNames.allSatisfy { $0 == nil })
     }

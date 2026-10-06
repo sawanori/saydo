@@ -4,27 +4,21 @@ import Observation
 import OSLog
 import SwiftData
 import SaydoCore
-import UserNotifications
 
-/// 朝の 1 通（約束を促す通知）の入口。`AppRouter` が使うぶんだけを切り出してある
-/// （テストでは許可のダイアログを出さない実装に差し替える）。
+/// 旧い版が登録した通知の後始末の入口。`AppRouter` が使うぶんだけを切り出してある。
+///
+/// 約束を促す朝の 1 通は、朝の回のアラームに置き換えた（実装計画 §17.9 の 5）。通知はもう登録しない。
 @MainActor
-protocol MorningNotifying: AnyObject {
-    func authorizationStatus() async -> UNAuthorizationStatus
-    func requestAuthorization() async -> Bool
-    /// 朝の 1 通だけを登録し直す。昼・行動時刻・夜は登録しない（実装計画 §17.4）。
-    func rescheduleMorning(now: Date, settings: SaydoCore.NotificationSettings, hasPromiseToday: Bool) async
+protocol PendingNotificationClearing: AnyObject {
+    /// このアプリが登録した保留中の通知を、すべて取り消す。
+    func removeAllManagedPending() async
 }
 
-extension NotificationScheduler: MorningNotifying {
-    func rescheduleMorning(now: Date, settings: SaydoCore.NotificationSettings, hasPromiseToday: Bool) async {
-        await rescheduleMorningOnly(now: now, settings: settings, hasPromiseToday: hasPromiseToday)
-    }
-}
+extension NotificationScheduler: PendingNotificationClearing {}
 
 /// 開いたときに何を出すか（実装計画 §17.3）。
 ///
-/// 起動時・前面に戻ったとき・アラームの「開く」・朝の通知のタップは、すべて同じ判定
+/// 起動時・前面に戻ったとき・アラームの「開く」・通知のタップは、すべて同じ判定
 /// （`destination(...)`）を通る。画面の出し方は `RootView` が決め、この型は「いま被せる画面」
 /// （`cover`）と、その画面の頭脳の組み立てだけを持つ。
 @MainActor
@@ -35,9 +29,9 @@ final class AppRouter: SessionLauncher {
     enum Destination: Equatable {
         /// オンボーディングが済んでいない。
         case onboarding
-        /// 追い始めた後で答えがまだ（または「開く」の合図があった）。答える画面を全画面で出す。
+        /// 始まっている回の答えがまだ（または「開く」の合図があった）。答える画面を全画面で出す。
         case followUp(CommitmentSnapshot)
-        /// 今日の約束が無い。約束する画面を全画面で出す。
+        /// 今日の約束が無い（朝の回が鳴っている日は、閉じた後でも）。約束する画面を全画面で出す。
         case promise
         /// 今日の画面。
         case today
@@ -75,11 +69,13 @@ final class AppRouter: SessionLauncher {
     let repository: Repository
     /// Today / Timeline / 答える画面の再生に使う共有プレイヤー（同時再生はしない）。
     let sharedPlayer: VoicePlayer
-    /// 連鎖アラームの入口。約束する画面・答える画面・今日の画面・オンボーディングで共有する。
+    /// アラームの入口。オンボーディングの許可に使う。
     let alarms: any AlarmScheduling
+    /// 朝・昼・晩の 3 回で追う段取り。約束する画面・答える画面・今日の画面で共有する。
+    let chase: ChaseCoordinator
     /// 録音の置き場所。保存先が開けない端末では一時ディレクトリになる。
     let audioFiles: AudioFileStore
-    private let notifications: any MorningNotifying
+    private let notifications: any PendingNotificationClearing
     /// 録音中の AVAudioSession。約束する画面と再生で共有する。
     private let audioSession: AudioSessionController
     private let settings: AppSettings
@@ -89,20 +85,29 @@ final class AppRouter: SessionLauncher {
 
     init(
         modelContainer: ModelContainer,
-        notifications: (any MorningNotifying)? = nil,
+        notifications: (any PendingNotificationClearing)? = nil,
         alarms: (any AlarmScheduling)? = nil,
         audioFiles: AudioFileStore? = nil,
         settings: AppSettings = .shared,
         calendar: Calendar = .current,
         now: @escaping @Sendable () -> Date = { .now }
     ) {
-        self.repository = Repository(modelContainer: modelContainer)
+        let repository = Repository(modelContainer: modelContainer)
+        self.repository = repository
         let audioSession = AudioSessionController()
         self.audioSession = audioSession
         self.sharedPlayer = VoicePlayer(sessionController: audioSession)
         let files = audioFiles ?? Self.defaultAudioFileStore()
         self.audioFiles = files
-        self.alarms = alarms ?? AlarmScheduler(audioFileStore: files)
+        let scheduler = alarms ?? AlarmScheduler(audioFileStore: files)
+        self.alarms = scheduler
+        self.chase = ChaseCoordinator(
+            alarms: scheduler,
+            settings: settings,
+            calendar: calendar,
+            now: now,
+            commitmentOn: { day in try? await repository.todayCommitment(on: day, calendar: calendar) }
+        )
         self.notifications = notifications ?? NotificationScheduler.shared
         self.settings = settings
         self.calendar = calendar
@@ -112,37 +117,42 @@ final class AppRouter: SessionLauncher {
 
     // MARK: - 判定
 
-    /// 開いたときに出す画面を決める（純粋な判定。実装計画 §17.3）。
+    /// 開いたときに出す画面を決める（純粋な判定。実装計画 §17.3 / §17.9）。
     ///
     /// - Parameters:
     ///   - openRequested: アラームの「開く」の合図があったか。
-    ///   - awaiting: 追い始めた後で答えがまだの約束（`Repository.commitmentAwaitingAnswer`）。
+    ///   - awaiting: 始まっている回の答えがまだの約束（`Repository.commitmentAwaitingAnswer`）。
     ///   - inPlay: いま扱っている約束（`Repository.commitmentInPlay`）。無ければ今日は約束できる。
+    ///   - inPlayHasRoundsLeft: その約束に、まだ答えていない回が残っているか。
     ///   - promiseDismissedToday: その日に本人が約束する画面を閉じたか。
+    ///   - morningPromptDue: 約束の無い朝の回が始まっていて、「今日はやめる」とも答えていないか。
     nonisolated static func destination(
         hasCompletedOnboarding: Bool,
         openRequested: Bool,
         awaiting: CommitmentSnapshot?,
         inPlay: CommitmentSnapshot?,
-        promiseDismissedToday: Bool
+        inPlayHasRoundsLeft: Bool,
+        promiseDismissedToday: Bool,
+        morningPromptDue: Bool
     ) -> Destination {
         guard hasCompletedOnboarding else { return .onboarding }
         if let awaiting { return .followUp(awaiting) }
-        // 「開く」はアラームが鳴ったから押せる。時計のずれで「追い始めた後」に入らなくても、
-        // 答えがまだの約束があれば答える画面を出す。
-        if openRequested, let inPlay, inPlay.outcome == .pending, inPlay.plannedAt != nil {
+        // 「開く」はアラームが鳴ったから押せる。時計のずれで「始まっている回」に入らなくても、
+        // まだ答えていない回が残っている約束があれば答える画面を出す。
+        if openRequested, let inPlay, inPlayHasRoundsLeft {
             return .followUp(inPlay)
         }
-        if inPlay == nil, !promiseDismissedToday { return .promise }
+        // 約束が無い日。朝の回が鳴っている間と「開く」の合図は、閉じた後でも約束する画面を出す。
+        if inPlay == nil, !promiseDismissedToday || openRequested || morningPromptDue { return .promise }
         return .today
     }
 
-    /// 起動時・前面に戻ったとき・「開く」の合図・朝の通知のタップで呼ぶ。判定して `cover` に反映する。
+    /// 起動時・前面に戻ったとき・「開く」の合図・通知のタップで呼ぶ。判定して `cover` に反映する。
     ///
     /// - Parameters:
     ///   - openRequested: アラームの「開く」の合図があったか（`FollowUpOpenRequest.consume()`）。
     ///   - ignoringDismissal: その日に約束する画面を閉じていても、約束が無ければ出す
-    ///     （朝の通知をタップしたとき、オンボーディングを終えたとき）。
+    ///     （通知をタップしたとき、オンボーディングを終えたとき）。
     @discardableResult
     func resolveEntry(openRequested: Bool = false, ignoringDismissal: Bool = false) async -> Destination {
         await resolveEntry(
@@ -158,15 +168,18 @@ final class AppRouter: SessionLauncher {
         ignoringDismissal: Bool
     ) async -> Destination {
         let moment = now()
-        let awaiting = try? await repository.commitmentAwaitingAnswer(asOf: moment, calendar: calendar)
-        let inPlay = try? await repository.commitmentInPlay(asOf: moment, calendar: calendar)
+        let rules = chase.rules
+        let awaiting = try? await repository.commitmentAwaitingAnswer(asOf: moment, rules: rules)
+        let inPlay = try? await repository.commitmentInPlay(asOf: moment, rules: rules)
         let dismissedToday = settings.promiseDismissedDayKey == DayKey.make(from: moment, calendar: calendar)
         let destination = Self.destination(
             hasCompletedOnboarding: hasCompletedOnboarding,
             openRequested: openRequested,
             awaiting: awaiting,
             inPlay: inPlay,
-            promiseDismissedToday: dismissedToday && !ignoringDismissal
+            inPlayHasRoundsLeft: inPlay.map { !rules.pendingRounds(for: $0).isEmpty } ?? false,
+            promiseDismissedToday: dismissedToday && !ignoringDismissal,
+            morningPromptDue: rules.isMorningPromptDue(asOf: moment)
         )
         apply(destination)
         hasResolvedEntry = true
@@ -203,7 +216,7 @@ final class AppRouter: SessionLauncher {
 
     // MARK: - 通知から開く
 
-    /// `AppDelegate` から来る起動要求（`SessionLauncher`）。朝の通知のタップ。
+    /// `AppDelegate` から来る起動要求（`SessionLauncher`）。旧い版が登録した通知のタップ。
     ///
     /// - `.open`（通知本体のタップ）だけが画面を開く。開くのは旧い会話ではなく、起動時と同じ判定
     ///   （約束が無ければ約束する画面、答えがまだなら答える画面）。
@@ -233,22 +246,15 @@ final class AppRouter: SessionLauncher {
 
     // MARK: - 閉じる
 
-    /// 約束する画面を閉じた（「閉じる」、または完了の 1 行を出し終えた）。
+    /// 約束する画面を閉じた（「閉じる」「今日はやめる」、または完了の 1 行を出し終えた）。
     ///
-    /// その日は、起動のたびに約束する画面を出し直さない。約束が保存されていれば、
-    /// 朝の通知の許可を（まだなら）ここで求め、朝の 1 通を登録し直す。
+    /// その日は、起動のたびに約束する画面を出し直さない（朝の回が鳴っている間は別。
+    /// 約束するか「今日はやめる」と答えるまで、開くたびに出る。実装計画 §17.9 の 5）。
     func closePromise() async {
         guard case .promise = cover else { return }
         settings.promiseDismissedDayKey = DayKey.make(from: now(), calendar: calendar)
         cover = nil
         generation += 1
-
-        let saved = try? await repository.commitmentInPlay(asOf: now(), calendar: calendar)
-        guard saved != nil else { return }
-        if await notifications.authorizationStatus() == .notDetermined {
-            _ = await notifications.requestAuthorization()
-        }
-        await refreshMorningNotification()
     }
 
     /// 答える画面を閉じた。答えていなければ、アラームはそのまま追い続ける。
@@ -258,25 +264,15 @@ final class AppRouter: SessionLauncher {
         generation += 1
     }
 
-    // MARK: - 朝の 1 通
+    // MARK: - アラームの登録し直し
 
-    /// 起動ごとに、約束を促す朝の 1 通だけを登録し直す（実装計画 §17.4）。
-    /// 旧い版が登録した昼・行動時刻・夜の保留通知は、ここで取り消される。
-    /// 通知が許可されていなければ何もしない（許可は最初の約束の後に求める）。
-    func refreshMorningNotification() async {
-        switch await notifications.authorizationStatus() {
-        case .authorized, .provisional, .ephemeral:
-            break
-        default:
-            return
-        }
-        let moment = now()
-        let today = try? await repository.todayCommitment(on: moment, calendar: calendar)
-        await notifications.rescheduleMorning(
-            now: moment,
-            settings: settings.notificationSettings,
-            hasPromiseToday: today != nil
-        )
+    /// 起動・前面復帰・設定の変更のたびに、今日と翌日の回を登録し直す（実装計画 §17.9 の 6）。
+    ///
+    /// 約束を促す朝の 1 通は朝の回のアラームに置き換えたので、通知は登録しない。
+    /// 旧い版が登録した保留中の通知は、ここで取り消す。
+    func refreshAlarms() async {
+        await notifications.removeAllManagedPending()
+        await chase.refresh()
     }
 
     // MARK: - オンボーディング
@@ -292,20 +288,13 @@ final class AppRouter: SessionLauncher {
     /// 設定の「全削除」で `AppSettings.reset()` が走った後など、保存値から状態を読み直す。
     ///
     /// 全削除の後は約束が残っていないので、鳴り続けるアラームに答える先が無くなる。
-    /// 前日・当日・翌日に始まる連鎖をここで取り消す。
+    /// このアプリのアラームをここですべて取り消す。
     func reloadOnboardingState() {
         hasCompletedOnboarding = settings.hasCompletedOnboarding
         guard !hasCompletedOnboarding else { return }
         cover = nil
-        let alarms = self.alarms
-        let calendar = self.calendar
-        let moment = now()
-        Task {
-            for offset in -1...1 {
-                guard let day = calendar.date(byAdding: .day, value: offset, to: moment) else { continue }
-                await alarms.cancelChain(startedOn: day)
-            }
-        }
+        let chase = self.chase
+        Task { await chase.cancelEverything() }
     }
 
     // MARK: - 画面の頭脳の組み立て
@@ -316,7 +305,7 @@ final class AppRouter: SessionLauncher {
             store: RepositoryPromiseStore(repository, calendar: calendar),
             capture: VoiceCapture(),
             transcriber: TranscriptionService(),
-            alarms: alarms,
+            chase: chase,
             audioFiles: audioFiles,
             audioSession: audioSession,
             calendar: calendar,
@@ -329,9 +318,10 @@ final class AppRouter: SessionLauncher {
         FollowUpViewModel(
             commitment: commitment,
             store: RepositoryFollowUpStore(repository),
-            alarms: alarms,
+            chase: chase,
             player: sharedPlayer,
             audioFileStore: audioFiles,
+            calendar: calendar,
             onClose: { [weak self] in self?.closeFollowUp() }
         )
     }
@@ -340,7 +330,7 @@ final class AppRouter: SessionLauncher {
     func makeTodayViewModel() -> TodayViewModel {
         TodayViewModel(
             repository: repository,
-            alarms: alarms,
+            chase: chase,
             player: sharedPlayer,
             audioFiles: audioFiles,
             calendar: calendar,

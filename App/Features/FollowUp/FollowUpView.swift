@@ -3,7 +3,8 @@ import SwiftUI
 
 /// 答える画面（実装計画 §17.3「答える」）。
 ///
-/// 約束とアクションの文字、本人の声の再生、3 つのボタンだけを置く。
+/// 約束とアクションの文字、本人の声の再生、3 つのボタン（やった・少しやった・まだ）と、
+/// 小さい文字ボタンの「今日はやめる」を置く（実装計画 §17.9 の 3）。
 /// 責める文言・赤・達成マークは出さない（企画原則 §22-1 / §22-8）。3 つのボタンに優劣を付けない。
 struct FollowUpView: View {
 
@@ -120,7 +121,7 @@ struct FollowUpView: View {
         .buttonStyle(.plain)
     }
 
-    // MARK: 下部（3 つのボタン、または押した後の 1 行）
+    // MARK: 下部（答えのボタン、または押した後の 1 行）
 
     @ViewBuilder
     private var footer: some View {
@@ -135,7 +136,8 @@ struct FollowUpView: View {
                 }
                 answerButton(PromiseCopy.doneButton, .done)
                 answerButton(PromiseCopy.partialButton, .partial)
-                answerButton(PromiseCopy.notTodayButton, .notYet)
+                answerButton(PromiseCopy.notYetButton, .notYet)
+                stopTodayButton
             }
             .disabled(viewModel.phase == .saving)
             .opacity(viewModel.phase == .saving ? 0.6 : 1)
@@ -154,11 +156,25 @@ struct FollowUpView: View {
         }
     }
 
-    private func answerButton(_ title: String, _ outcome: CommitmentOutcome) -> some View {
+    private func answerButton(_ title: String, _ answer: FollowUpAnswer) -> some View {
         Button {
-            Task { await viewModel.answer(outcome) }
+            Task { await viewModel.answer(answer) }
         } label: {
             buttonLabel(title)
+        }
+        .buttonStyle(.plain)
+    }
+
+    /// 「今日はやめる」。その日の後追いをすべて終える。小さい文字ボタンとして残す。
+    private var stopTodayButton: some View {
+        Button {
+            Task { await viewModel.answer(.stopToday) }
+        } label: {
+            Text(PromiseCopy.notTodayButton)
+                .font(.footnote)
+                .foregroundStyle(SaydoTheme.Palette.ink3)
+                .frame(maxWidth: .infinity, minHeight: SaydoTheme.Metric.minimumTapTarget)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
     }

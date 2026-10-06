@@ -3647,3 +3647,64 @@ done_definition との対応:
 - 答えずにアプリを閉じて開き直すと、答える画面が出ること。
 - 記録タブに、その日の声が 1 件（約束。アクション）だけ並ぶこと。
 - 旧い版で登録済みだった昼・行動時刻の通知が、起動後に届かないこと。
+
+## task_058 — 1 つの約束を朝・昼・晩の 3 回追う
+
+- 日時: 2026-10-06
+- 状態: needs-device（コードとテストは完了。アラームの鳴動・「開く」・画面の見た目は実機でしか確かめられない）
+- ブランチ / コミット: task/058-three-rounds / `git log` の `task_058:` 行
+
+### 証拠
+
+| コマンド | exit | 全文ログ |
+|---|---|---|
+| `scripts/test-core.sh` | 0（`Executed 293 tests, with 0 failures` と `Executed 33 tests, with 0 failures`、lint-principles `OK`） | `docs/logs/task_058-1.txt`（2 本を 1 ファイルに連結） |
+| `scripts/test-ios.sh` | 0（`Executed 320 tests, with 0 failures`、`** TEST SUCCEEDED **`、lint-principles `OK`） | 同上 |
+| 実機 | 未実行（インストールは統合担当） | — |
+
+途中の 1 回だけ、触っていない `VoiceJoinerTests.testJoinsTwoRecordingsIntoOneFileInOrder` が 147 秒かかった（成功。ログに残した最後の実行では 0.3 秒）。
+
+### 実装の要点
+
+- `AlarmPlan`（SaydoCore）: `AlarmRound`（morning / noon / evening / extra）を足し、識別子を 日付 + 回 + 連番 から作る（UUID の 7 バイト目が回。旧い識別子は 0 なので重ならない）。`rounds(promisedAt:morning:noon:evening:)` が「約束より後に始まる回。無ければ 30 分後の 1 回」を返す。1 回 40 本、追加の 1 回も 40 本。
+- `AlarmScheduling`: `scheduleRounds(_:on:)`（その日を全部取り消してから登録。権限はここでは求めない）、`cancelRound(_:on:)`、`cancelDay(_:)`、`cancelAll()`。`AlarmBackend` に `scheduledIDs()` と `title` を足した。
+- `ChaseRules`（`App/Alarms/ChaseRules.swift`。設定と答えの記録を写した Sendable な値）と `ChaseCoordinator`（登録と取り消しを 1 本の列で順に処理する）を追加。起動・前面復帰・約束の保存・答えの保存・設定の時刻の変更は、すべて `ChaseCoordinator` を通る。前日（深夜の約束の分）・今日・翌日を登録し直す。同じ起動のあいだ、同じ内容を登録済みの日は並べ直さない。
+- どの回まで答えたかは `AppSettings.answeredRounds`（日付ごと、直近 3 日ぶん）。「やった」「今日はやめる」は、その日の全部の回を答えたことにする。約束の無い朝の「今日はやめる」は `morningPromptStoppedDayKey`。
+- 旧い識別子のアラームは、最初の登録し直しで 1 度だけ `cancelAll()`（`AlarmManager.shared.alarms` の一覧で全部取り消す。一覧が取れなければ前日・当日・翌日の新旧の識別子）。済んだ印は `AppSettings.legacyAlarmsCleared`。
+- 朝の通知 1 通は登録しない。旧い版の保留中の通知は、起動と前面復帰のたびに `removeAllManagedPending()` で取り消す。通知の許可も求めない。今日の画面の「朝の通知が届かない」の掲示は出さない。
+- 入口: 約束の無い日は、朝の回の時刻を過ぎていれば（「今日はやめる」と答えるまで）その日に閉じた後でも約束する画面を出す。
+- 試験用の短縮（`#if DEBUG`、`DebugRounds`）: `-saydoRoundsInMinutes 2,5,8`、`-saydoRoundInterval 60`、`-saydoRoundsReset`。差し替えは UserDefaults（`saydo.debug.rounds.*`）に日付つきで覚え、その日のうちは引数なしで開き直しても同じ時刻を使う。
+
+### 変えた既存のテストと理由
+
+- `AlarmPlanTests`: 全面書き換え（識別子に回が入り、1 回 40 本になった。旧い識別子の値は `legacyIdentifiers` のテストで固定し直した）。
+- `AlarmSchedulerTests`: 全面書き換え（`scheduleChain` / `cancelChain` が `scheduleRounds` / `cancelRound` / `cancelDay` / `cancelAll` になった。「未確認なら権限を求める」のテストは、求めないことを確かめるテストに替えた）。
+- `PromiseViewModelTests`: 時刻のチップを前提にした 3 件（チップの既定・過ぎたチップ・選んだ時刻での登録）を、10 時・22 時・7 時の約束で登録される回のテストに替えた。段階 `.time` は `.confirm`。完了の 1 行は回の時刻を並べる形。
+- `FollowUpViewModelTests`: 「3 つのどのボタンでも連鎖を 1 回取り消す」を、回だけ取り消す答えと、その日を全部取り消す答えの 2 件に分けた。`answer(.pending)` のテストは、答えの型が `FollowUpAnswer` になり書けなくなったので削除。「追い始める時刻が無い約束は追わない」も、追う回が約束の時刻で決まるようになったので削除。
+- `TodayViewModelTests`: 「時間を変える」の 5 件を削除（機能を無くした）。段階のテストを回の時刻に合わせ、答えた後に次の回を見せるテストを足した。
+- `AppRouterTests`: 朝の通知 1 通を前提にした 2 件（最初の約束の後に通知の許可を求める、許可があるときだけ朝の 1 通を登録し直す）を、アラームの登録し直しのテストに替えた。「閉じた後は出し直さない」は朝の回より前（7 時）の話にし、朝の回の時刻を過ぎたら出るテストを足した。
+- 追加: `ChaseRulesTests`（9 件。規則と試験用の起動引数）、`ChaseTestSupport`（記録するだけの `AlarmScheduling`）。
+
+### 足した・変えた文言
+
+- `PromiseCopy`（`PromiseRoundCopy.swift`。Guardrails の検査に入れた）: 「まだ」「◯時と◯時に、あなたの声で追いかけます。」「◯時と◯時に、アラームで追いかけます。」「少し進めたなら、それは前進です。次は◯時に、また聞きます。」「わかりました。次は◯時に、また聞きます。」「わかりました。今日の追いかけは、ここまでにします。」「次は ◯時に追いかけます」「今日の約束をしよう」（朝の回のアラームの題）。
+- `TodayCopy`: 「追い始める時刻」を「追いかける時刻」に変えた。
+- `OnboardingCopy`: 「決めた時刻から」を「朝・昼・晩の時刻に」、「約束の時刻から 3 分おきに」を「朝・昼・晩の時刻に 3 分おきに」に変えた。
+- 使わなくなったが残してある文言: 時刻のチップ、「いつから追いかけますか？」「時間を変える」「このままにする」ほか。
+
+### 未解決
+
+1. 最初の回が始まる前に「やった」と答える道は無い（今日の画面の主ボタンは、回が始まってから「答える」になる）。
+2. 答える画面で答えた後、「閉じる」を押さずに次の回の時刻を迎えると、同じ画面（前の回の 1 行）が残る。閉じれば今日の画面の「答える」から答えられる。
+3. 起動ごとの最初の登録し直しは、1 日あたり 160 件の取り消しと、最大 120 本 + 翌日 40 本の登録を順に行う。かかる時間は実機で未計測。
+4. `Commitment.plannedAt` は約束した時点の最初の回の時刻で、設定の時刻を後から変えても書き換えない（判定と表示は設定から計算するので、どこにも使っていない）。
+5. 設定画面の「通知の本数」「週末の通知」は残っているが、もう何にも効かない（整理は task_057）。
+6. `PromiseTime` と時刻のチップの文言は SaydoCore に残っている（アプリからは使っていない）。
+
+### 人間の確認待ち（実機）
+
+- 試験用の起動: `xcrun devicectl device process launch … -- -saydoRoundsInMinutes 2,5,8 -saydoRoundInterval 60`。起動から 2 分以内に約束すると 3 回とも本人の声で追う。2 分を過ぎて約束すると、1 回目は飛ばされる。約束しないまま 2 分たつと、既定の音で「今日の約束をしよう」が鳴る。
+- その日にすでに約束がある端末では、約束する画面が出ない（設定の全削除か、日付が変わってから試す）。
+- 「まだ」「少しやった」でその回だけ止まり、次の回でまた鳴ること。「やった」「今日はやめる」で全部止まること。
+- 旧い版で登録済みのアラームが、起動後に鳴らないこと。
+- 約束する画面（チップ無し、小さい「今日はやめる」）と答える画面（3 つのボタンと小さい「今日はやめる」）の見た目。
