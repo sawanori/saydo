@@ -3506,3 +3506,46 @@ Guardrails の禁止語とテストは変えていない。
 ### 人間の確認待ち
 
 - 文言の言い回し（特に答えた後の 3 行、チップの「昼 12:00」「夕方 18:00」）。
+
+## task_055 — アラームの登録と取り消し、答える画面
+
+- 日時: 2026-10-06
+- 状態: needs-device（コードとテストは完了。アラームの鳴動・「開く」・画面の見た目は実機でしか確かめられない）
+- ブランチ / コミット: task/055-alarm-followup / `git log` の `task_055:` 行
+
+### 証拠
+
+| コマンド | exit code | ログ |
+|---|---|---|
+| `scripts/build-ios.sh` | 0（`** BUILD SUCCEEDED **`、warning 0 件） | `docs/logs/task_055-1.txt`（3 本を 1 ファイルに連結） |
+| `scripts/test-ios.sh` | 0（`Executed 253 tests, with 0 failures`、`** TEST SUCCEEDED **`、lint-principles `OK`） | 同上 |
+| `scripts/test-core.sh` | 0（`Executed 280 tests, with 0 failures`、lint-principles `OK`） | 同上 |
+
+done_definition との対応:
+
+| done_definition | 証拠 |
+|---|---|
+| 3 つのどのボタンでも、結果が保存され、取り消しが 1 回頼まれる | `FollowUpViewModelTests`（17 件）。`testEveryButtonSavesTheOutcomeAndCancelsTheChainOnce` は実物の `Repository`（メモリ内）に書かれた結果を読み直して確かめる。保存に失敗した場合は `testAFailedSaveDoesNotCancelTheChain` / `testARepositoryErrorDoesNotCancelTheChain` |
+| 取り消しは AlarmPlan の全識別子に対して行われる | `AlarmSchedulerTests`（15 件）。`testCancelChainCancelsEveryIdentifierOfThatDay`、登録の前に全識別子を取り消す順序は `testScheduleChainCancelsTheWholeDayBeforeRegisteringEveryThreeMinutes` |
+| アラーム音が Library/Sounds に .caf で置かれ、30 秒を超えない | `AlarmSoundStoreTests`（8 件）。36 秒の録音が 30 秒以下の IMA4 / 44.1 kHz / 1ch になる（`testExportCutsEverythingBeyondThirtySeconds`）。テストの置き場は一時ディレクトリの `Library/Sounds` |
+| build-ios と test-ios が exit 0 | 上の表 |
+
+- 「開く」のインテントの抽出値: `Saydo.app/Metadata.appintents/extract.actionsdata` の `OpenFollowUpIntent` は `supportedModes = 2`、`openAppWhenRun = true`（docs/spikes/alarm-spike.md §3 の罠を踏んでいない）。
+- ビルドした `Saydo.app/Info.plist` に `NSAlarmKitUsageDescription` が入っている。
+- 足した文言（`PromiseFollowUpCopy.swift`。`PromiseCopy.allLines` に連結）: 「開く」「とめる」「約束」「最初にやること」「自分の声を聞く」「声を止める」「閉じる」「うまく保存できませんでした。もう一度、押してみてください。」
+
+### 未解決
+
+1. 配線は task_056。`AppRouter` / `RootView` には触っていない。使うもの: `AlarmScheduler(audioFileStore:)`、`Repository.commitmentAwaitingAnswer(asOf:)`、`FollowUpViewModel(commitment:store:alarms:player:audioFileStore:onClose:)`、`FollowUpOpenRequest.consume()` と通知 `FollowUpOpenRequest.didRequest`。
+2. `scheduleChain` は権限が未確認なら自分で求める（プロトコルの形は変えていない）。
+3. 連鎖の開始日は `plannedAt`（無ければ `createdAt`）の日。23 時台の「1時間後」は翌日の識別子になり、取り消しも同じ日で行う。翌日に新しい約束をすると、同じ日の識別子なので前夜の連鎖は置き換わる。
+4. 「やった」を押しても `AvoidanceItem.status` は変えていない（旧い昼の会話は `.done` にしていた）。
+5. インテントの `title` は AppIntents の抽出が文字列リテラルを求めるため `PromiseCopy` から引けず、アプリ名 `"SAYDO"` を直書きした（一覧には出さない設定）。
+6. `task-list.json` の files_to_modify にある `App/Data/Repository.swift` は編集せず、`App/Data/Repository+FollowUp.swift` に足した（task_054 との衝突を避ける指示による）。
+
+### 人間の確認待ち
+
+- 実機: 本番の `Saydo` で権限のダイアログが出ること、約束の時刻から 3 分おきに鳴ること、音が本人の声（`Library/Sounds/saydo-alarm-yyyyMMdd.caf`）であること。試作で鳴ったのは `AVAudioRecorder` が直接書いた IMA4 で、今回は `ExtAudioFile` で AAC から変換した IMA4（形式は同じ、経路が違う）。
+- 実機: 「開く」でアプリが前面に出ること（試作ではインテントの実行までしか確かめていない）。「とめる」「開く」の後も次が鳴り、3 つのどれかを押すと残りが鳴らなくなること。
+- 実機: 60 本を続けて登録する時間、集中モード中・強制終了後の鳴動、音量。
+- 答える画面の見た目（シミュレータでも目視していない。ビルドとテストだけ）と、足した文言の言い回し。

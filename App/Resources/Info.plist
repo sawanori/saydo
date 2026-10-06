@@ -22,6 +22,8 @@
 	<string>1</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<key>NSAlarmKitUsageDescription</key>
+	<string>約束の時刻から、あなたの声で追いかけるためにアラームを使います</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>あなたの声を録音し、逃げたいことを言葉にするために使います</string>
 	<key>UILaunchScreen</key>

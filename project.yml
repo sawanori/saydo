@@ -62,6 +62,8 @@ targets:
       properties:
         CFBundleDisplayName: SAYDO
         ITSAppUsesNonExemptEncryption: false
+        # 約束の後追いの連鎖アラーム（AlarmKit。実装計画 §17、docs/spikes/alarm-spike.md §9 (0)）。
+        NSAlarmKitUsageDescription: 約束の時刻から、あなたの声で追いかけるためにアラームを使います
         NSMicrophoneUsageDescription: あなたの声を録音し、逃げたいことを言葉にするために使います
         UILaunchScreen: {}
 
