@@ -3506,3 +3506,44 @@ Guardrails の禁止語とテストは変えていない。
 ### 人間の確認待ち
 
 - 文言の言い回し（特に答えた後の 3 行、チップの「昼 12:00」「夕方 18:00」）。
+
+## task_054 — 約束する画面: 押して話す・質問 2 つ・時刻のチップ・保存
+
+- 日時: 2026-10-06
+- 状態: done（画面の見た目と実機の録音は未確認。下の「人間の確認待ち」）
+- ブランチ / コミット: task/054-promise-view / `git log` の `task_054:` 行
+
+### 証拠
+
+| コマンド | exit code | ログ |
+|---|---|---|
+| `scripts/test-ios.sh` | 0 | `docs/logs/task_054-1.txt` |
+| `scripts/test-core.sh` | 0 | —（`Executed 280 tests, with 0 failures` と `Executed 33 tests, with 0 failures`、lint-principles `OK`） |
+
+- iOS: `Executed 236 tests, with 0 failures`（新規は PromiseViewModelTests 21、VoiceJoinerTests 2）。続く lint-principles は `OK`。
+
+| done_definition | 証拠 |
+|---|---|
+| 録音は押下から離すまでだけ動き、離した後に録音が続かない | `testRecordingRunsOnlyWhilePressed`、`testReleasingBeforeTheRecordingStartsDoesNotAdvance`、`testThirtySecondLimitEndsTheTake` |
+| 0.5 秒未満の押下では段階が進まない | `testPressShorterThanHalfASecondDoesNotAdvance`（空の文字起こしは `testEmptyTranscriptDoesNotAdvance`） |
+| 2 つ話して「約束する」で約束が 1 件、選んだ時刻でアラームの登録が 1 回 | `testTwoAnswersAndCommitSaveOnePromiseAndScheduleOnce`、`testCommitWithoutChoosingAChipStartsOneHourLater`、`testPromiseIsSavedThroughTheRepository` |
+| 文字だけでも約束が保存される | `testTextOnlyPromiseIsSavedAndScheduledWithoutAVoice` |
+| 読み上げが 1 回も呼ばれない | `App/Features/Promise/` に読み上げの部品の利用が無い（grep で 0 件。`SilenceDetector` も使っていない。`FlowMachine` はコメントに名前が出るだけ） |
+| `scripts/test-ios.sh` が exit 0 | 上の表 |
+
+- 追加: `App/Features/Promise/PromiseViewModel.swift`、`PromiseView.swift`、`App/Audio/VoiceJoiner.swift`（2 つの録音を AVFoundation でつなぐ）、`App/Data/Repository+Promise.swift`（`PromiseStore` と `RepositoryPromiseStore`。`Repository.swift` 本体は触っていない）。`PromiseCopy` に完了の 1 行の出し分けと案内の文言を足した。
+- 配線用の入口: `PromiseView(repository:capture:transcriber:alarms:audioFiles:audioSession:microphoneGranted:calendar:onClose:)`。
+
+### 未解決
+
+- アクションの言葉の `VoiceEntry` は種類を `.declaration` にした（専用の種類が無く、スキーマを変えないため）。つないだ声の `VoiceEntry`（`createCommitment` が作る）も `.declaration` なので、声で 2 つ答えた日は `.declaration` が 2 件になる。タイムラインでの見え方は task_056 で確かめること。
+- `scheduleChain` は権限の有無にかかわらず保存の後に 1 回呼び、完了の 1 行は戻り値（登録できた・権限なし・失敗）で決める。task_055 の実装は、権限が無いとき何も登録せず `.notAuthorized` を返すこと。
+- 押してから録音が始まるまでに `TranscriptionService.prepare()` を毎回待つ。実機での遅れ（話し始めが欠けないか）は未計測。
+- 完了の 1 行は、アラームを登録できたときだけ 3 秒で自動的に閉じる。権限なし・失敗のときは本人が「閉じる」を押すまで出したままにする。
+- 「押して話す」は長押しなので、VoiceOver では文字の入力（キーボードのボタン）が代わりの道になる。
+
+### 人間の確認待ち
+
+- 画面の見た目（シミュレータ・実機とも目視していない）。
+- 実機での録音・文字起こし・2 つの録音をつないだ声の音（つなぐ処理はシミュレータ上の AAC ファイルでだけ確かめた）。
+- 足した文言の言い回し（`PromiseCopy` の `completionWithoutVoice`、`completionNotAuthorized`、`completionAlarmUnavailable`、`holdLonger`、`notHeard`、`captureUnavailable`、`saveUnavailable`、`voiceInputButton`）。

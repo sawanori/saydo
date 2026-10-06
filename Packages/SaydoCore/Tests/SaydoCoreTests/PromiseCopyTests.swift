@@ -58,4 +58,24 @@ final class PromiseCopyTests: XCTestCase {
             }
         }
     }
+
+    func testCompletionLinesThatDoNotPromiseAnAlarm() {
+        // 追えないときは「追いかけます」と言わない。約束は残したことを伝える。
+        for line in [PromiseCopy.completionNotAuthorized, PromiseCopy.completionAlarmUnavailable] {
+            XCTAssertFalse(line.contains("追いかけます"), line)
+            XCTAssertTrue(line.contains("約束は残しました"), line)
+        }
+    }
+
+    func testCompletionWithoutVoiceDoesNotClaimTheVoice() {
+        let four = tokyo.date(from: DateComponents(year: 2026, month: 10, day: 6, hour: 16, minute: 0))!
+        let line = PromiseCopy.completionWithoutVoice(startingAt: four, calendar: tokyo)
+        XCTAssertEqual(line, "16時から、アラームで追いかけます。")
+        XCTAssertFalse(line.contains("あなたの声"))
+    }
+
+    func testDeclarationTranscriptJoinsPromiseAndAction() {
+        XCTAssertEqual(PromiseCopy.declarationTranscript(promise: "企画書を出す", action: "資料を開く"), "企画書を出す。資料を開く")
+        XCTAssertEqual(PromiseCopy.declarationTranscript(promise: "企画書を出す。", action: " 資料を開く。 "), "企画書を出す。資料を開く")
+    }
 }
