@@ -91,11 +91,15 @@ final class AppSettings {
         static let quietModeStart = "saydo.settings.quietModeStartMinutes"
         static let quietModeEnd = "saydo.settings.quietModeEndMinutes"
         static let promiseDismissedDayKey = "saydo.settings.promiseDismissedDayKey"
+        static let answeredRounds = "saydo.settings.answeredRounds"
+        static let morningPromptStoppedDayKey = "saydo.settings.morningPromptStoppedDayKey"
+        static let legacyAlarmsCleared = "saydo.settings.legacyAlarmsCleared"
 
         static let all = [
             morningTime, noonTime, nightTime, silenceThreshold, speechVoiceIdentifier,
             notificationMode, weekendNotificationsEnabled, aloneTime, hasCompletedOnboarding,
-            quietModeScheduleEnabled, quietModeStart, quietModeEnd, promiseDismissedDayKey
+            quietModeScheduleEnabled, quietModeStart, quietModeEnd, promiseDismissedDayKey,
+            answeredRounds, morningPromptStoppedDayKey
         ]
     }
 
@@ -278,6 +282,74 @@ final class AppSettings {
                 defaults.removeObject(forKey: Key.promiseDismissedDayKey)
             }
         }
+    }
+
+    // MARK: 朝・昼・晩の 3 回で追う（実装計画 §17.9）
+
+    /// 覚えておく日数。前日の深夜の約束が今日に掛かることがあるので、数日ぶんを残す。
+    private static let answeredRoundsDaysKept = 3
+
+    /// 答えた回。日付（`DayKey`）ごと。「やった」「今日はやめる」は、その日の全部の回を入れる。
+    var answeredRounds: [String: Set<AlarmRound>] {
+        guard let stored = defaults.dictionary(forKey: Key.answeredRounds) as? [String: [Int]] else { return [:] }
+        return stored.mapValues { Set($0.compactMap(AlarmRound.init(rawValue:))) }
+    }
+
+    /// その日の、答えた回。
+    func answeredRounds(on dayKey: String) -> Set<AlarmRound> {
+        answeredRounds[dayKey] ?? []
+    }
+
+    /// その日の回を、答えたものとして足す。古い日の記録は捨てる。
+    func markRoundsAnswered(_ rounds: Set<AlarmRound>, on dayKey: String) {
+        var all = answeredRounds
+        all[dayKey, default: []].formUnion(rounds)
+        storeAnsweredRounds(all)
+    }
+
+    /// その日の答えの記録を消す（その日に新しく約束したとき）。
+    func clearAnsweredRounds(on dayKey: String) {
+        var all = answeredRounds
+        all[dayKey] = nil
+        storeAnsweredRounds(all)
+    }
+
+    private func storeAnsweredRounds(_ all: [String: Set<AlarmRound>]) {
+        // `DayKey` は文字列の順が日付の順になる。新しい方から数日ぶんだけ残す。
+        let kept = all.keys.sorted().suffix(Self.answeredRoundsDaysKept)
+        var stored: [String: [Int]] = [:]
+        for key in kept {
+            stored[key] = (all[key] ?? []).map(\.rawValue).sorted()
+        }
+        defaults.set(stored, forKey: Key.answeredRounds)
+    }
+
+    /// 約束の無い朝に「今日はやめる」と答えた日（`DayKey`）。その日の朝の回は鳴らさない。
+    var morningPromptStoppedDayKey: String? {
+        get { defaults.string(forKey: Key.morningPromptStoppedDayKey) }
+        set {
+            if let newValue {
+                defaults.set(newValue, forKey: Key.morningPromptStoppedDayKey)
+            } else {
+                defaults.removeObject(forKey: Key.morningPromptStoppedDayKey)
+            }
+        }
+    }
+
+    /// 旧い識別子（task_058 より前）で登録したアラームを、取り消し終えたか。
+    /// 全削除でも消さない（1 度きりの後始末なので）。
+    var legacyAlarmsCleared: Bool {
+        get { defaults.bool(forKey: Key.legacyAlarmsCleared) }
+        set { defaults.set(newValue, forKey: Key.legacyAlarmsCleared) }
+    }
+
+    /// 試験用に差し替えた回の時刻。Debug ビルドで起動引数を渡したときだけ値がある。
+    var roundOverride: RoundOverride? {
+        #if DEBUG
+        DebugRounds.stored(defaults: defaults)
+        #else
+        nil
+        #endif
     }
 
     /// 全部の設定を既定に戻す（テストと「データを全部消す」で使う）。

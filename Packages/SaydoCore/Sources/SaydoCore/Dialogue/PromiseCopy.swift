@@ -185,4 +185,5 @@ public enum PromiseCopy {
         + ["16時", "16時30分", "30分後", "夕方"].map { CopyLine(completion(timePhrase: $0), .statement) }
         + ["16時", "16時30分"].map { CopyLine(completionWithoutVoice(timePhrase: $0), .statement) }
         + followUpLines
+        + roundLines
 }

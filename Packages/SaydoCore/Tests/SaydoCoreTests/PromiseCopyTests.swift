@@ -74,6 +74,58 @@ final class PromiseCopyTests: XCTestCase {
         XCTAssertFalse(line.contains("あなたの声"))
     }
 
+    // MARK: 朝・昼・晩の 3 回で追う形（task_058）
+
+    func testRoundLinesPassGuardrailsAndAreInAllLines() {
+        XCTAssertFalse(PromiseCopy.roundLines.isEmpty)
+        let texts = Set(PromiseCopy.allLines.map(\.text))
+        for line in PromiseCopy.roundLines {
+            let violations = Guardrails.check(line.text, form: line.form)
+            XCTAssertTrue(violations.isEmpty, "「\(line.text)」→ \(violations)")
+            XCTAssertTrue(texts.contains(line.text), line.text)
+        }
+    }
+
+    func testCompletionLineNamesTheRoundsStillToCome() {
+        let noon = tokyo.date(from: DateComponents(year: 2026, month: 10, day: 6, hour: 13))!
+        let evening = tokyo.date(from: DateComponents(year: 2026, month: 10, day: 6, hour: 21))!
+        XCTAssertEqual(
+            PromiseCopy.completion(roundsAt: [noon, evening], calendar: tokyo),
+            "13時と21時に、あなたの声で追いかけます。"
+        )
+        XCTAssertEqual(PromiseCopy.completion(roundsAt: [evening], calendar: tokyo), "21時に、あなたの声で追いかけます。")
+        let withoutVoice = PromiseCopy.completionWithoutVoice(roundsAt: [noon, evening], calendar: tokyo)
+        XCTAssertEqual(withoutVoice, "13時と21時に、アラームで追いかけます。")
+        XCTAssertFalse(withoutVoice.contains("あなたの声"))
+    }
+
+    func testRepliesTellTheNextRoundOnlyWhenThereIsOne() {
+        let evening = tokyo.date(from: DateComponents(year: 2026, month: 10, day: 6, hour: 21))!
+        for answer in [FollowUpAnswer.partial, .notYet] {
+            let withNext = PromiseCopy.reply(for: answer, nextRoundAt: evening, calendar: tokyo)
+            XCTAssertTrue(withNext.contains("次は21時に"), withNext)
+            XCTAssertFalse(PromiseCopy.reply(for: answer, nextRoundAt: nil, calendar: tokyo).contains("次は"))
+        }
+        // その日の後追いを終える答えは、次の回を言わない。
+        for answer in [FollowUpAnswer.done, .stopToday] {
+            XCTAssertFalse(PromiseCopy.reply(for: answer, nextRoundAt: evening, calendar: tokyo).contains("次は"))
+        }
+        for answer in FollowUpAnswer.allCases {
+            for next in [evening, nil] {
+                let line = PromiseCopy.reply(for: answer, nextRoundAt: next, calendar: tokyo)
+                XCTAssertTrue(Guardrails.isClean(line, form: .statement), line)
+            }
+        }
+    }
+
+    func testAnswersMapToTheSavedOutcome() {
+        XCTAssertEqual(FollowUpAnswer.done.outcome, .done)
+        XCTAssertEqual(FollowUpAnswer.partial.outcome, .partial)
+        XCTAssertEqual(FollowUpAnswer.notYet.outcome, .notYet)
+        XCTAssertEqual(FollowUpAnswer.stopToday.outcome, .notYet)
+        XCTAssertEqual(FollowUpAnswer.allCases.filter(\.endsTheDay), [.done, .stopToday])
+    }
+
     func testDeclarationTranscriptJoinsPromiseAndAction() {
         XCTAssertEqual(PromiseCopy.declarationTranscript(promise: "企画書を出す", action: "資料を開く"), "企画書を出す。資料を開く")
         XCTAssertEqual(PromiseCopy.declarationTranscript(promise: "企画書を出す。", action: " 資料を開く。 "), "企画書を出す。資料を開く")

@@ -4,8 +4,8 @@ import UIKit
 
 /// 今日の画面（実装計画 §17.3「今日」）。
 ///
-/// 約束・アクション・追い始める時刻・結果を 1 枚で見せる。主ボタンは、約束が無い日は約束する画面、
-/// 答えがまだの日は答える画面を開く。追い始める前の日は「◯時から追いかけます」と「時間を変える」。
+/// 約束・アクション・これから追う回の時刻・結果を 1 枚で見せる。主ボタンは、約束が無い日は約束する画面、
+/// 答えがまだの回がある日は答える画面を開く。これから追う回がある日は「次は ◯時に追いかけます」（§17.9）。
 /// 一覧・チェックボックス・進捗率・連続日数は作らない（企画原則 §22-8）。
 /// 約束の声はここからも本人に返せる（§22-10）。
 struct TodayView: View {
@@ -44,14 +44,6 @@ struct TodayView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
                     promise
-                    if let notice = viewModel.notice {
-                        Text(notice)
-                            .saydoText(.list)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                    if viewModel.stage == .beforeChase {
-                        changeTime
-                    }
                     if notificationsDenied {
                         notificationNotice
                     }
@@ -72,9 +64,9 @@ struct TodayView: View {
         .task(id: reloadToken) {
             await viewModel.load()
         }
-        .task(id: viewModel.commitment?.plannedAt) {
-            // 画面を出したまま追い始める時刻を過ぎたら読み直す（主ボタンが「答える」に変わる）。
-            guard viewModel.stage == .beforeChase, let start = viewModel.commitment?.plannedAt else { return }
+        .task(id: viewModel.nextRoundAt) {
+            // 画面を出したまま次の回の時刻を過ぎたら読み直す（主ボタンが「答える」に変わる）。
+            guard let start = viewModel.nextRoundAt else { return }
             let wait = start.timeIntervalSinceNow
             if wait > 0 {
                 try? await Task.sleep(for: .seconds(wait + 1))
@@ -144,17 +136,20 @@ struct TodayView: View {
             hairline
             labeled(PromiseCopy.followUpActionLabel, commitment.microAction.text)
 
-            if statusLine(for: commitment) != nil || viewModel.hasVoice {
+            let statuses = statusLines(for: commitment)
+            if !statuses.isEmpty || viewModel.hasVoice {
                 hairline
                 HStack(alignment: .center) {
-                    if let status = statusLine(for: commitment) {
-                        VStack(alignment: .leading, spacing: 5) {
-                            Text(status.label)
-                                .saydoText(.sectionLabel)
-                            Text(status.text)
-                                .font(.title3.weight(.medium).monospacedDigit())
-                                .foregroundStyle(SaydoTheme.Palette.accent)
-                                .fixedSize(horizontal: false, vertical: true)
+                    VStack(alignment: .leading, spacing: 14) {
+                        ForEach(statuses, id: \.label) { status in
+                            VStack(alignment: .leading, spacing: 5) {
+                                Text(status.label)
+                                    .saydoText(.sectionLabel)
+                                Text(status.text)
+                                    .font(.title3.weight(.medium).monospacedDigit())
+                                    .foregroundStyle(SaydoTheme.Palette.accent)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
                         }
                     }
                     Spacer(minLength: 12)
@@ -178,16 +173,18 @@ struct TodayView: View {
         )
     }
 
-    /// カードの下段。答えた日は結果、答える前は追い始める時刻。
-    private func statusLine(for commitment: CommitmentSnapshot) -> (label: String, text: String)? {
+    /// カードの下段。答えた回があれば結果、追っている・これから追う回があればその時刻。
+    private func statusLines(for commitment: CommitmentSnapshot) -> [(label: String, text: String)] {
+        var lines: [(label: String, text: String)] = []
         if let result = PromiseCopy.resultLabel(for: commitment.outcome) {
-            return (TodayCopy.resultLabel, result)
+            lines.append((TodayCopy.resultLabel, result))
         }
-        guard let start = commitment.plannedAt else { return nil }
-        let text = viewModel.stage == .awaitingAnswer
-            ? PromiseCopy.chasing(since: start)
-            : PromiseCopy.chaseStarts(at: start)
-        return (TodayCopy.chaseTimeLabel, text)
+        if let since = viewModel.chasingSince, viewModel.stage == .awaitingAnswer {
+            lines.append((TodayCopy.chaseTimeLabel, PromiseCopy.chasing(since: since)))
+        } else if let next = viewModel.nextRoundAt {
+            lines.append((TodayCopy.chaseTimeLabel, PromiseCopy.nextChase(at: next)))
+        }
+        return lines
     }
 
     private func labeled(_ label: String, _ text: String) -> some View {
@@ -226,71 +223,6 @@ struct TodayView: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(viewModel.isPlayingVoice ? TodayCopy.stopDeclaration : TodayCopy.playDeclaration)
-    }
-
-    // MARK: 時間を変える
-
-    /// 追い始める前の日だけ出す。チップで選び直すと、アラームを登録し直す。
-    @ViewBuilder
-    private var changeTime: some View {
-        if viewModel.isChoosingTime {
-            VStack(alignment: .leading, spacing: 14) {
-                Text(PromiseCopy.chipsPrompt)
-                    .saydoText(.list)
-                ChipFlowLayout(
-                    rowSpacing: 10,
-                    chipSpacing: 10,
-                    rowHeight: SaydoTheme.Metric.chipHeight
-                ) {
-                    ForEach(viewModel.timeOptions, id: \.chip) { option in
-                        timeChip(option)
-                    }
-                }
-                textButton(PromiseCopy.changeTimeCancel) {
-                    viewModel.cancelChoosingTime()
-                }
-            }
-            .disabled(viewModel.isRescheduling)
-            .opacity(viewModel.isRescheduling ? 0.5 : 1)
-        } else {
-            textButton(PromiseCopy.changeTimeButton) {
-                viewModel.beginChoosingTime()
-            }
-        }
-    }
-
-    private func timeChip(_ option: PromiseTimeOption) -> some View {
-        Button {
-            Task { await viewModel.changeTime(to: option.chip) }
-        } label: {
-            Text(option.label)
-                .saydoText(.list)
-                .foregroundStyle(SaydoTheme.Palette.ink1)
-                .lineLimit(1)
-                .padding(.horizontal, 16)
-                .frame(height: SaydoTheme.Metric.chipHeight)
-                .background(
-                    RoundedRectangle(cornerRadius: SaydoTheme.Metric.chipCornerRadius, style: .continuous)
-                        .fill(SaydoTheme.Palette.chipFill)
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: SaydoTheme.Metric.chipCornerRadius, style: .continuous)
-                        .stroke(SaydoTheme.Palette.hairline, lineWidth: 1)
-                )
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-    }
-
-    private func textButton(_ title: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Text(title)
-                .font(.callout)
-                .foregroundStyle(SaydoTheme.Palette.accent)
-                .frame(minHeight: SaydoTheme.Metric.minimumTapTarget)
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
     }
 
     // MARK: 通知の再許可
@@ -336,7 +268,7 @@ struct TodayView: View {
             Text(TodayCopy.dayFinished)
                 .saydoText(.status)
                 .frame(maxWidth: .infinity)
-        case .loading, .beforeChase, .promiseOnly:
+        case .loading, .beforeChase:
             EmptyView()
         }
     }

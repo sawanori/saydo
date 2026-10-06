@@ -6,8 +6,8 @@ import SwiftUI
 /// 設定（実装計画 §8、task_013 と task_019 の UI）。
 ///
 /// `AppSettings` は `UserDefaults` の薄い包みで `@Observable` ではないので、
-/// 画面は複製（`Draft`）を持ち、変わったときだけ書き戻す。通知に関わる値が変わったら
-/// `NotificationScheduler.reschedule` を呼び直す。
+/// 画面は複製（`Draft`）を持ち、変わったときだけ書き戻す。朝・昼・夜の時刻が変わったら
+/// 親（`onTimesChanged`）がアラームを登録し直す。
 ///
 /// 「今日」の右上からシートで出す想定で、自分で `NavigationStack` を持つ。
 @MainActor
@@ -16,6 +16,8 @@ struct SettingsView: View {
     /// 「データを全部消す」が終わったことを親へ返す。`RootView` はここでオンボーディングへ戻す
     /// （`AppSettings.reset()` で `hasCompletedOnboarding` が false に戻るため）。
     private let onDataDeleted: @MainActor () -> Void
+    /// 朝・昼・夜の時刻（追う回の時刻）が変わったことを親へ返す。親はアラームを登録し直す。
+    private let onTimesChanged: @MainActor () async -> Void
     private let settings: AppSettings
 
     @Environment(\.dismiss) private var dismiss
@@ -30,8 +32,13 @@ struct SettingsView: View {
     @State private var isConfirmingDeletion = false
     @State private var stats: Repository.DeveloperStats?
 
-    init(settings: AppSettings = .shared, onDataDeleted: @escaping @MainActor () -> Void = {}) {
+    init(
+        settings: AppSettings = .shared,
+        onTimesChanged: @escaping @MainActor () async -> Void = {},
+        onDataDeleted: @escaping @MainActor () -> Void = {}
+    ) {
         self.settings = settings
+        self.onTimesChanged = onTimesChanged
         self.onDataDeleted = onDataDeleted
         _draft = State(initialValue: Draft(settings))
     }
@@ -369,17 +376,11 @@ struct SettingsView: View {
     /// 時刻の輪を回している間は毎目盛りで値が変わる。最後の 1 回だけ計画し直す。
     private func scheduleReschedule() {
         rescheduleTask?.cancel()
-        let notificationSettings = settings.notificationSettings
-        let container = modelContext.container
         rescheduleTask = Task {
             try? await Task.sleep(for: .milliseconds(400))
             guard !Task.isCancelled else { return }
-            // 登録するのは約束を促す朝の 1 通だけ（実装計画 §17.4）。昼・夜の時刻は登録しない。
-            let today = try? await Repository(modelContainer: container).todayCommitment()
-            await NotificationScheduler.shared.rescheduleMorningOnly(
-                settings: notificationSettings,
-                hasPromiseToday: today != nil
-            )
+            // 朝・昼・夜の時刻は、追う回の時刻。変えたらアラームを登録し直す（実装計画 §17.9）。
+            await onTimesChanged()
         }
     }
 

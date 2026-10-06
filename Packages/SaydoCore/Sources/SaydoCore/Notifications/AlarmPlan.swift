@@ -1,84 +1,175 @@
 import Foundation
 
+/// 1 日のうちの「回」（実装計画 §17.9）。1 つの約束を、朝・昼・晩の 3 回追う。
+/// 約束の時点で 3 回とも過ぎていた日は、30 分後に追加の 1 回だけ追う。
+public enum AlarmRound: Int, Sendable, Hashable, CaseIterable, Codable, Comparable {
+    case morning = 1
+    case noon = 2
+    case evening = 3
+    /// 3 回とも過ぎた後に約束した日の、追加の 1 回。
+    case extra = 4
+
+    public static func < (lhs: AlarmRound, rhs: AlarmRound) -> Bool {
+        lhs.rawValue < rhs.rawValue
+    }
+}
+
+/// ある回と、その回を始める時刻。
+public struct AlarmRoundStart: Sendable, Hashable {
+    public let round: AlarmRound
+    public let start: Date
+
+    public init(round: AlarmRound, start: Date) {
+        self.round = round
+        self.start = start
+    }
+}
+
 /// アラーム 1 本ぶん。識別子と発火時刻の組。
 public struct AlarmSlot: Sendable, Hashable {
-    /// 日付と連番から決まる識別子。同じ日・同じ連番なら必ず同じ値になる。
+    /// 日付・回・連番から決まる識別子。同じ日・同じ回・同じ連番なら必ず同じ値になる。
     public let id: UUID
-    /// 0 から始まる連番。
+    /// どの回の本か。
+    public let round: AlarmRound
+    /// 0 から始まる、回の中の連番。
     public let index: Int
     /// 発火日時。
     public let fireDate: Date
 
-    public init(id: UUID, index: Int, fireDate: Date) {
+    public init(id: UUID, round: AlarmRound, index: Int, fireDate: Date) {
         self.id = id
+        self.round = round
         self.index = index
         self.fireDate = fireDate
     }
 }
 
-/// アラームの登録計画（実装計画 §17.4）。
+/// アラームの登録計画（実装計画 §17.4 / §17.9）。
 ///
-/// 追い始める時刻から一定の間隔で、決まった本数のアラームを並べる。
+/// 回の開始時刻から一定の間隔で、決まった本数のアラームを並べる。
 /// 純計算だけを行い、AlarmKit への登録と取り消しはアプリ側の `AlarmScheduler` が担当する。
 ///
-/// 識別子は「日付（`yyyyMMdd`）と連番」から決定的に作るので、登録した識別子は
-/// 開始時刻を覚えていなくても再計算できる。取り消しは `identifiers(on:count:calendar:)` で
-/// 「その日の全識別子」を求めて行う。
+/// 識別子は「日付（`yyyyMMdd`）・回・連番」から決定的に作るので、登録した識別子は
+/// 開始時刻を覚えていなくても再計算できる。取り消しは `identifiers(on:round:...)`（1 回分）か
+/// `allIdentifiers(on:...)`（その日の全部）で行う。
 ///
-/// 日付は **開始時刻の日** で決める。3 時間の連鎖が日付をまたいでも、識別子は開始日のものに揃う。
+/// 日付は **約束の日** で決める。追加の 1 回が日付をまたいでも、識別子は約束の日のものに揃う。
 public enum AlarmPlan {
 
     /// 既定の間隔（3 分）。
     public static let defaultInterval: TimeInterval = 3 * 60
 
-    /// 既定の本数（60 本 = 3 時間）。
-    public static let defaultCount = 60
+    /// 1 回あたりの既定の本数（40 本 = 2 時間）。
+    public static let defaultCount = 40
+
+    /// 3 回とも過ぎた後に約束したとき、追加の 1 回を始めるまでの時間（30 分）。
+    public static let extraRoundDelay: TimeInterval = 30 * 60
 
     /// 連番に使えるのは 16 ビットまで。
     public static let maxCount = Int(UInt16.max) + 1
 
-    /// 開始時刻から並べたアラームの列。発火時刻の昇順。
+    // MARK: - どの回で追うか
+
+    /// 約束した時刻から、その日に追う回を決める（実装計画 §17.9 の 4）。
+    ///
+    /// 約束より後に始まる回だけを残す（約束より前の回、約束と同時刻の回は飛ばす）。
+    /// 3 回とも過ぎていたら、30 分後に追加の 1 回だけ追う。開始時刻の昇順で返す。
+    public static func rounds(
+        promisedAt: Date,
+        morning: Date,
+        noon: Date,
+        evening: Date
+    ) -> [AlarmRoundStart] {
+        let fixed = [
+            AlarmRoundStart(round: .morning, start: morning),
+            AlarmRoundStart(round: .noon, start: noon),
+            AlarmRoundStart(round: .evening, start: evening),
+        ]
+        let upcoming = fixed
+            .filter { $0.start > promisedAt }
+            .sorted { $0.start < $1.start }
+        guard upcoming.isEmpty else { return upcoming }
+        return [AlarmRoundStart(round: .extra, start: promisedAt.addingTimeInterval(extraRoundDelay))]
+    }
+
+    // MARK: - 本の並び
+
+    /// 1 回分のアラームの列。発火時刻の昇順。
     ///
     /// - Parameters:
+    ///   - day: 識別子に使う日（約束の日）。
+    ///   - round: どの回か。
     ///   - start: 1 本目の発火時刻。
     ///   - interval: 本と本の間隔（秒）。既定は 3 分。
-    ///   - count: 本数。既定は 60 本。0 以下なら空、`maxCount` を超える分は切り捨てる。
+    ///   - count: 本数。既定は 40 本。0 以下なら空、`maxCount` を超える分は切り捨てる。
     ///   - calendar: 識別子に使う日付を決める暦。
     public static func slots(
+        on day: Date,
+        round: AlarmRound,
         start: Date,
         interval: TimeInterval = defaultInterval,
         count: Int = defaultCount,
         calendar: Calendar = .current
     ) -> [AlarmSlot] {
-        let total = clamp(count)
-        return (0..<total).map { index in
+        (0..<clamp(count)).map { index in
             AlarmSlot(
-                id: identifier(on: start, index: index, calendar: calendar),
+                id: identifier(on: day, round: round, index: index, calendar: calendar),
+                round: round,
                 index: index,
                 fireDate: start.addingTimeInterval(interval * Double(index))
             )
         }
     }
 
-    /// その日の全識別子。開始時刻には依らず、日付と本数だけで決まる。
-    ///
-    /// 同じ日・同じ本数なら `slots(start:interval:count:calendar:)` の識別子と一致する。
+    /// その日の 1 回分の全識別子。開始時刻には依らず、日付・回・本数だけで決まる。
     public static func identifiers(
+        on day: Date,
+        round: AlarmRound,
+        count: Int = defaultCount,
+        calendar: Calendar = .current
+    ) -> [UUID] {
+        (0..<clamp(count)).map { identifier(on: day, round: round, index: $0, calendar: calendar) }
+    }
+
+    /// その日の全識別子（朝・昼・晩の 3 回と、追加の 1 回）。
+    public static func allIdentifiers(
         on day: Date,
         count: Int = defaultCount,
         calendar: Calendar = .current
     ) -> [UUID] {
-        (0..<clamp(count)).map { identifier(on: day, index: $0, calendar: calendar) }
+        AlarmRound.allCases.flatMap { identifiers(on: day, round: $0, count: count, calendar: calendar) }
     }
 
-    /// 日付と連番から決まる識別子（UUID バージョン 8、独自の決定的な値）。
+    /// 日付・回・連番から決まる識別子（UUID バージョン 8、独自の決定的な値）。
     ///
     /// 並び（16 バイト）:
     /// - 0〜3: `yyyyMMdd` を 32 ビット整数にしたもの（ビッグエンディアン）
     /// - 4〜5: 連番（ビッグエンディアン）
-    /// - 6: バージョン（8）  7: 0
+    /// - 6: バージョン（8）  7: 回（1〜4。旧い識別子は 0）
     /// - 8: バリアント  9〜15: 固定の印（ASCII の `SAYDOAL`）
-    public static func identifier(on day: Date, index: Int, calendar: Calendar = .current) -> UUID {
+    public static func identifier(
+        on day: Date,
+        round: AlarmRound,
+        index: Int,
+        calendar: Calendar = .current
+    ) -> UUID {
+        makeIdentifier(on: day, roundByte: UInt8(truncatingIfNeeded: round.rawValue), index: index, calendar: calendar)
+    }
+
+    // MARK: - 旧い識別子（task_058 より前）
+
+    /// 旧い版が使っていた本数（3 分おき 60 本）。
+    public static let legacyCount = 60
+
+    /// 旧い版（回を持たない、日付 + 連番）の、その日の全識別子。
+    /// 開発中の端末に残っている旧いアラームを取り消すためだけに使う。
+    public static func legacyIdentifiers(on day: Date, calendar: Calendar = .current) -> [UUID] {
+        (0..<legacyCount).map { makeIdentifier(on: day, roundByte: 0, index: $0, calendar: calendar) }
+    }
+
+    // MARK: - 内部
+
+    private static func makeIdentifier(on day: Date, roundByte: UInt8, index: Int, calendar: Calendar) -> UUID {
         let components = calendar.dateComponents([.year, .month, .day], from: day)
         let stamp = UInt32(clamping: (components.year ?? 0) * 10_000 + (components.month ?? 0) * 100 + (components.day ?? 0))
         let sequence = UInt16(clamping: max(0, index))
@@ -91,7 +182,7 @@ public enum AlarmPlan {
             UInt8(truncatingIfNeeded: stamp),
             UInt8(truncatingIfNeeded: sequence >> 8),
             UInt8(truncatingIfNeeded: sequence),
-            0x80, 0x00,
+            0x80, roundByte,
             0x80,
         ] + marker
         return UUID(uuid: (

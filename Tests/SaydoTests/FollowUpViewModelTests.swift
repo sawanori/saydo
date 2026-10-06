@@ -4,23 +4,6 @@ import XCTest
 
 @testable import Saydo
 
-/// `AlarmScheduling` の記録するだけの実装。
-private actor RecordingAlarmScheduling: AlarmScheduling {
-    private(set) var cancelledDays: [Date] = []
-    private(set) var scheduledStarts: [Date] = []
-
-    func requestAuthorization() async -> Bool { true }
-
-    func scheduleChain(start: Date, voiceRelativePath: String?) async -> AlarmScheduleOutcome {
-        scheduledStarts.append(start)
-        return .scheduled(count: AlarmPlan.defaultCount)
-    }
-
-    func cancelChain(startedOn day: Date) async {
-        cancelledDays.append(day)
-    }
-}
-
 /// 保存に失敗する `FollowUpStore`。`failuresLeft` 回だけ失敗し、その後は `inner` に書く。
 private actor FlakyFollowUpStore: FollowUpStore {
     struct SaveFailed: Error {}
@@ -82,7 +65,9 @@ final class FollowUpViewModelTests: XCTestCase {
     private var root: URL!
     private var audioFiles: AudioFileStore!
     private var repository: Repository!
-    private var alarms: RecordingAlarmScheduling!
+    private var alarms: RecordingRoundAlarms!
+    private var settings: AppSettings!
+    private var clock: ChaseTestClock!
     private var player: HoldingPlayer!
     private var closeCount = 0
 
@@ -95,7 +80,13 @@ final class FollowUpViewModelTests: XCTestCase {
         audioFiles = AudioFileStore(rootDirectory: root)
         repository = Repository(modelContainer: try SaydoModelContainer.make(inMemory: true))
         await repository.configure(audioFileStore: audioFiles)
-        alarms = RecordingAlarmScheduling()
+        alarms = RecordingRoundAlarms(calendar: calendar)
+        settings = AppSettings(
+            defaults: try XCTUnwrap(UserDefaults(suiteName: "FollowUpViewModelTests-\(UUID().uuidString)"))
+        )
+        // 旧い識別子の後始末（最初の 1 回の全取り消し）は、ここでは見ない。
+        settings.legacyAlarmsCleared = true
+        clock = ChaseTestClock(try date(6, 13, 10))
         player = HoldingPlayer()
         closeCount = 0
     }
@@ -104,6 +95,9 @@ final class FollowUpViewModelTests: XCTestCase {
         if let root, FileManager.default.fileExists(atPath: root.path(percentEncoded: false)) {
             try FileManager.default.removeItem(at: root)
         }
+        settings?.reset()
+        settings = nil
+        clock = nil
         repository = nil
         audioFiles = nil
         alarms = nil
@@ -119,9 +113,9 @@ final class FollowUpViewModelTests: XCTestCase {
     }
 
     /// 約束を 1 件作る。`withVoice` のときは声のファイルも置く。
+    /// 追う回は約束の時刻で決まる（既定の時刻は 朝 8:00・昼 13:00・晩 21:00）。
     private func makeCommitment(
         createdAt: Date,
-        plannedAt: Date?,
         withVoice: Bool = false
     ) async throws -> CommitmentSnapshot {
         var audioPath: String?
@@ -134,7 +128,6 @@ final class FollowUpViewModelTests: XCTestCase {
             CommitmentDraft(
                 avoidanceTitle: "write the estimate",
                 microAction: MicroAction(text: "open the spreadsheet", estimatedMinutes: 5),
-                plannedAt: plannedAt,
                 declarationAudioPath: audioPath,
                 declarationTranscript: audioPath == nil ? "" : "write the estimate. open the spreadsheet",
                 declarationDurationSec: audioPath == nil ? 0 : 6,
@@ -144,18 +137,39 @@ final class FollowUpViewModelTests: XCTestCase {
         )
     }
 
+    private func makeChase() -> ChaseCoordinator {
+        let repository = repository!
+        let calendar = calendar
+        let clock = clock!
+        return ChaseCoordinator(
+            alarms: alarms,
+            settings: settings,
+            calendar: calendar,
+            now: { clock.now },
+            commitmentOn: { day in try? await repository.todayCommitment(on: day, calendar: calendar) }
+        )
+    }
+
     private func makeViewModel(
         _ commitment: CommitmentSnapshot,
-        store: (any FollowUpStore)? = nil
+        store: (any FollowUpStore)? = nil,
+        chase: ChaseCoordinator? = nil
     ) -> FollowUpViewModel {
         FollowUpViewModel(
             commitment: commitment,
             store: store ?? RepositoryFollowUpStore(repository),
-            alarms: alarms,
+            chase: chase ?? makeChase(),
             player: player,
             audioFileStore: audioFiles,
+            calendar: calendar,
             onClose: { [weak self] in self?.closeCount += 1 }
         )
+    }
+
+    private var rules: ChaseRules { settings.chaseRules(calendar: calendar) }
+
+    private func dayKey(_ date: Date) -> String {
+        DayKey.make(from: date, calendar: calendar)
     }
 
     /// 再生のタスクが `play` に入るまで待つ。
@@ -166,36 +180,142 @@ final class FollowUpViewModelTests: XCTestCase {
         XCTAssertTrue(player.isPlaying)
     }
 
-    // MARK: 3 つのボタン
+    // MARK: 答えのボタン（§17.9 の 3）
 
-    func testEveryButtonSavesTheOutcomeAndCancelsTheChainOnce() async throws {
-        let cases: [(outcome: CommitmentOutcome, reply: String)] = [
-            (.done, PromiseCopy.doneReply),
-            (.partial, PromiseCopy.partialReply),
-            (.notYet, PromiseCopy.notTodayReply),
+    /// 9 時に約束し、昼の回（13:00〜）が鳴っている 13:10 に答える。
+    /// 「少しやった」「まだ」はその回だけを取り消し、晩の回が残る。押した後の 1 行は次の回の時刻を伝える。
+    func testPartialAndNotYetCancelOnlyTheCurrentRoundAndKeepTheNextOne() async throws {
+        let cases: [(answer: FollowUpAnswer, outcome: CommitmentOutcome)] = [
+            (.partial, .partial),
+            (.notYet, .notYet),
         ]
         for (offset, entry) in cases.enumerated() {
             // 1 日 1 件なので、ボタンごとに別の日の約束を使う。
-            let plannedAt = try date(6 + offset, 16)
-            let commitment = try await makeCommitment(createdAt: try date(6 + offset, 9), plannedAt: plannedAt)
-            let alarms = RecordingAlarmScheduling()
+            let day = 6 + offset
+            let commitment = try await makeCommitment(createdAt: try date(day, 9))
+            clock.set(try date(day, 13, 10))
+            let alarms = RecordingRoundAlarms(calendar: calendar)
             self.alarms = alarms
-            let viewModel = makeViewModel(commitment)
-            XCTAssertEqual(viewModel.phase, .asking)
+            let chase = makeChase()
+            await chase.refresh()
+            let before = await alarms.rounds(on: clock.now)
+            XCTAssertEqual(before, [.noon, .evening])
+            await alarms.clearEvents()
 
-            await viewModel.answer(entry.outcome)
+            let viewModel = makeViewModel(commitment, chase: chase)
+            XCTAssertEqual(viewModel.phase, .asking)
+            await viewModel.answer(entry.answer)
 
             let saved = try await repository.commitment(id: commitment.id)
-            XCTAssertEqual(saved?.outcome, entry.outcome, "\(entry.outcome)")
-            let cancelled = await alarms.cancelledDays
-            XCTAssertEqual(cancelled, [plannedAt], "\(entry.outcome)")
-            XCTAssertEqual(viewModel.phase, .answered(reply: entry.reply))
+            XCTAssertEqual(saved?.outcome, entry.outcome, "\(entry.answer)")
+            let events = await alarms.events
+            XCTAssertEqual(events, [.cancelRound(dayKey: dayKey(clock.now), round: .noon)], "\(entry.answer)")
+            let after = await alarms.rounds(on: clock.now)
+            XCTAssertEqual(after, [.evening], "\(entry.answer)")
+            XCTAssertEqual(settings.answeredRounds(on: commitment.dayKey), [.noon])
+
+            let reply = PromiseCopy.reply(for: entry.answer, nextRoundAt: try date(day, 21), calendar: calendar)
+            XCTAssertEqual(viewModel.phase, .answered(reply: reply))
+            XCTAssertTrue(reply.contains("次は21時に"), reply)
             XCTAssertNil(viewModel.notice)
+
+            // 翌日の朝の回は、登録されたまま。
+            let tomorrow = await alarms.rounds(on: try date(day + 1, 12))
+            XCTAssertEqual(tomorrow, [.morning])
         }
     }
 
+    /// 「やった」「今日はやめる」は、その日の後追いをすべて取り消す。次の回は言わない。
+    func testDoneAndStopTodayCancelTheWholeDay() async throws {
+        let cases: [(answer: FollowUpAnswer, outcome: CommitmentOutcome, reply: String)] = [
+            (.done, .done, PromiseCopy.doneReply),
+            (.stopToday, .notYet, PromiseCopy.notTodayReply),
+        ]
+        for (offset, entry) in cases.enumerated() {
+            let day = 6 + offset
+            let commitment = try await makeCommitment(createdAt: try date(day, 9))
+            clock.set(try date(day, 13, 10))
+            let alarms = RecordingRoundAlarms(calendar: calendar)
+            self.alarms = alarms
+            let chase = makeChase()
+            await chase.refresh()
+            await alarms.clearEvents()
+
+            let viewModel = makeViewModel(commitment, chase: chase)
+            await viewModel.answer(entry.answer)
+
+            let saved = try await repository.commitment(id: commitment.id)
+            XCTAssertEqual(saved?.outcome, entry.outcome, "\(entry.answer)")
+            let events = await alarms.events
+            XCTAssertEqual(events, [.cancelDay(dayKey: dayKey(clock.now))], "\(entry.answer)")
+            let after = await alarms.rounds(on: clock.now)
+            XCTAssertEqual(after, [], "\(entry.answer)")
+            XCTAssertEqual(viewModel.phase, .answered(reply: entry.reply))
+            XCTAssertEqual(settings.answeredRounds(on: commitment.dayKey), Set(AlarmRound.allCases))
+
+            // 晩の回の時刻を過ぎても、もう答えを待たない。
+            let awaiting = try await repository.commitmentAwaitingAnswer(asOf: try date(day, 21, 30), rules: rules)
+            XCTAssertNil(awaiting, "\(entry.answer)")
+            // 翌日の朝の回は、登録されたまま。
+            let tomorrow = await alarms.rounds(on: try date(day + 1, 12))
+            XCTAssertEqual(tomorrow, [.morning])
+        }
+    }
+
+    /// 起動してからまだ登録し直していない状態で答えても、答えの後の姿で登録される
+    /// （残る回と、翌日の朝の回）。
+    func testAnsweringBeforeAnyRefreshRegistersTheRemainingRoundsAndTomorrowMorning() async throws {
+        let commitment = try await makeCommitment(createdAt: try date(6, 9), withVoice: true)
+        let viewModel = makeViewModel(commitment)
+
+        await viewModel.answer(.notYet)
+
+        let today = await alarms.rounds(on: clock.now)
+        XCTAssertEqual(today, [.evening])
+        let evening = await alarms.request(.evening, on: clock.now)
+        XCTAssertEqual(evening?.voiceRelativePath, commitment.declarationAudioPath)
+        let tomorrow = await alarms.request(.morning, on: try date(7, 12))
+        XCTAssertEqual(tomorrow?.start, try date(7, 8))
+        XCTAssertEqual(tomorrow?.purpose, .prompt)
+    }
+
+    /// 最後の回（晩）に「少しやった」「まだ」と答えたら、次の回は無い。1 行は次の回を言わない。
+    func testAnsweringTheLastRoundDoesNotMentionANextRound() async throws {
+        let commitment = try await makeCommitment(createdAt: try date(6, 9))
+        clock.set(try date(6, 21, 10))
+        let viewModel = makeViewModel(commitment)
+
+        await viewModel.answer(.partial)
+
+        XCTAssertEqual(viewModel.phase, .answered(reply: PromiseCopy.partialReply))
+        // 答えないまま過ぎた昼の回も、晩の回と一緒に答えたことになる。
+        XCTAssertEqual(settings.answeredRounds(on: commitment.dayKey), [.noon, .evening])
+        let today = await alarms.rounds(on: clock.now)
+        XCTAssertEqual(today, [])
+    }
+
+    /// 昼の回に「まだ」と答えた後、晩の回でまた答えを待ち、答え直せる（結果が書き換わる）。
+    func testTheNextRoundAsksAgainAndTheAnswerCanBeChanged() async throws {
+        let commitment = try await makeCommitment(createdAt: try date(6, 9))
+        await makeViewModel(commitment).answer(.notYet)
+
+        let afternoon = try await repository.commitmentAwaitingAnswer(asOf: try date(6, 14), rules: rules)
+        XCTAssertNil(afternoon)
+        let evening = try await repository.commitmentAwaitingAnswer(asOf: try date(6, 21, 5), rules: rules)
+        XCTAssertEqual(evening?.id, commitment.id)
+        XCTAssertEqual(evening?.outcome, .notYet)
+
+        clock.set(try date(6, 21, 5))
+        let again = makeViewModel(try XCTUnwrap(evening))
+        await again.answer(.done)
+
+        let saved = try await repository.commitment(id: commitment.id)
+        XCTAssertEqual(saved?.outcome, .done)
+        XCTAssertEqual(again.phase, .answered(reply: PromiseCopy.doneReply))
+    }
+
     func testTheScreenShowsThePromiseAndTheActionInTheUsersOwnWords() async throws {
-        let commitment = try await makeCommitment(createdAt: try date(6, 9), plannedAt: try date(6, 16))
+        let commitment = try await makeCommitment(createdAt: try date(6, 9))
 
         let viewModel = makeViewModel(commitment)
 
@@ -204,53 +324,47 @@ final class FollowUpViewModelTests: XCTestCase {
     }
 
     func testASecondTapDoesNotSaveOrCancelAgain() async throws {
-        let commitment = try await makeCommitment(createdAt: try date(6, 9), plannedAt: try date(6, 16))
+        let commitment = try await makeCommitment(createdAt: try date(6, 9))
         let viewModel = makeViewModel(commitment)
 
         await viewModel.answer(.partial)
-        await viewModel.answer(.notYet)
+        let eventsAfterFirst = await alarms.events
+        await viewModel.answer(.stopToday)
 
         let saved = try await repository.commitment(id: commitment.id)
         XCTAssertEqual(saved?.outcome, .partial)
-        let cancelled = await alarms.cancelledDays
-        XCTAssertEqual(cancelled.count, 1)
-        XCTAssertEqual(viewModel.phase, .answered(reply: PromiseCopy.partialReply))
+        let events = await alarms.events
+        XCTAssertEqual(events, eventsAfterFirst)
+        XCTAssertEqual(settings.answeredRounds(on: commitment.dayKey), [.noon])
+        let reply = PromiseCopy.reply(for: .partial, nextRoundAt: try date(6, 21), calendar: calendar)
+        XCTAssertEqual(viewModel.phase, .answered(reply: reply))
     }
 
-    func testPendingIsNotAnAnswer() async throws {
-        let commitment = try await makeCommitment(createdAt: try date(6, 9), plannedAt: try date(6, 16))
+    /// 23:45 に約束した日。追うのは 30 分後の 1 回（翌日の 0:15）。取り消しは約束の日で行う。
+    func testTheExtraRoundIsCancelledByThePromiseDayEvenWhenItRingsTheNextDay() async throws {
+        let commitment = try await makeCommitment(createdAt: try date(6, 23, 45))
+        clock.set(try date(7, 0, 20))
         let viewModel = makeViewModel(commitment)
 
-        await viewModel.answer(.pending)
+        await viewModel.answer(.notYet)
 
-        XCTAssertEqual(viewModel.phase, .asking)
-        let cancelled = await alarms.cancelledDays
-        XCTAssertTrue(cancelled.isEmpty)
-    }
-
-    func testTheChainIsCancelledByItsStartDayEvenWhenItStartsTheNextDay() async throws {
-        // 23:30 に「1時間後」で約束した日。追い始めるのは翌日の 0:30。
-        let plannedAt = try date(7, 0, 30)
-        let commitment = try await makeCommitment(createdAt: try date(6, 23, 30), plannedAt: plannedAt)
-        let viewModel = makeViewModel(commitment)
-
-        await viewModel.answer(.done)
-
-        let cancelled = await alarms.cancelledDays
-        XCTAssertEqual(cancelled, [plannedAt])
+        let events = await alarms.events
+        XCTAssertEqual(events.first, .cancelRound(dayKey: dayKey(try date(6, 12)), round: .extra))
+        XCTAssertEqual(viewModel.phase, .answered(reply: PromiseCopy.notYetReply))
     }
 
     // MARK: 保存の失敗
 
     func testAFailedSaveDoesNotCancelTheChain() async throws {
-        let commitment = try await makeCommitment(createdAt: try date(6, 9), plannedAt: try date(6, 16))
+        let commitment = try await makeCommitment(createdAt: try date(6, 9))
         let store = FlakyFollowUpStore(failures: 1, then: RepositoryFollowUpStore(repository))
         let viewModel = makeViewModel(commitment, store: store)
 
         await viewModel.answer(.done)
 
-        var cancelled = await alarms.cancelledDays
-        XCTAssertTrue(cancelled.isEmpty)
+        var events = await alarms.events
+        XCTAssertTrue(events.isEmpty)
+        XCTAssertEqual(settings.answeredRounds(on: commitment.dayKey), [])
         XCTAssertEqual(viewModel.phase, .asking)
         XCTAssertEqual(viewModel.notice, PromiseCopy.followUpSaveFailed)
         var saved = try await repository.commitment(id: commitment.id)
@@ -259,8 +373,8 @@ final class FollowUpViewModelTests: XCTestCase {
         // もう一度押せば保存され、そこで初めて取り消される。
         await viewModel.answer(.done)
 
-        cancelled = await alarms.cancelledDays
-        XCTAssertEqual(cancelled.count, 1)
+        events = await alarms.events
+        XCTAssertEqual(events.first, .cancelDay(dayKey: dayKey(clock.now)))
         XCTAssertNil(viewModel.notice)
         XCTAssertEqual(viewModel.phase, .answered(reply: PromiseCopy.doneReply))
         saved = try await repository.commitment(id: commitment.id)
@@ -269,14 +383,14 @@ final class FollowUpViewModelTests: XCTestCase {
 
     func testARepositoryErrorDoesNotCancelTheChain() async throws {
         // 保存先に無い約束（読んだ後に消された場合）。`Repository` 自身が失敗を返す。
-        var commitment = try await makeCommitment(createdAt: try date(6, 9), plannedAt: try date(6, 16))
+        var commitment = try await makeCommitment(createdAt: try date(6, 9))
         commitment.id = UUID()
         let viewModel = makeViewModel(commitment)
 
         await viewModel.answer(.notYet)
 
-        let cancelled = await alarms.cancelledDays
-        XCTAssertTrue(cancelled.isEmpty)
+        let events = await alarms.events
+        XCTAssertTrue(events.isEmpty)
         XCTAssertEqual(viewModel.notice, PromiseCopy.followUpSaveFailed)
         XCTAssertEqual(viewModel.phase, .asking)
     }
@@ -284,7 +398,7 @@ final class FollowUpViewModelTests: XCTestCase {
     // MARK: 本人の声
 
     func testTheVoiceButtonPlaysAndStopsTheUsersOwnVoice() async throws {
-        let commitment = try await makeCommitment(createdAt: try date(6, 9), plannedAt: try date(6, 16), withVoice: true)
+        let commitment = try await makeCommitment(createdAt: try date(6, 9), withVoice: true)
         let viewModel = makeViewModel(commitment)
         let path = try XCTUnwrap(commitment.declarationAudioPath)
         XCTAssertTrue(viewModel.hasVoice)
@@ -300,12 +414,12 @@ final class FollowUpViewModelTests: XCTestCase {
         XCTAssertEqual(player.stopCount, 1)
 
         // 声を聞いただけでは、アラームは取り消さない。
-        let cancelled = await alarms.cancelledDays
-        XCTAssertTrue(cancelled.isEmpty)
+        let events = await alarms.events
+        XCTAssertTrue(events.isEmpty)
     }
 
     func testTheVoiceButtonReturnsToPlayWhenTheVoiceEnds() async throws {
-        let commitment = try await makeCommitment(createdAt: try date(6, 9), plannedAt: try date(6, 16), withVoice: true)
+        let commitment = try await makeCommitment(createdAt: try date(6, 9), withVoice: true)
         let viewModel = makeViewModel(commitment)
 
         viewModel.toggleVoice()
@@ -320,7 +434,7 @@ final class FollowUpViewModelTests: XCTestCase {
     }
 
     func testAnsweringStopsTheVoice() async throws {
-        let commitment = try await makeCommitment(createdAt: try date(6, 9), plannedAt: try date(6, 16), withVoice: true)
+        let commitment = try await makeCommitment(createdAt: try date(6, 9), withVoice: true)
         let viewModel = makeViewModel(commitment)
         viewModel.toggleVoice()
         try await waitUntilPlaying()
@@ -332,7 +446,7 @@ final class FollowUpViewModelTests: XCTestCase {
     }
 
     func testThereIsNoVoiceButtonWithoutAVoice() async throws {
-        let commitment = try await makeCommitment(createdAt: try date(6, 9), plannedAt: try date(6, 16))
+        let commitment = try await makeCommitment(createdAt: try date(6, 9))
         let viewModel = makeViewModel(commitment)
 
         XCTAssertFalse(viewModel.hasVoice)
@@ -345,59 +459,51 @@ final class FollowUpViewModelTests: XCTestCase {
     // MARK: 閉じる
 
     func testClosingWithoutAnsweringKeepsTheChain() async throws {
-        let commitment = try await makeCommitment(createdAt: try date(6, 9), plannedAt: try date(6, 16))
+        let commitment = try await makeCommitment(createdAt: try date(6, 9))
         let viewModel = makeViewModel(commitment)
 
         viewModel.close()
 
         XCTAssertEqual(closeCount, 1)
-        let cancelled = await alarms.cancelledDays
-        XCTAssertTrue(cancelled.isEmpty)
+        let events = await alarms.events
+        XCTAssertTrue(events.isEmpty)
         let saved = try await repository.commitment(id: commitment.id)
         XCTAssertEqual(saved?.outcome, .pending)
     }
 
-    // MARK: 答えがまだの約束（Repository+FollowUp）
+    // MARK: 答えを待っている約束（Repository+FollowUp）
 
-    func testAwaitingAnswerOnlyAfterTheChainHasStarted() async throws {
-        let commitment = try await makeCommitment(createdAt: try date(6, 9), plannedAt: try date(6, 16))
+    func testAwaitingAnswerOnlyAfterARoundHasStarted() async throws {
+        let commitment = try await makeCommitment(createdAt: try date(6, 9))
 
-        let before = try await repository.commitmentAwaitingAnswer(asOf: try date(6, 15, 59), calendar: calendar)
-        let after = try await repository.commitmentAwaitingAnswer(asOf: try date(6, 16, 1), calendar: calendar)
+        let before = try await repository.commitmentAwaitingAnswer(asOf: try date(6, 12, 59), rules: rules)
+        let after = try await repository.commitmentAwaitingAnswer(asOf: try date(6, 13, 1), rules: rules)
 
         XCTAssertNil(before)
         XCTAssertEqual(after?.id, commitment.id)
     }
 
-    func testNotAwaitingOnceAnswered() async throws {
-        let commitment = try await makeCommitment(createdAt: try date(6, 9), plannedAt: try date(6, 16))
-        await makeViewModel(commitment).answer(.notYet)
+    func testNotAwaitingOnceTheDayIsStopped() async throws {
+        let commitment = try await makeCommitment(createdAt: try date(6, 9))
+        await makeViewModel(commitment).answer(.stopToday)
 
-        let awaiting = try await repository.commitmentAwaitingAnswer(asOf: try date(6, 17), calendar: calendar)
+        let awaiting = try await repository.commitmentAwaitingAnswer(asOf: try date(6, 21, 30), rules: rules)
 
         XCTAssertNil(awaiting)
     }
 
     func testAwaitingAnswerFindsAPromiseMadeLateTheNightBefore() async throws {
-        let commitment = try await makeCommitment(createdAt: try date(6, 23, 30), plannedAt: try date(7, 0, 30))
+        let commitment = try await makeCommitment(createdAt: try date(6, 23, 45))
 
-        let awaiting = try await repository.commitmentAwaitingAnswer(asOf: try date(7, 0, 40), calendar: calendar)
+        let awaiting = try await repository.commitmentAwaitingAnswer(asOf: try date(7, 0, 20), rules: rules)
 
         XCTAssertEqual(awaiting?.id, commitment.id)
     }
 
     func testYesterdaysUnansweredPromiseIsNotBroughtBack() async throws {
-        _ = try await makeCommitment(createdAt: try date(6, 9), plannedAt: try date(6, 16))
+        _ = try await makeCommitment(createdAt: try date(6, 9))
 
-        let awaiting = try await repository.commitmentAwaitingAnswer(asOf: try date(7, 9), calendar: calendar)
-
-        XCTAssertNil(awaiting)
-    }
-
-    func testAPromiseWithoutAStartTimeIsNotFollowedUp() async throws {
-        _ = try await makeCommitment(createdAt: try date(6, 9), plannedAt: nil)
-
-        let awaiting = try await repository.commitmentAwaitingAnswer(asOf: try date(6, 20), calendar: calendar)
+        let awaiting = try await repository.commitmentAwaitingAnswer(asOf: try date(7, 9), rules: rules)
 
         XCTAssertNil(awaiting)
     }

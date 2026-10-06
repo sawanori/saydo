@@ -4,15 +4,13 @@ import SaydoCore
 /// アプリの外枠（実装計画 §8 / §17.3）。
 ///
 /// `TabView` は「今日」「記録」の 2 タブだけ。設定は「今日」の右上。
-/// 起動時・前面に戻ったとき・アラームの「開く」・朝の通知のタップは、どれも `AppRouter.resolveEntry`
+/// 起動時・前面に戻ったとき・アラームの「開く」・通知のタップは、どれも `AppRouter.resolveEntry`
 /// の同じ判定を通り、約束する画面か答える画面を全画面で被せる（無ければ今日の画面のまま）。
 /// 初回だけ `OnboardingView` を出す。
 struct RootView: View {
 
     let router: AppRouter
 
-    /// 朝の通知が断られているか。「今日」の掲示に使う。
-    @State private var notificationsDenied = false
     @State private var insightModel: InsightViewModel?
     @State private var todayModel: TodayViewModel?
     @State private var isSettingsPresented = false
@@ -41,7 +39,10 @@ struct RootView: View {
             }
         }
         .sheet(isPresented: $isSettingsPresented) {
-            SettingsView { router.reloadOnboardingState() }
+            SettingsView(
+                onTimesChanged: { await router.refreshAlarms() },
+                onDataDeleted: { router.reloadOnboardingState() }
+            )
         }
         .task(id: router.hasCompletedOnboarding) {
             guard router.hasCompletedOnboarding else { return }
@@ -49,8 +50,7 @@ struct RootView: View {
                 todayModel = router.makeTodayViewModel()
             }
             await router.resolveEntry(openRequested: FollowUpOpenRequest.consume())
-            await router.refreshMorningNotification()
-            await refreshNotificationState()
+            await router.refreshAlarms()
             if insightModel == nil {
                 insightModel = InsightViewModel(repository: router.repository)
             }
@@ -59,8 +59,8 @@ struct RootView: View {
             guard phase == .active, router.hasCompletedOnboarding else { return }
             Task {
                 await router.resolveEntry(openRequested: FollowUpOpenRequest.consume())
-                await refreshNotificationState()
                 await insightModel?.load()
+                await router.refreshAlarms()
             }
         }
         // アプリが前面にあるときにアラームの「開く」が押された。
@@ -73,10 +73,7 @@ struct RootView: View {
             if coverID != nil { isSettingsPresented = false }
         }
         .onChange(of: router.generation) { _, _ in
-            Task {
-                await refreshNotificationState()
-                await insightModel?.load()
-            }
+            Task { await insightModel?.load() }
         }
     }
 
@@ -87,7 +84,8 @@ struct RootView: View {
                     TodayView(
                         viewModel: todayModel,
                         reloadToken: router.generation,
-                        notificationsDenied: notificationsDenied,
+                        // 朝の通知はアラームに置き換えたので、通知の掲示は出さない（§17.9 の 5）。
+                        notificationsDenied: false,
                         onOpenPromise: { router.openPromise() },
                         onOpenFollowUp: { commitment in router.openFollowUp(for: commitment) },
                         onOpenSettings: { isSettingsPresented = true }
@@ -129,9 +127,6 @@ struct RootView: View {
         }
     }
 
-    private func refreshNotificationState() async {
-        notificationsDenied = await NotificationScheduler.shared.authorizationStatus() == .denied
-    }
 }
 
 // MARK: - 被せる画面

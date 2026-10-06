@@ -12,8 +12,8 @@ enum PromiseStage: Sendable, Equatable {
     case promise
     /// 「そのために、最初にやることは？」
     case action
-    /// 追い始める時刻のチップと「約束する」。
-    case time
+    /// 聞き取った 2 行と「約束する」。
+    case confirm
     /// 保存した後の、完了の 1 行。
     case done
 }
@@ -107,10 +107,10 @@ final class PromiseViewModel {
     /// マイクが使えるか。使えなければ最初から文字の入力になり、声には戻せない。
     private(set) var microphoneGranted = true
     private(set) var notice: PromiseNotice?
-    /// いま選べる時刻のチップ（過ぎた枠は出さない）。
-    private(set) var timeOptions: [PromiseTimeOption] = []
-    /// 選ばれているチップ。選ばなければ 1 時間後。
-    private(set) var selectedChip: PromiseChip = PromiseTime.defaultChip
+    /// 「今日はやめる」（その日の朝の回を止める）を出すか。約束の無い朝だけ。
+    private(set) var showsStopToday = false
+    /// 「今日はやめる」を押して、朝の回を止め終えたか。
+    private(set) var didStopToday = false
     /// 「約束する」を押して、保存とアラームの登録を待っているか。
     private(set) var isSaving = false
     /// 保存した約束。
@@ -120,12 +120,12 @@ final class PromiseViewModel {
     /// 完了の 1 行。
     private(set) var completionLine: String?
 
-    /// いま答えを待っている質問。時刻の段階と完了の後は nil。
+    /// いま答えを待っている質問。確かめる段階と完了の後は nil。
     var currentQuestion: PromiseQuestion? {
         switch stage {
         case .promise: .promise
         case .action: .action
-        case .time, .done: nil
+        case .confirm, .done: nil
         }
     }
 
@@ -139,7 +139,7 @@ final class PromiseViewModel {
     var elapsedSeconds: Int { Int(elapsed) }
     /// 「約束する」を押せるか。
     var canCommit: Bool {
-        stage == .time && !isSaving && answers[.promise] != nil && answers[.action] != nil
+        stage == .confirm && !isSaving && answers[.promise] != nil && answers[.action] != nil
     }
 
     // MARK: 依存
@@ -147,7 +147,7 @@ final class PromiseViewModel {
     private let store: any PromiseStore
     private let capture: any VoiceCapturing
     private let transcriber: any Transcribing
-    private let alarms: any AlarmScheduling
+    private let chase: ChaseCoordinator
     private let joiner: any VoiceJoining
     private let audioFiles: AudioFileStore
     private let audioSession: (any AudioSessionControlling)?
@@ -179,7 +179,7 @@ final class PromiseViewModel {
         store: any PromiseStore,
         capture: any VoiceCapturing,
         transcriber: any Transcribing,
-        alarms: any AlarmScheduling,
+        chase: ChaseCoordinator,
         audioFiles: AudioFileStore,
         audioSession: (any AudioSessionControlling)? = nil,
         joiner: any VoiceJoining = VoiceJoiner(),
@@ -189,7 +189,7 @@ final class PromiseViewModel {
         self.store = store
         self.capture = capture
         self.transcriber = transcriber
-        self.alarms = alarms
+        self.chase = chase
         self.audioFiles = audioFiles
         self.audioSession = audioSession
         self.joiner = joiner
@@ -203,6 +203,7 @@ final class PromiseViewModel {
     func open(microphoneGranted: Bool = true) {
         self.microphoneGranted = microphoneGranted
         isTextInput = !microphoneGranted
+        showsStopToday = chase.rules.canStopMorningPrompt(asOf: now())
         if microphoneGranted {
             _ = try? audioSession?.activate(mode: .standard)
         }
@@ -410,17 +411,13 @@ final class PromiseViewModel {
         advance()
     }
 
-    /// まだ答えていない質問へ進む。2 つとも答えていれば時刻の段階へ。
+    /// まだ答えていない質問へ進む。2 つとも答えていれば、聞き取った 2 行と「約束する」へ。
     private func advance() {
         if let next = PromiseQuestion.allCases.first(where: { answers[$0] == nil }) {
             stage = next.stage
             return
         }
-        stage = .time
-        timeOptions = PromiseTime.options(now: now(), calendar: calendar)
-        if !timeOptions.contains(where: { $0.chip == selectedChip }) {
-            selectedChip = PromiseTime.defaultChip
-        }
+        stage = .confirm
     }
 
     /// 「言い直す」。その質問の答えと録音を消して、もう一度聞く。
@@ -457,11 +454,17 @@ final class PromiseViewModel {
         accept(PromiseAnswer(text: answer, audioPath: nil, durationSec: 0, recordedAt: now()), for: question)
     }
 
-    // MARK: - 時刻と保存
+    // MARK: - 保存
 
-    func selectChip(_ chip: PromiseChip) {
-        guard stage == .time, !isSaving, timeOptions.contains(where: { $0.chip == chip }) else { return }
-        selectedChip = chip
+    /// 「今日はやめる」。約束はせず、その日の朝の回（約束を促すアラーム）を止める。
+    func stopToday() async {
+        guard showsStopToday, !isSaving, !isClosed, stage != .done else { return }
+        isSaving = true
+        abandonTake()
+        await chase.stopMorningPrompt()
+        isSaving = false
+        showsStopToday = false
+        didStopToday = true
     }
 
     /// 「約束する」。アラームの権限を求め、約束を保存し、アラームの登録を頼む。
@@ -472,18 +475,26 @@ final class PromiseViewModel {
         notice = nil
 
         // 権限は、このボタンを押した時点で求める。登録できたかどうかは登録の結果で見る。
-        let authorized = await alarms.requestAuthorization()
+        let authorized = await chase.alarms.requestAuthorization()
 
         let moment = now()
-        let start = PromiseTime.date(for: selectedChip, now: moment, calendar: calendar)
-            ?? PromiseTime.defaultDate(now: moment, calendar: calendar)
+        // 追う回は、約束した時刻で決まる（約束より前の回は飛ばす。3 回とも過ぎていたら 30 分後に 1 回）。
+        let rules = chase.rules
+        let times = rules.times(on: moment)
+        let rounds = AlarmPlan.rounds(
+            promisedAt: moment,
+            morning: times.morning,
+            noon: times.noon,
+            evening: times.evening
+        )
         let voice = await joinedVoice(promise: promise, action: action, at: moment)
 
         var draft = CommitmentDraft(
             avoidanceTitle: promise.text,
             microAction: MicroAction(text: action.text)
         )
-        draft.plannedAt = start
+        // 最初に追う回の時刻。
+        draft.plannedAt = rounds.first?.start
         draft.declarationAudioPath = voice?.relativePath
         draft.declarationTranscript = PromiseCopy.declarationTranscript(promise: promise.text, action: action.text)
         draft.declarationDurationSec = voice?.durationSec ?? 0
@@ -523,27 +534,32 @@ final class PromiseViewModel {
             }
         }
 
-        let outcome = await alarms.scheduleChain(start: start, voiceRelativePath: voice?.relativePath)
+        let outcome = await chase.promiseSaved(saved)
         logger.info("promise saved authorized=\(authorized, privacy: .public) alarm=\(String(describing: outcome), privacy: .public) voice=\(voice != nil, privacy: .public)")
         alarmOutcome = outcome
-        completionLine = Self.completionLine(for: outcome, start: start, hasVoice: voice != nil, calendar: calendar)
+        completionLine = Self.completionLine(
+            for: outcome,
+            rounds: rounds.map(\.start),
+            hasVoice: voice != nil,
+            calendar: calendar
+        )
         stage = .done
         isSaving = false
         audioSession?.deactivate()
     }
 
-    /// 完了の 1 行。追えないときは「追いかけます」と言わず、約束は残したことを伝える。
+    /// 完了の 1 行。これから追う回の時刻を言う。追えないときは「追いかけます」と言わず、約束は残したことを伝える。
     static func completionLine(
         for outcome: AlarmScheduleOutcome,
-        start: Date,
+        rounds: [Date],
         hasVoice: Bool,
         calendar: Calendar
     ) -> String {
         switch outcome {
-        case .scheduled(let count) where count > 0:
+        case .scheduled(let count) where count > 0 && !rounds.isEmpty:
             hasVoice
-                ? PromiseCopy.completion(startingAt: start, calendar: calendar)
-                : PromiseCopy.completionWithoutVoice(startingAt: start, calendar: calendar)
+                ? PromiseCopy.completion(roundsAt: rounds, calendar: calendar)
+                : PromiseCopy.completionWithoutVoice(roundsAt: rounds, calendar: calendar)
         case .notAuthorized:
             PromiseCopy.completionNotAuthorized
         case .scheduled, .failed:

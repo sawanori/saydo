@@ -16,7 +16,7 @@ enum OnboardingCopy {
 
     static let conceptTitle = "SAYDO"
     static let conceptBody = "今日の約束を声にして、やるまで追いかけてもらう。"
-    static let conceptDetail = "約束と、最初にやることを話します。決めた時刻から、アプリで答えるまでアラームが鳴ります。"
+    static let conceptDetail = "約束と、最初にやることを話します。朝・昼・晩の時刻に、アプリで答えるまでアラームが鳴ります。"
 
     // MARK: - マイク
 
@@ -30,7 +30,7 @@ enum OnboardingCopy {
     // MARK: - アラーム
 
     static let alarmTitle = "アラームで追いかけます"
-    static let alarmBody = "約束の時刻から 3 分おきに鳴ります。アプリを開いて答えると止まります。"
+    static let alarmBody = "朝・昼・晩の時刻に 3 分おきに鳴ります。アプリを開いて答えると止まります。"
     static let alarmDetail = "許可しない場合、約束は残りますがアラームは鳴りません。あとで設定アプリから変えられます。"
     static let alarmRequest = "アラームを許可する"
 }

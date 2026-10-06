@@ -86,43 +86,6 @@ private final class HeldVoiceCapture: VoiceCapturing {
     }
 }
 
-/// 連鎖アラームの入口の記録。実装（AlarmKit）は task_055。
-private actor SpyAlarmScheduler: AlarmScheduling {
-    struct Call: Sendable, Equatable {
-        var start: Date
-        var voiceRelativePath: String?
-    }
-
-    private(set) var authorizationRequests = 0
-    private(set) var calls: [Call] = []
-    private(set) var cancellations = 0
-    private var isAuthorized = true
-    private var failsToSchedule = false
-
-    func deny() {
-        isAuthorized = false
-    }
-
-    func failScheduling() {
-        failsToSchedule = true
-    }
-
-    func requestAuthorization() async -> Bool {
-        authorizationRequests += 1
-        return isAuthorized
-    }
-
-    func scheduleChain(start: Date, voiceRelativePath: String?) async -> AlarmScheduleOutcome {
-        calls.append(Call(start: start, voiceRelativePath: voiceRelativePath))
-        guard isAuthorized else { return .notAuthorized }
-        return failsToSchedule ? .failed : .scheduled(count: AlarmPlan.defaultCount)
-    }
-
-    func cancelChain(startedOn day: Date) async {
-        cancellations += 1
-    }
-}
-
 /// つなぐ処理の記録。つないだ先にファイルを置く。
 private actor StubVoiceJoiner: VoiceJoining {
     struct Join: Sendable, Equatable {
@@ -158,14 +121,20 @@ final class PromiseViewModelTests: XCTestCase {
         return calendar
     }()
 
-    /// 日本時間 2026-10-06 9:00。昼と夕方のチップがまだ選べる時刻。
-    private static let morning = tokyo.date(from: DateComponents(year: 2026, month: 10, day: 6, hour: 9))!
+    /// 日本時間 2026-10-06 9:00。朝の回（8:00）は過ぎていて、昼（13:00）と晩（21:00）の回が残る時刻。
+    private static let morning = at(9)
+
+    /// 日本時間 2026-10-06 の `hour` 時。
+    private static func at(_ hour: Int, _ minute: Int = 0, day: Int = 6) -> Date {
+        tokyo.date(from: DateComponents(year: 2026, month: 10, day: day, hour: hour, minute: minute))!
+    }
 
     private var root: URL!
     private var audioFiles: AudioFileStore!
     private var store: InMemorySessionStore!
     private var capture: HeldVoiceCapture!
-    private var alarms: SpyAlarmScheduler!
+    private var alarms: RecordingRoundAlarms!
+    private var settings: AppSettings!
     private var joiner: StubVoiceJoiner!
     private var clock: PromiseTestClock!
 
@@ -176,7 +145,8 @@ final class PromiseViewModelTests: XCTestCase {
         audioFiles = AudioFileStore(rootDirectory: root)
         store = InMemorySessionStore(calendar: Self.tokyo)
         capture = HeldVoiceCapture()
-        alarms = SpyAlarmScheduler()
+        alarms = RecordingRoundAlarms(calendar: Self.tokyo)
+        settings = AppSettings(defaults: try XCTUnwrap(UserDefaults(suiteName: "PromiseViewModelTests-\(UUID().uuidString)")))
         joiner = StubVoiceJoiner()
         clock = PromiseTestClock(Self.morning)
     }
@@ -196,11 +166,19 @@ final class PromiseViewModelTests: XCTestCase {
     ) -> (PromiseViewModel, MockTranscriber) {
         let transcriber = MockTranscriber(script: script)
         let clock = clock!
+        // 約束は `promiseSaved` で渡されるので、引き直す先は要らない（翌日の約束は無い）。
+        let chase = ChaseCoordinator(
+            alarms: alarms,
+            settings: settings,
+            calendar: Self.tokyo,
+            now: { clock.now },
+            commitmentOn: { _ in nil }
+        )
         let viewModel = PromiseViewModel(
             store: customStore ?? store,
             capture: capture,
             transcriber: transcriber,
-            alarms: alarms,
+            chase: chase,
             audioFiles: audioFiles,
             joiner: joiner,
             calendar: Self.tokyo,
@@ -393,17 +371,17 @@ final class PromiseViewModelTests: XCTestCase {
         await hold(viewModel, for: 2)
         await hold(viewModel, for: 3)
 
-        XCTAssertEqual(viewModel.stage, .time)
-        XCTAssertEqual(viewModel.timeOptions.map(\.chip), [.inThirtyMinutes, .inOneHour, .noon, .evening])
-        XCTAssertEqual(viewModel.selectedChip, .inOneHour, "選ばなければ 1 時間後")
+        // 2 つ話したら、聞き取った 2 行と「約束する」。時刻は選ばない。
+        XCTAssertEqual(viewModel.stage, .confirm)
+        XCTAssertTrue(viewModel.canCommit)
         let promisePath = try XCTUnwrap(viewModel.answers[.promise]?.audioPath)
         let actionPath = try XCTUnwrap(viewModel.answers[.action]?.audioPath)
 
-        viewModel.selectChip(.inThirtyMinutes)
         clock.advance(10)
         await viewModel.commit()
 
-        let start = clock.now.addingTimeInterval(30 * 60)
+        // 9 時台の約束。最初に追うのは昼の回（13:00）。
+        let start = Self.at(13)
         let commitments = await store.commitments
         XCTAssertEqual(commitments.count, 1)
         let saved = try XCTUnwrap(commitments.first)
@@ -432,46 +410,134 @@ final class PromiseViewModelTests: XCTestCase {
         XCTAssertEqual(entries.first { $0.audioPath == promisePath }?.transcript, "企画書を出す")
         XCTAssertEqual(entries.first { $0.audioPath == actionPath }?.transcript, "資料を開く")
 
-        // アラームの登録は、選んだ時刻で 1 回だけ。
-        let calls = await alarms.calls
-        XCTAssertEqual(calls, [SpyAlarmScheduler.Call(start: start, voiceRelativePath: joinedPath)])
+        // 昼と晩の回が、本人の声で登録される。過ぎた朝の回は登録されない。
+        let rounds = await alarms.rounds(on: clock.now)
+        XCTAssertEqual(rounds, [.noon, .evening])
+        let noon = await alarms.request(.noon, on: clock.now)
+        XCTAssertEqual(
+            noon,
+            AlarmRoundRequest(round: .noon, start: start, voiceRelativePath: joinedPath, purpose: .chase)
+        )
+        let evening = await alarms.request(.evening, on: clock.now)
+        XCTAssertEqual(evening?.start, Self.at(21))
+        XCTAssertEqual(evening?.voiceRelativePath, joinedPath)
         let authorizationRequests = await alarms.authorizationRequests
         XCTAssertEqual(authorizationRequests, 1)
 
+        // 翌日の朝の回（約束を促す、既定の音）も、このとき登録される。
+        let tomorrow = Self.at(12, day: 7)
+        let tomorrowRounds = await alarms.rounds(on: tomorrow)
+        XCTAssertEqual(tomorrowRounds, [.morning])
+        let prompt = await alarms.request(.morning, on: tomorrow)
+        XCTAssertEqual(
+            prompt,
+            AlarmRoundRequest(round: .morning, start: Self.at(8, day: 7), voiceRelativePath: nil, purpose: .prompt)
+        )
+
         XCTAssertEqual(viewModel.stage, .done)
-        XCTAssertEqual(viewModel.completionLine, PromiseCopy.completion(startingAt: start, calendar: Self.tokyo))
+        XCTAssertEqual(
+            viewModel.completionLine,
+            PromiseCopy.completion(roundsAt: [start, Self.at(21)], calendar: Self.tokyo)
+        )
+        XCTAssertEqual(viewModel.completionLine, "13時と21時に、あなたの声で追いかけます。")
         XCTAssertEqual(viewModel.commitment?.id, saved.id)
 
         // 完了の後にもう一度押しても、2 件目は作らない。
+        let callsBefore = await alarms.scheduleCalls
         await viewModel.commit()
         let after = await store.commitments
         XCTAssertEqual(after.count, 1)
-        let callsAfter = await alarms.calls
-        XCTAssertEqual(callsAfter.count, 1)
+        let callsAfter = await alarms.scheduleCalls
+        XCTAssertEqual(callsAfter, callsBefore)
     }
 
-    func testCommitWithoutChoosingAChipStartsOneHourLater() async throws {
+    /// 10 時に約束すると、昼と晩の回が登録され、朝の回は登録されない（§17.9 の 4）。
+    func testPromiseAtTenIsChasedAtNoonAndEvening() async throws {
+        clock = PromiseTestClock(Self.at(10))
+        let (viewModel, _) = makeViewModel(microphoneGranted: false)
+        viewModel.submitText("企画書を出す")
+        viewModel.submitText("資料を開く")
+        await viewModel.commit()
+
+        let rounds = await alarms.rounds(on: clock.now)
+        XCTAssertEqual(rounds, [.noon, .evening])
+        let commitments = await store.commitments
+        XCTAssertEqual(commitments.first?.plannedAt, Self.at(13), "plannedAt は最初に追う回の時刻")
+        XCTAssertEqual(viewModel.completionLine, "13時と21時に、アラームで追いかけます。")
+    }
+
+    /// 22 時に約束すると、3 回とも過ぎているので、30 分後の 1 回だけ（§17.9 の 4）。
+    func testPromiseAfterAllRoundsIsChasedOnceThirtyMinutesLater() async throws {
+        clock = PromiseTestClock(Self.at(22))
+        let (viewModel, _) = makeViewModel(microphoneGranted: false)
+        viewModel.submitText("企画書を出す")
+        viewModel.submitText("資料を開く")
+        await viewModel.commit()
+
+        let rounds = await alarms.rounds(on: clock.now)
+        XCTAssertEqual(rounds, [.extra])
+        let extra = await alarms.request(.extra, on: clock.now)
+        XCTAssertEqual(extra?.start, Self.at(22, 30))
+        let commitments = await store.commitments
+        XCTAssertEqual(commitments.first?.plannedAt, Self.at(22, 30))
+        XCTAssertEqual(viewModel.completionLine, "22時30分に、アラームで追いかけます。")
+    }
+
+    /// 7 時に約束すると、3 回とも登録され、朝の回も本人の声で結果を聞く（§17.9 の 5）。
+    func testPromiseBeforeTheMorningRoundIsChasedThreeTimesWithTheVoice() async throws {
+        clock = PromiseTestClock(Self.at(7))
         let (viewModel, _) = makeViewModel(transcript: ["企画書を出す", "資料を開く"])
         await hold(viewModel, for: 2)
         await hold(viewModel, for: 2)
         await viewModel.commit()
 
-        let start = clock.now.addingTimeInterval(60 * 60)
         let commitments = await store.commitments
-        XCTAssertEqual(commitments.first?.plannedAt, start)
-        let calls = await alarms.calls
-        XCTAssertEqual(calls.map(\.start), [start])
+        let joinedPath = try XCTUnwrap(commitments.first?.declarationAudioPath)
+        let rounds = await alarms.rounds(on: clock.now)
+        XCTAssertEqual(rounds, [.morning, .noon, .evening])
+        for round in [AlarmRound.morning, .noon, .evening] {
+            let request = await alarms.request(round, on: clock.now)
+            XCTAssertEqual(request?.voiceRelativePath, joinedPath, "\(round)")
+            XCTAssertEqual(request?.purpose, .chase, "\(round)")
+        }
+        let morning = await alarms.request(.morning, on: clock.now)
+        XCTAssertEqual(morning?.start, Self.at(8))
+        XCTAssertEqual(commitments.first?.plannedAt, Self.at(8))
+        XCTAssertEqual(viewModel.completionLine, "8時と13時と21時に、あなたの声で追いかけます。")
     }
 
-    func testChipsThatHavePassedAreNotOffered() async throws {
-        clock.advance(4 * 60 * 60) // 13:00
-        let (viewModel, _) = makeViewModel(microphoneGranted: false)
-        viewModel.submitText("企画書を出す")
-        viewModel.submitText("資料を開く")
+    // MARK: 約束の無い朝の「今日はやめる」
 
-        XCTAssertEqual(viewModel.timeOptions.map(\.chip), [.inThirtyMinutes, .inOneHour, .evening])
-        viewModel.selectChip(.noon)
-        XCTAssertEqual(viewModel.selectedChip, .inOneHour, "過ぎた枠は選べない")
+    func testStopTodayStopsTheMorningRoundWithoutSavingAPromise() async throws {
+        // 朝の回（8:00〜）が鳴っている 9:00。
+        let (viewModel, _) = makeViewModel(microphoneGranted: false)
+        XCTAssertTrue(viewModel.showsStopToday)
+
+        await viewModel.stopToday()
+
+        XCTAssertTrue(viewModel.didStopToday)
+        XCTAssertFalse(viewModel.showsStopToday)
+        XCTAssertEqual(settings.morningPromptStoppedDayKey, DayKey.make(from: clock.now, calendar: Self.tokyo))
+        let commitments = await store.commitments
+        XCTAssertEqual(commitments, [])
+        // その日の登録は空で置き換えられる（朝の回が止まる）。翌日の朝の回は残る。
+        let events = await alarms.events
+        XCTAssertTrue(events.contains(.schedule(dayKey: DayKey.make(from: clock.now, calendar: Self.tokyo), rounds: [])))
+        let today = await alarms.rounds(on: clock.now)
+        XCTAssertEqual(today, [])
+        let tomorrow = await alarms.rounds(on: Self.at(12, day: 7))
+        XCTAssertEqual(tomorrow, [.morning])
+    }
+
+    func testStopTodayIsNotOfferedOnceTheMorningRoundIsOver() async throws {
+        clock = PromiseTestClock(Self.at(11))
+        let (viewModel, _) = makeViewModel(microphoneGranted: false)
+        XCTAssertFalse(viewModel.showsStopToday)
+
+        await viewModel.stopToday()
+        XCTAssertFalse(viewModel.didStopToday)
+        let calls = await alarms.scheduleCalls
+        XCTAssertEqual(calls, 0)
     }
 
     func testTextOnlyPromiseIsSavedAndScheduledWithoutAVoice() async throws {
@@ -488,10 +554,10 @@ final class PromiseViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.stage, .promise, "空の答えは受けない")
         viewModel.submitText("企画書を出す")
         viewModel.submitText("資料を開く")
-        XCTAssertEqual(viewModel.stage, .time)
+        XCTAssertEqual(viewModel.stage, .confirm)
         await viewModel.commit()
 
-        let start = clock.now.addingTimeInterval(60 * 60)
+        let start = Self.at(13)
         let commitments = await store.commitments
         XCTAssertEqual(commitments.count, 1)
         let saved = try XCTUnwrap(commitments.first)
@@ -500,15 +566,15 @@ final class PromiseViewModelTests: XCTestCase {
         XCTAssertNil(saved.declarationAudioPath)
         XCTAssertTrue(saved.isVoiceless)
 
-        let calls = await alarms.calls
-        XCTAssertEqual(calls, [SpyAlarmScheduler.Call(start: start, voiceRelativePath: nil)])
+        let noon = await alarms.request(.noon, on: clock.now)
+        XCTAssertEqual(noon, AlarmRoundRequest(round: .noon, start: start, voiceRelativePath: nil, purpose: .chase))
         let joins = await joiner.joins
         XCTAssertEqual(joins, [])
         XCTAssertEqual(capture.startCount, 0)
         XCTAssertEqual(try storedFiles(), [])
 
         let line = try XCTUnwrap(viewModel.completionLine)
-        XCTAssertEqual(line, PromiseCopy.completionWithoutVoice(startingAt: start, calendar: Self.tokyo))
+        XCTAssertEqual(line, PromiseCopy.completionWithoutVoice(roundsAt: [start, Self.at(21)], calendar: Self.tokyo))
         XCTAssertFalse(line.contains("あなたの声"), "声の無い約束で「あなたの声で」と言わない")
     }
 
@@ -525,8 +591,8 @@ final class PromiseViewModelTests: XCTestCase {
         XCTAssertEqual(commitments.first?.isVoiceless, false)
         let joins = await joiner.joins
         XCTAssertEqual(joins, [])
-        let calls = await alarms.calls
-        XCTAssertEqual(calls.map(\.voiceRelativePath), [promisePath])
+        let noon = await alarms.request(.noon, on: clock.now)
+        XCTAssertEqual(noon?.voiceRelativePath, promisePath)
     }
 
     func testJoinFailureStillSavesThePromiseWithThePromiseRecording() async throws {
@@ -584,18 +650,18 @@ final class PromiseViewModelTests: XCTestCase {
         await store.failCreates(1)
         await viewModel.commit()
 
-        XCTAssertEqual(viewModel.stage, .time)
+        XCTAssertEqual(viewModel.stage, .confirm)
         XCTAssertEqual(viewModel.notice, .saveUnavailable)
         XCTAssertNil(viewModel.completionLine)
-        var calls = await alarms.calls
-        XCTAssertEqual(calls, [], "保存できなかった約束でアラームを頼まない")
+        let calls = await alarms.scheduleCalls
+        XCTAssertEqual(calls, 0, "保存できなかった約束でアラームを頼まない")
         XCTAssertEqual(try storedFiles().count, 2, "つないだファイルは残さず、2 つの録音は残す")
 
         await viewModel.commit()
         let commitments = await store.commitments
         XCTAssertEqual(commitments.count, 1)
-        calls = await alarms.calls
-        XCTAssertEqual(calls.count, 1)
+        let rounds = await alarms.rounds(on: clock.now)
+        XCTAssertEqual(rounds, [.noon, .evening])
         XCTAssertEqual(viewModel.stage, .done)
     }
 
@@ -616,7 +682,7 @@ final class PromiseViewModelTests: XCTestCase {
         let saved = try XCTUnwrap(today)
         XCTAssertEqual(saved.avoidanceTitle, "企画書を出す")
         XCTAssertEqual(saved.microAction.text, "資料を開く")
-        XCTAssertEqual(saved.plannedAt, clock.now.addingTimeInterval(60 * 60))
+        XCTAssertEqual(saved.plannedAt, Self.at(13))
         XCTAssertEqual(saved.outcome, .pending)
         let joinedPath = try XCTUnwrap(saved.declarationAudioPath)
 
@@ -653,13 +719,13 @@ final class PromiseViewModelTests: XCTestCase {
 
         // 時刻の段階から約束を言い直しても、アクションの答えは残る。
         await hold(viewModel, for: 2)
-        XCTAssertEqual(viewModel.stage, .time)
+        XCTAssertEqual(viewModel.stage, .confirm)
         viewModel.redo(.promise)
         XCTAssertEqual(viewModel.stage, .promise)
         XCTAssertEqual(viewModel.answers[.action]?.text, "資料を開く")
         viewModel.useTextInput()
         viewModel.submitText("企画書を必ず出す")
-        XCTAssertEqual(viewModel.stage, .time)
+        XCTAssertEqual(viewModel.stage, .confirm)
         XCTAssertEqual(viewModel.answers[.promise]?.text, "企画書を必ず出す")
     }
 
@@ -691,8 +757,8 @@ final class PromiseViewModelTests: XCTestCase {
         XCTAssertEqual(commitments, [])
         let entries = await store.entries
         XCTAssertEqual(entries, [])
-        let calls = await alarms.calls
-        XCTAssertEqual(calls, [])
+        let calls = await alarms.scheduleCalls
+        XCTAssertEqual(calls, 0)
     }
 
     func testClosingAfterThePromiseIsSavedKeepsTheRecordings() async throws {
