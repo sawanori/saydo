@@ -63,6 +63,55 @@ public enum PromiseCopy {
         "\(timePhrase)から、あなたの声で追いかけます。"
     }
 
+    /// 完了の 1 行（文字だけの約束。鳴るのは既定の音なので「あなたの声で」とは言わない）。
+    public static func completionWithoutVoice(startingAt date: Date, calendar: Calendar = .current) -> String {
+        completionWithoutVoice(timePhrase: timePhrase(for: date, calendar: calendar))
+    }
+
+    /// 完了の 1 行（文字だけの約束。時刻の句を直接渡す）。
+    public static func completionWithoutVoice(timePhrase: String) -> String {
+        "\(timePhrase)から、アラームで追いかけます。"
+    }
+
+    /// 完了の 1 行（アラームの権限が無い）。約束は残したことだけを伝える。
+    public static let completionNotAuthorized = "約束は残しました。アラームは鳴りません。設定で許可すると、次から鳴らせます。"
+
+    /// 完了の 1 行（アラームを登録できなかった）。約束は残したことだけを伝える。
+    public static let completionAlarmUnavailable = "約束は残しました。今回はアラームを登録できませんでした。"
+
+    /// 左上の、画面を閉じるボタン。
+    public static let close = "閉じる"
+
+    /// 文字の入力から、声に戻すボタン。
+    public static let voiceInputButton = "声で答える"
+
+    /// 押していた時間が短かったとき。
+    public static let holdLonger = "もう一度、押したまま話してみてください。"
+
+    /// 言葉を聞き取れなかったとき。
+    public static let notHeard = "うまく聞き取れませんでした。もう一度、押したまま話してみてください。"
+
+    /// 録音を始められなかったとき。その質問は文字で受ける。
+    public static let captureUnavailable = "いまは録音を始められません。文字で答えられます。"
+
+    /// 約束を保存できなかったとき。
+    public static let saveUnavailable = "いまは保存できませんでした。もう一度「約束する」を押してみてください。"
+
+    /// 押している間の経過秒数。
+    public static func elapsed(seconds: Int) -> String {
+        "\(seconds)秒"
+    }
+
+    /// 約束とアクションをつないだ文（`Commitment.declarationTranscript`）。「約束。アクション」の形にする。
+    public static func declarationTranscript(promise: String, action: String) -> String {
+        let period: Character = "。"
+        let parts = [promise, action]
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .map { $0.last == period ? String($0.dropLast()) : $0 }
+            .filter { !$0.isEmpty }
+        return parts.joined(separator: String(period))
+    }
+
     // MARK: - 答える画面
 
     /// 答える画面の見出し。
@@ -114,6 +163,15 @@ public enum PromiseCopy {
         CopyLine(chipsPrompt, .question),
         CopyLine(textInputButton, .statement),
         CopyLine(textInputGuide, .statement),
+        CopyLine(completionNotAuthorized, .statement),
+        CopyLine(completionAlarmUnavailable, .statement),
+        CopyLine(close, .statement),
+        CopyLine(voiceInputButton, .statement),
+        CopyLine(holdLonger, .statement),
+        CopyLine(notHeard, .statement),
+        CopyLine(captureUnavailable, .statement),
+        CopyLine(saveUnavailable, .statement),
+        CopyLine(elapsed(seconds: 3), .statement),
         CopyLine(followUpHeading, .question),
         CopyLine(doneButton, .statement),
         CopyLine(partialButton, .statement),
@@ -125,5 +183,6 @@ public enum PromiseCopy {
     ]
         + PromiseChip.allCases.map { CopyLine(chipLabel($0), .statement) }
         + ["16時", "16時30分", "30分後", "夕方"].map { CopyLine(completion(timePhrase: $0), .statement) }
+        + ["16時", "16時30分"].map { CopyLine(completionWithoutVoice(timePhrase: $0), .statement) }
         + followUpLines
 }
