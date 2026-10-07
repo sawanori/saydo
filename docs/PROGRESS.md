@@ -3865,3 +3865,36 @@ done_definition との対応:
 3. Time Sensitive のエンタイトルメントを外した。実機への入れ直しは自動署名で通る想定だが、未確認（インストールは統合担当）。
 4. `Repository` の旧い会話用メソッドと `SessionLog` / `Carryover` / `AvoidanceItem` のモデルは、スキーマを変えない約束なので残した。
 5. docs/implementation-plan.md の §7（旧い会話の設計）と task-list.json の task_014〜017 は、歴史の記録として手を入れていない。
+
+## release-2 — 片づけ後の実機への入れ直しと TestFlight 内部配布 #2
+
+- 日時: 2026-10-08
+- 状態: done（アップロードまで。App Store Connect 側の処理完了と配信は未確認）
+- ブランチ / コミット: integration / 0515a14
+
+| コマンド | exit code | ログ |
+|---|---|---|
+| `scripts/test-ios.sh`（開発者向けの節を Debug 限定にした後） | 0（182 件） | 未保存（末尾のみ確認） |
+| `SAYDO_TEAM_ID=2WWB6ZA7A9 scripts/build-device.sh Saydo --no-launch`（削除して入れ直し。通常の時刻） | 0 | `docs/logs/release-device-1.txt` |
+| `SAYDO_TEAM_ID=2WWB6ZA7A9 scripts/archive-testflight.sh` | 0 | `docs/logs/release-testflight-1.txt` |
+
+```
+archive-testflight: team=2WWB6ZA7A9 build=202610080831
+** ARCHIVE SUCCEEDED **
+Progress 100%: Upload succeeded.
+Uploaded Saydo
+** EXPORT SUCCEEDED **
+```
+
+- ビルド番号: **202610080831**。Time Sensitive のエンタイトルメントを外した後でも、自動署名でアーカイブとアップロードが通った。
+
+### 未解決
+
+- 集中モード中・強制終了後のアラーム、通常の時刻での 1 日の通し、約束の無い朝の回（10:00 のアラームから約束する画面）は実機で未確認。
+- `docs/app-store/` の 4 文書は「要更新」の印を付けただけで、書き直していない。MARKETING_VERSION は 0.1.0 のまま。
+- Mac の空きは 3.1 GiB。`build/devicelogs`（2.7 GB、リポジトリ外）が大きい。
+
+### 人間の確認待ち
+
+- App Store Connect の TestFlight でビルド 202610080831 の処理完了を待ち、内部テストに配る。
+- `integration` はローカルにだけある（このセッションでは push していない）。main へのマージも未実施。
