@@ -121,26 +121,11 @@ final class DomainTests: XCTestCase {
     // MARK: - Codable
 
     func testDomainValuesRoundTripThroughJSON() throws {
-        let context = DialogueContext(
-            sessionType: .noon,
-            step: .noonShrink,
-            avoidance: "avoidance",
-            reason: .anxious,
-            domain: .money,
-            microAction: MicroAction(text: "open it", estimatedMinutes: 3, shrinkCount: 1),
-            blocker: "blocker",
-            carryover: "carryover",
-            outcome: .partial
-        )
         let encoder = JSONEncoder()
         let decoder = JSONDecoder()
-        XCTAssertEqual(try decoder.decode(DialogueContext.self, from: encoder.encode(context)), context)
 
-        let classification = ReasonClassification(category: .perfectionism, followUp: "followUp")
-        XCTAssertEqual(
-            try decoder.decode(ReasonClassification.self, from: encoder.encode(classification)),
-            classification
-        )
+        let action = MicroAction(text: "open it", estimatedMinutes: 3, shrinkCount: 1)
+        XCTAssertEqual(try decoder.decode(MicroAction.self, from: encoder.encode(action)), action)
 
         let stats = WeeklyStats(
             weekStart: Date(timeIntervalSince1970: 1_756_944_000),

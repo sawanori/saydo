@@ -1,7 +1,9 @@
 # SAYDO — Claude Code 向けリポジトリ規約
 
-SAYDO は「逃げていることを、自分の声で認めて、一歩だけ動く」ための iOS ネイティブアプリ。
-サーバー・アカウント・クラウド LLM を持たない。データは端末内、AI はオンデバイス。
+SAYDO は「今日の約束を自分の声で言い、やるまで自分の声で追いかけてもらう」ための iOS ネイティブアプリ。
+本質は後追い。朝に約束と最初にやることを声にすると、朝・昼・晩のアラームがその約束の声で鳴り、
+アプリで答える（やった / 少しやった / まだ / 今日はやめる）まで追いかける（実装計画 §17）。
+サーバー・アカウント・クラウド LLM を持たない。データは端末内、音声認識もオンデバイス。
 
 - 計画: `docs/implementation-plan.md`（章番号はこの文書から参照する）
 - タスク仕様: `docs/task-list.json`（仕様。進捗は書かない）
@@ -15,32 +17,37 @@ SAYDO は「逃げていることを、自分の声で認めて、一歩だけ�
 
 ```
 SAYDO/
-  project.yml                      XcodeGen 定義（App / Tests / Spikes の 4 ターゲット）
+  project.yml                      XcodeGen 定義（Saydo / SaydoTests / スパイク 3 本: SpeechSpike, AlarmSpike, fm-probe）
   Saydo.xcodeproj                  XcodeGen の生成物。コミットしない（scripts が毎回生成する）
   App/                             iOS アプリ本体（SwiftUI）
-    SaydoApp.swift, AppDelegate.swift, AppRouter.swift
-    Audio/        AudioSessionController, VoiceCapture, SilenceDetector,
-                  TranscriptionService, SpeechSynthesisService, VoicePlayer, WaveformSampler
-    Data/         Schema (VersionedSchema), Models/*, AudioFileStore, Repository
-    Notifications/ NotificationScheduler, DeepLink
-    Features/     Session, Timeline, Insight, Onboarding, Settings, Today
-    Resources/    Assets.xcassets, Info.plist（XcodeGen 生成）, Localizable.xcstrings
+    SaydoApp.swift, AppDelegate.swift, AppRouter.swift, RootView.swift, RootCopy.swift
+    Alarms/       AlarmScheduler（AlarmKit）, AlarmSoundStore（約束の録音をアラーム音にする）,
+                  ChaseRules, ChaseCoordinator（朝・昼・晩の 3 回で追う段取り）, AlarmIntents
+    Audio/        AudioSessionController, VoiceCapture, TranscriptionService, VoicePlayer, WaveformSampler
+    Data/         Schema (VersionedSchema), Models/*, AudioFileStore, AppSettings,
+                  Repository（+Promise / +FollowUp / +Insight / +Developer）
+    Notifications/ NotificationScheduler（旧い版が登録した通知の後始末と、そのタップの見分けだけ。通知は登録しない）
+    Features/     Promise（約束する）, FollowUp（答える）, Today（今日）, Timeline（記録）,
+                  Insight（週次）, Onboarding, Settings（+ DataExporter）,
+                  Shared（SaydoTheme, WaveformView, TextAnswerField）
+    Resources/    Assets.xcassets, Info.plist（XcodeGen 生成）
   Packages/
     SaydoCore/    純 Swift パッケージ（macOS で swift test 可能）
-                  Domain, Flows(Morning/Noon/Night, FlowMachine), Dialogue(DialogueEngine,
-                  TemplateDialogueEngine, DialogueCopy, Guardrails), Insight, Notifications(NotificationPlan)
-    SaydoAI/      Foundation Models 実装（task_014 で追加）
+                  Domain（CommitmentOutcome ほか）, Dialogue（Guardrails, CopyLine, PromiseCopy*）,
+                  Insight, Notifications（AlarmPlan）
   Spikes/
-    fm-probe/     macOS CLI。Foundation Models の日本語品質検証（S-A / S-D）
-    SpeechSpike/  iOS アプリ。SpeechAnalyzer + 録音 + 無音停止 + TTS 半二重（S-B / S-C）
+    fm-probe/     macOS CLI。Foundation Models の日本語品質検証（S-A / S-D。検証の記録として残す）
+    SpeechSpike/  iOS アプリ。SpeechAnalyzer + 録音 + 無音停止 + TTS 半二重（S-B / S-C。同上）
+    AlarmSpike/   iOS アプリ。AlarmKit の実機検証（docs/spikes/alarm-spike.md）
   Tests/SaydoTests/                アプリ側のユニットテスト
   scripts/                         検証コマンド（下記）
   docs/                            計画・進捗・ログ・スパイク記録
 ```
 
-- 画面は Today / Timeline / Insight / Onboarding / Settings の 5 つ（TabView 2 タブ + 設定）。
+- 画面は、約束する（Promise）/ 答える（FollowUp）/ 今日（Today）/ 記録（Timeline。週次の Insight を含む）/ Onboarding / Settings。
+  開くと、約束が無ければ約束する画面、答えがまだなら答える画面を全画面で出し、そうでなければ今日・記録の 2 タブ。
 - ネットワーク層は存在しない。SwiftData と端末内の音声ファイルだけを使う。
-- ユーザー向け文言は `*Copy`（`DialogueCopy` / `NotificationCopy` / `InsightCopy`）に置き、View と ViewModel に直書きしない。lint は名前が `Copy.swift` で終わるファイルだけを除外する。
+- ユーザー向け文言は `*Copy`（`PromiseCopy` / `InsightCopy` / `SettingsCopy` ほか）に置き、View と ViewModel に直書きしない。lint は名前が `Copy.swift` で終わるファイルだけを除外する。
 
 ## 2. 検証コマンド（5 本 + 実機・配布 2 本。エージェントは xcodebuild を直接叩かない）
 
@@ -64,7 +71,7 @@ SAYDO/
 ## 3. Executor への固定指示（harness-design.md §2 より転記）
 
 ```
-- 企画原則 §22 を破る実装をしない。特に「責めない」「開いた瞬間に会話」「タスク管理アプリにしない」。
+- 企画原則 §22 を破る実装をしない。特に「責めない」「開いた瞬間に話せる」「タスク管理アプリにしない」。
 - ネットワーク API（URLSession 等）を追加しない。追加が必要だと思ったら止まって報告する。
 - Guardrails の禁止語リストとテストを弱めない。
 - Swift 6 strict concurrency の警告を @unchecked Sendable や nonisolated(unsafe) で黙らせない。理由を書いて報告する。
@@ -77,15 +84,15 @@ SAYDO/
 ## 4. 企画原則 §22（10 項目・要約）
 
 1. ユーザーを責めない（禁止句を Guardrails で機械的に弾く）
-2. 入力を面倒にしない（タップを増やさない）
-3. 開いた瞬間に会話を始める（起動 1.5 秒以内に発話）
-4. できない場合はタスクではなく設計を疑う（行動をさらに小さくする）
-5. 行動を極端に小さくする（5 分以下）
-6. AI より本人の言葉を大切にする（本人の発話をそのまま行動文にする）
-7. 未達成より「少し進んだ」を評価する（partial は前進として扱う）
-8. タスク管理アプリにしない（一覧・チェックボックス・進捗率を作らない）
+2. 入力を面倒にしない（約束は押して話す。答えは 1 タップ。タップを増やさない）
+3. 開いた瞬間に話せる（開いたら押して話すボタンがある。アプリは質問を読み上げない）
+4. できない日はタスクではなく設計を疑う（「まだ」でも責めず、次の回でまた聞く。追うのは 1 日 3 回まで）
+5. 行動を極端に小さくする（質問は「最初にやることは？」の 1 つ。5 分以下を目安に本人が決める）
+6. AI より本人の言葉を大切にする（約束と最初にやることは、本人の発話をそのまま文字にして使う）
+7. 未達成より「少し進んだ」を評価する（「少しやった」は前進として扱う）
+8. タスク管理アプリにしない（一覧・チェックボックス・進捗率を作らない。約束は 1 日 1 つ）
 9. 音声を単なる入力方式にしない（声そのものを記録として残す）
-10. 自分の声を自分に返すことを中心体験にする（朝の宣言音声を行動時刻に再生する）
+10. 自分の声を自分に返す（約束の声を、朝・昼・晩のアラームで返す。アプリで答えるまで追う）
 
 ## 5. フック
 

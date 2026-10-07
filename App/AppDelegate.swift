@@ -1,32 +1,30 @@
 import UIKit
 import UserNotifications
 
-/// 通知のタップをアプリの入口へ渡す口。
+/// 旧い版が登録した通知のタップをアプリの入口へ渡す口。
 ///
-/// 実体は `AppRouter`。`AppDelegate` は `DeepLink` を作るところまでを担い、
+/// 実体は `AppRouter`。`AppDelegate` はタップかどうかを見分けるところまでを担い、
 /// どの画面をどう出すかは知らない（`AppRouter` が起動時と同じ判定で決める。実装計画 §17.3）。
 @MainActor
-public protocol SessionLauncher: AnyObject {
-    func launch(_ link: DeepLink)
+protocol NotificationTapHandling: AnyObject {
+    func handleLegacyNotificationTap()
 }
 
-/// 通知デリゲート（実装計画 §7.4）。
+/// 通知デリゲート。
 ///
-/// - フォアグラウンド受信はバナーだけ。会話が二重に始まらないようにする。
-/// - `didReceive` では `actionIdentifier` を見て、既定タップのときだけフローを開始する。
+/// いまの版は通知を登録しない（朝・昼・晩はアラームで追う。実装計画 §17.9）。ここで受けるのは、
+/// 旧い版が登録して通知センターに残っている通知の本体のタップだけ。
 @MainActor
 final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
 
-    /// 起動要求の受け手。`AppRouter` ができたら `setLauncher(_:)` で注入する。
-    private weak var launcher: (any SessionLauncher)?
+    /// タップの受け手。`AppRouter` ができたら `setLauncher(_:)` で注入する。
+    private weak var launcher: (any NotificationTapHandling)?
 
-    /// 受け手が注入される前に届いた起動要求。
+    /// 受け手が注入される前に届いたタップがあったか。
     ///
     /// 通知タップでのコールドスタートでは `didReceive` が画面より先に来るため、
     /// 1 件だけ持っておき、注入時に流す。
-    private var pendingLink: DeepLink?
-
-    private let scheduler = NotificationScheduler.shared
+    private var hasPendingTap = false
 
     // MARK: - UIApplicationDelegate
 
@@ -35,81 +33,49 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
         UNUserNotificationCenter.current().delegate = self
-        scheduler.registerCategories()
         return true
     }
 
     // MARK: - 受け手の注入
 
-    /// 起動要求の受け手を差し込む。保留していた要求があればここで流す。
-    func setLauncher(_ launcher: (any SessionLauncher)?) {
+    /// タップの受け手を差し込む。保留していたタップがあればここで流す。
+    func setLauncher(_ launcher: (any NotificationTapHandling)?) {
         self.launcher = launcher
-        guard let launcher, let link = pendingLink else { return }
-        pendingLink = nil
-        launcher.launch(link)
+        guard let launcher, hasPendingTap else { return }
+        hasPendingTap = false
+        launcher.handleLegacyNotificationTap()
     }
 
     // MARK: - UNUserNotificationCenterDelegate
 
-    /// アプリ表示中に通知が届いたときの見せ方。
-    ///
-    /// バナーだけを出す。音を鳴らすと TTS と重なり、通知センターに積むと
-    /// あとからタップされて会話が二重に始まる（check_022）。
-    nonisolated func userNotificationCenter(
-        _ center: UNUserNotificationCenter,
-        willPresent notification: UNNotification,
-        withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
-    ) {
-        completionHandler([.banner])
-    }
-
     /// 通知が操作されたとき。
     ///
-    /// `UNNotificationResponse` は Sendable でないので、この時点で `DeepLink`
-    /// （Sendable な値型）へ落としてから MainActor に渡す。
+    /// `UNNotificationResponse` は Sendable でないので、この時点で 2 つの識別子（文字列）を
+    /// 取り出して判定し、結果（Bool）だけを MainActor に渡す。
     nonisolated func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         didReceive response: UNNotificationResponse,
         withCompletionHandler completionHandler: @escaping () -> Void
     ) {
-        let link = DeepLink(response: response)
-        Task { @MainActor [weak self] in
-            self?.handle(link)
+        let isTap = LegacyNotificationTap.isTap(
+            actionIdentifier: response.actionIdentifier,
+            requestIdentifier: response.notification.request.identifier
+        )
+        if isTap {
+            Task { @MainActor [weak self] in
+                self?.handleTap()
+            }
         }
         completionHandler()
     }
 
     // MARK: - 内部
 
-    /// 起動要求を処理する。
-    ///
-    /// - スワイプで消しただけ（`link == nil`）のときは何もしない。
-    /// - 「今は話せない」のときは同じ通知を 60 分後に登録し直すだけで、会話は始めない。
-    ///   受け手にも渡さない。先延ばしは `Commitment` に何も書かない（設計判断 D6）。
-    /// - 「今日は休む」のときは当日の残りの保留通知を取り消してから受け手へ渡す。
-    ///   休みを記録に残すかどうかは受け手の担当（`Commitment` は作らない）。
-    private func handle(_ link: DeepLink?) {
-        guard let link else { return }
-
-        if link.action == .snooze {
-            let scheduler = self.scheduler
-            Task { @MainActor in
-                await scheduler.snooze(link)
-            }
-            return
-        }
-
-        if link.action == .rest {
-            let scheduler = self.scheduler
-            Task { @MainActor in
-                await scheduler.cancelRemainingToday()
-            }
-        }
-
+    private func handleTap() {
         guard let launcher else {
-            pendingLink = link
+            hasPendingTap = true
             return
         }
-        launcher.launch(link)
+        launcher.handleLegacyNotificationTap()
     }
 }

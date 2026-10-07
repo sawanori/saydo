@@ -1,6 +1,7 @@
-/// 会話の 1 ステップ。実装計画 §7.2 の M0〜M4 / N0〜N3 / E0〜E1 に対応する。
+/// 旧い会話の 1 ステップ。実装計画 §7.2 の M0〜M4 / N0〜N3 / E0〜E1 に対応する。
 ///
-/// `FlowMachine`（task_005）はこの列挙のうち `steps(for:)` が返す並びを順に進む。
+/// 会話は作り直したので（実装計画 §17、task_057）、これを進める仕組みはもう無い。
+/// `SessionLog.lastStepRawValue`（保存済みの記録。書き出しにも入る）を読むために残してある。
 public enum FlowStep: String, Sendable, Codable, Hashable, CaseIterable {
     // 朝（MorningFlow）
     /// M0 今日いちばん逃げたいことを聞く
@@ -99,9 +100,7 @@ public enum FlowStep: String, Sendable, Codable, Hashable, CaseIterable {
 
     /// セッションごとの標準の並び。
     ///
-    /// `adhoc` は入口の状態（当日の Commitment の有無や `CommitmentOutcome`）で
-    /// 朝の短縮版か昼のどちらを開くかが変わるため、ここでは空を返す。
-    /// 判定は `FlowMachine`（task_005）が行う。
+    /// `adhoc` は入口の状態で変わっていたため、ここでは空を返す。
     public static func steps(for sessionType: SessionType) -> [FlowStep] {
         switch sessionType {
         case .morning:

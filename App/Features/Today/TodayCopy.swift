@@ -21,10 +21,6 @@ enum TodayCopy {
     static let dayFinished = "今日はここまで"
     /// まだ今日の約束が無い日に、カードの代わりに置く 1 行。
     static let noPromiseYet = "今日の約束は、まだこれから。"
-    /// 朝の通知が届かなくなっているときの掲示。事実だけを書く。
-    static let notificationsStopped = "朝の通知が届かない設定になっています。"
-    /// 設定アプリを開く導線。
-    static let openSystemSettings = "設定を開く"
     /// 画面右上の設定。
     static let settings = "設定"
 }

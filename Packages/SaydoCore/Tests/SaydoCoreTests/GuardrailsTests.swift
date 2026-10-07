@@ -105,110 +105,12 @@ final class GuardrailsTests: XCTestCase {
         XCTAssertTrue(wasReplaced)
     }
 
-    // MARK: - 全文言が通ること
-
-    func testEveryDialogueCopyLinePassesGuardrails() {
-        for key in CopyKey.allCases {
-            for line in DialogueCopy.variants(key) {
-                let filled = DialogueCopy.fill(line, topic: "クライアントへの返信", time: "14時")
-                let violations = Guardrails.check(filled, form: line.form)
-                XCTAssertTrue(violations.isEmpty, "\(key.rawValue): 「\(filled)」→ \(violations)")
-            }
-        }
-    }
-
-    /// task_033 で足した文言（未成立の締め、時間切れ、必須の質問の受け直し）を名指しで通す。
-    func testRequiredQuestionAndClosingLinesPassGuardrails() {
-        let keys: [CopyKey] = [
-            .sessionAbandoned,
-            .timeboxExceeded,
-            .timeboxExceededNoon,
-            .timeboxExceededNight,
-            .morningMicroActionChipsPrompt,
-            .requiredTextPrompt,
-        ]
-        for key in keys {
-            let lines = DialogueCopy.variants(key)
-            XCTAssertFalse(lines.isEmpty, "\(key.rawValue) の文言が空")
-            for line in lines {
-                XCTAssertEqual(line.form, .statement, "\(key.rawValue)")
-                XCTAssertFalse(line.hasPlaceholder, "\(key.rawValue): 差し込みを持たない")
-                let violations = Guardrails.check(line.text, form: line.form)
-                XCTAssertTrue(violations.isEmpty, "\(key.rawValue): 「\(line.text)」→ \(violations)")
-            }
-        }
-    }
-
-    /// task_034 で足した文言（時刻の聞き直し）を名指しで通す。
-    func testTimeReaskLinePassesGuardrails() {
-        let lines = DialogueCopy.variants(.morningTimeChipsPrompt)
-        XCTAssertFalse(lines.isEmpty)
-        for line in lines {
-            XCTAssertEqual(line.form, .statement)
-            XCTAssertFalse(line.hasPlaceholder)
-            let violations = Guardrails.check(line.text, form: line.form)
-            XCTAssertTrue(violations.isEmpty, "「\(line.text)」→ \(violations)")
-        }
-    }
-
-    /// task_035 で足した・変えた文言（受領文と、保存できなかったときの 2 文）を名指しで通す。
-    func testCommitReceiptAndSaveFailureLinesPassGuardrails() {
-        let keys: [CopyKey] = [
-            .morningDeclarationReceipt,
-            .morningDeclarationReceiptNoTime,
-            .morningCommitRetry,
-            .morningCommitFailed,
-        ]
-        for key in keys {
-            let lines = DialogueCopy.variants(key)
-            XCTAssertFalse(lines.isEmpty, "\(key.rawValue) の文言が空")
-            for line in lines {
-                XCTAssertEqual(line.form, .statement, "\(key.rawValue)")
-                // 受領文の時刻には、整えた句（「16時」「30分後」「夕方」）が入る。
-                for phrase in ["16時", "30分後", "夕方"] {
-                    let filled = DialogueCopy.fill(line, time: phrase)
-                    let violations = Guardrails.check(filled, form: line.form)
-                    XCTAssertTrue(violations.isEmpty, "\(key.rawValue): 「\(filled)」→ \(violations)")
-                }
-            }
-        }
-    }
-
-    func testEveryChoiceLabelPassesGuardrails() {
-        let ids: [ChoiceID] =
-            DialogueCopy.sixOptionIDs
-            + DialogueCopy.exampleActionIDs
-            + DialogueCopy.timeExampleIDs
-            + DialogueCopy.timeChipIDs
-            + [.carryoverKeep, .carryoverChange, .differentThing, .declareNow, .declareLater,
-               .cannotDecide, .retryInOneHour, .promiseAlive, .changeTime]
-            + ReasonCategory.allCases.map { ChoiceID.reason($0) }
-            + [CommitmentOutcome.done, .partial, .notYet].map { ChoiceID.status($0) }
-
-        for id in ids {
-            let label = DialogueCopy.label(id)
-            let violations = Guardrails.check(label, form: .statement)
-            XCTAssertTrue(violations.isEmpty, "チップ「\(label)」→ \(violations)")
-        }
-    }
-
-    func testExampleActionTextsSatisfyTheActionRule() {
-        for id in DialogueCopy.exampleActionIDs {
-            let action = DialogueCopy.actionText(id)
-            XCTAssertNotNil(action, "\(id) に行動文が無い")
-            XCTAssertTrue(Guardrails.isClean(action ?? "", form: .action), "行動文「\(action ?? "")」")
-        }
-    }
-
     // MARK: - 適用範囲
 
     func testGuardrailsHaveNoEntryPointForUserTranscripts() {
-        // 本人が自分を責める言葉は弾かない。生成文と同じ文でも保存はそのまま通る。
+        // 本人が自分を責める言葉は、生成文なら弾く。本人の文字起こしを通す入口は `Guardrails` に無い
+        // （検査するのは `*Copy` の文言と生成文だけ。本人の言葉はそのまま保存する）。
         let blunt = "またサボった"
         XCTAssertFalse(Guardrails.isClean(blunt, form: .statement))
-
-        var transition = FlowMachine.start(FlowEntry(sessionType: .night, hasCommitmentToday: true))
-        transition = FlowMachine.handle(.transcript(blunt), in: transition.state)
-        XCTAssertEqual(transition.saves.first?.text, blunt, "文字起こしには Guardrails をかけない")
     }
 }

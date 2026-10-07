@@ -1,5 +1,7 @@
 # SAYDO App Review Notes / 審査メモ
 
+> 要更新（2026-10: 作り直しにより実態と異なる）
+
 - 作成日: 2026-09-04
 - 対象タスク: task_020
 - 対象バージョン: 1.0.0（Bundle ID: `com.nonturn.saydo`）
@@ -26,6 +28,8 @@
 
 #### 2. Microphone: when recording starts, and how the user can see it
 
+> 要更新（2026-10: 作り直しにより実態と異なる）
+
 Recording begins **only** in these two situations:
 
 1. The user taps a local notification that the app scheduled at a time the user set, which opens the conversation screen, or
@@ -45,12 +49,16 @@ In both cases:
 
 #### 3. Notifications
 
+> 要更新（2026-10: 作り直しにより実態と異なる）
+
 - All notifications are **local** notifications (`UNCalendarNotificationTrigger`), scheduled on the device for times the user chooses during onboarding. There is no push server.
 - Default is two per day: a morning check-in, plus one at the action time the user set that morning. A "3 times mode" in Settings adds midday and evening notifications. Weekends can be turned off.
 - Every notification carries two actions: "今日は休む" ("take today off", which cancels the remaining notifications for that day) and "今は話せない" ("can't talk now", which re-delivers once 60 minutes later).
 - The action-time notification uses the **Time Sensitive** interruption level, requested via the Time Sensitive Notifications entitlement. Justification: this notification is the product's core moment — it delivers, at a time the user themselves chose that morning, a recording of the user's own voice reminding them of a commitment they made. If it is held back by a Focus mode, the user misses the single moment the app exists for. Regular scheduled notifications use the default interruption level. No critical alerts are used.
 
 #### 4. Apple Intelligence is not required
+
+> 要更新（2026-10: 作り直しにより実態と異なる）
 
 - **Every feature works on devices without Apple Intelligence**, including devices where the user has turned it off. Please test on whichever device you have; there is no reduced or locked mode.
 - The app checks `SystemLanguageModel.default.availability` at launch. When the on-device model is unavailable, the same conversation runs with prepared wording and on-screen choices ("Tier B"). Screens, steps, stored data, and the notification behavior are identical.
@@ -68,6 +76,8 @@ In both cases:
 - Version 1.0.0 is free and contains **no in-app purchases** and no subscriptions.
 
 #### 7. How to test it quickly
+
+> 要更新（2026-10: 作り直しにより実態と異なる）
 
 The app is time-based by design, so please use the following to see the whole loop within a few minutes. Detailed steps are in section 3 of the accompanying document; the short version:
 
@@ -100,6 +110,8 @@ Thank you for reviewing. If anything is unclear, please contact snp.inc.info@gma
 
 #### 2. マイク: いつ録音が始まり、どう見えているか
 
+> 要更新（2026-10: 作り直しにより実態と異なる）
+
 録音が始まるのは次の 2 つの場合のみ。
 
 1. ユーザーが設定した時刻に鳴った本アプリのローカル通知をタップして会話画面に入ったとき
@@ -119,12 +131,16 @@ Thank you for reviewing. If anything is unclear, please contact snp.inc.info@gma
 
 #### 3. 通知
 
+> 要更新（2026-10: 作り直しにより実態と異なる）
+
 - すべてローカル通知（`UNCalendarNotificationTrigger`）。オンボーディングでユーザーが選んだ時刻に、端末内で予定される。プッシュサーバーはない。
 - 既定は 1 日 2 回（朝のチェックインと、その朝に本人が決めた行動時刻の 1 回）。設定の「3 回モード」で昼と夜が加わる。週末をオフにできる。
 - すべての通知に 2 つのアクションを持つ。「今日は休む」（その日の残りの通知を取り消す）と「今は話せない」（60 分後に 1 回だけ再通知する）。
 - 行動時刻の通知だけ **Time Sensitive** の割り込みレベルを使い、Time Sensitive Notifications エンタイトルメントを申請する。理由: この通知は製品の中心そのもので、その朝に本人が自分で決めた時刻に、本人が自分に向けて録音した声を届けるもの。集中モードで抑止されると、このアプリが存在する唯一の瞬間が失われる。他の定時通知は既定の割り込みレベル。Critical Alert は使わない。
 
 #### 4. Apple Intelligence は必須ではない
+
+> 要更新（2026-10: 作り直しにより実態と異なる）
 
 - **Apple Intelligence 非対応の端末でも、オフにしている端末でも、全機能が動く。** 手元のどの端末で審査しても、機能が減った状態やロックされた状態にはならない。
 - 起動時に `SystemLanguageModel.default.availability` を判定する。利用できない場合は、あらかじめ用意した文言と選択肢で同じ会話が進む（Tier B）。画面・手順・保存されるデータ・通知の挙動は同一。
@@ -143,6 +159,8 @@ Thank you for reviewing. If anything is unclear, please contact snp.inc.info@gma
 
 #### 7. 短時間で試す手順
 
+> 要更新（2026-10: 作り直しにより実態と異なる）
+
 時刻に依存する設計のため、下記の手順で数分のうちに全体を確認できる。詳細は §3 を参照。
 
 1. オンボーディングを完了する（マイクと通知を許可。時刻は任意でよい）。
@@ -155,6 +173,8 @@ Thank you for reviewing. If anything is unclear, please contact snp.inc.info@gma
 ---
 
 ## 3. 提出者向け: 3 つの通知の時刻を変えて即時に試す手順
+
+> 要更新（2026-10: 作り直しにより実態と異なる）
 
 Apple には §1-7 の短い版を送る。以下は開発者と TestFlight テスターが使う詳しい版。
 
@@ -205,6 +225,8 @@ Apple には §1-7 の短い版を送る。以下は開発者と TestFlight テ�
 ---
 
 ## 4. 想定される指摘と、こちらの答え
+
+> 要更新（2026-10: 作り直しにより実態と異なる）
 
 | # | 指摘されうる点 | ガイドライン上の論点 | 用意する答え |
 |---|---|---|---|

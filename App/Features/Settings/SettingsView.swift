@@ -1,12 +1,12 @@
-import AVFoundation
 import SaydoCore
 import SwiftData
 import SwiftUI
 
-/// 設定（実装計画 §8、task_013 と task_019 の UI）。
+/// 設定（実装計画 §8・§17）。
 ///
+/// 並べるのは、追いかける時刻（朝・昼・晩）、データの書き出しと全削除、開発者向けの集計だけ。
 /// `AppSettings` は `UserDefaults` の薄い包みで `@Observable` ではないので、
-/// 画面は複製（`Draft`）を持ち、変わったときだけ書き戻す。朝・昼・夜の時刻が変わったら
+/// 画面は複製（`Draft`）を持ち、変わったときだけ書き戻す。朝・昼・晩の時刻が変わったら
 /// 親（`onTimesChanged`）がアラームを登録し直す。
 ///
 /// 「今日」の右上からシートで出す想定で、自分で `NavigationStack` を持つ。
@@ -16,7 +16,7 @@ struct SettingsView: View {
     /// 「データを全部消す」が終わったことを親へ返す。`RootView` はここでオンボーディングへ戻す
     /// （`AppSettings.reset()` で `hasCompletedOnboarding` が false に戻るため）。
     private let onDataDeleted: @MainActor () -> Void
-    /// 朝・昼・夜の時刻（追う回の時刻）が変わったことを親へ返す。親はアラームを登録し直す。
+    /// 朝・昼・晩の時刻（追う回の時刻）が変わったことを親へ返す。親はアラームを登録し直す。
     private let onTimesChanged: @MainActor () async -> Void
     private let settings: AppSettings
 
@@ -47,38 +47,15 @@ struct SettingsView: View {
 
     /// 画面が編集する値の束。まとめて比べられるように `Equatable` にする。
     private struct Draft: Equatable {
-        var notificationMode: NotificationMode
         var morningTime: Date
         var noonTime: Date
         var nightTime: Date
-        var weekendEnabled: Bool
-        var speechVoiceIdentifier: String?
-        var silenceThresholdSeconds: Double
-        var quietModeEnabled: Bool
-        var quietModeStart: Date
-        var quietModeEnd: Date
 
         @MainActor
         init(_ settings: AppSettings) {
-            notificationMode = settings.notificationMode
             morningTime = settings.morningTime.date()
             noonTime = settings.noonTime.date()
             nightTime = settings.nightTime.date()
-            weekendEnabled = settings.weekendNotificationsEnabled
-            speechVoiceIdentifier = settings.speechVoiceIdentifier
-            silenceThresholdSeconds = settings.silenceThresholdSeconds
-            quietModeEnabled = settings.quietModeScheduleEnabled
-            quietModeStart = settings.quietModeStart.date()
-            quietModeEnd = settings.quietModeEnd.date()
-        }
-
-        /// 通知の再計画が要る変更か。
-        func affectsNotifications(comparedTo other: Draft) -> Bool {
-            notificationMode != other.notificationMode
-                || morningTime != other.morningTime
-                || noonTime != other.noonTime
-                || nightTime != other.nightTime
-                || weekendEnabled != other.weekendEnabled
         }
     }
 
@@ -101,9 +78,7 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             List {
-                notificationSection
-                voiceSection
-                quietModeSection
+                roundTimesSection
                 dataSection
                 developerSection
             }
@@ -119,109 +94,28 @@ struct SettingsView: View {
             }
         }
         .tint(SaydoTheme.Palette.accent)
-        .onChange(of: draft) { old, new in
+        .onChange(of: draft) { _, new in
             guard !suppressPersist else {
                 suppressPersist = false
                 return
             }
             persist(new)
-            if new.affectsNotifications(comparedTo: old) {
-                scheduleReschedule()
-            }
+            scheduleReschedule()
         }
         .task { await loadStats() }
     }
 
-    // MARK: - 通知
+    // MARK: - 追いかける時刻
 
-    private var notificationSection: some View {
+    private var roundTimesSection: some View {
         Section {
-            Picker(SettingsCopy.modeLabel, selection: $draft.notificationMode) {
-                Text(SettingsCopy.modeTwoPerDay).tag(NotificationMode.twoPerDay)
-                Text(SettingsCopy.modeThreePerDay).tag(NotificationMode.threePerDay)
-            }
             timeRow(SettingsCopy.morningTimeLabel, selection: $draft.morningTime)
-            if draft.notificationMode == .threePerDay {
-                timeRow(SettingsCopy.noonTimeLabel, selection: $draft.noonTime)
-                timeRow(SettingsCopy.nightTimeLabel, selection: $draft.nightTime)
-            }
-            Toggle(SettingsCopy.weekendLabel, isOn: $draft.weekendEnabled)
+            timeRow(SettingsCopy.noonTimeLabel, selection: $draft.noonTime)
+            timeRow(SettingsCopy.nightTimeLabel, selection: $draft.nightTime)
         } header: {
-            Text(SettingsCopy.notificationSection).saydoText(.sectionLabel)
+            Text(SettingsCopy.roundTimesSection).saydoText(.sectionLabel)
         } footer: {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(SettingsCopy.modeFootnote)
-                Text(SettingsCopy.weekendFootnote)
-            }
-            .saydoText(.status)
-        }
-        .listRowBackground(SaydoTheme.Palette.chipFill)
-    }
-
-    // MARK: - 声
-
-    private var voiceSection: some View {
-        Section {
-            Picker(SettingsCopy.ttsVoiceLabel, selection: $draft.speechVoiceIdentifier) {
-                Text(SettingsCopy.ttsVoiceSystemDefault).tag(String?.none)
-                ForEach(Self.japaneseVoices, id: \.identifier) { voice in
-                    Text(
-                        SettingsCopy.voiceName(
-                            voice.name,
-                            isHighQuality: SynthesisVoiceQuality(voice.quality) >= .enhanced
-                        )
-                    )
-                    .tag(String?.some(voice.identifier))
-                }
-            }
-            Picker(SettingsCopy.silenceLabel, selection: $draft.silenceThresholdSeconds) {
-                ForEach(AppSettings.silenceThresholdChoices, id: \.self) { seconds in
-                    Text(SettingsCopy.silenceChoice(seconds)).tag(seconds)
-                }
-            }
-        } header: {
-            Text(SettingsCopy.voiceSection).saydoText(.sectionLabel)
-        } footer: {
-            VStack(alignment: .leading, spacing: 4) {
-                if !Self.hasHighQualityJapaneseVoice {
-                    Text(SettingsCopy.ttsVoiceDownloadHint)
-                }
-                Text(SettingsCopy.silenceFootnote)
-            }
-            .saydoText(.status)
-        }
-        .listRowBackground(SaydoTheme.Palette.chipFill)
-    }
-
-    /// 端末に入っている ja-JP の読み上げ音声。高品質を先に並べる。
-    private static var japaneseVoices: [AVSpeechSynthesisVoice] {
-        AVSpeechSynthesisVoice.speechVoices()
-            .filter { $0.language.hasPrefix("ja") }
-            .sorted {
-                let left = SynthesisVoiceQuality($0.quality)
-                let right = SynthesisVoiceQuality($1.quality)
-                if left == right { return $0.name < $1.name }
-                return right < left
-            }
-    }
-
-    private static var hasHighQualityJapaneseVoice: Bool {
-        japaneseVoices.contains { SynthesisVoiceQuality($0.quality) >= .enhanced }
-    }
-
-    // MARK: - 話せない時
-
-    private var quietModeSection: some View {
-        Section {
-            Toggle(SettingsCopy.quietToggle, isOn: $draft.quietModeEnabled)
-            if draft.quietModeEnabled {
-                timeRow(SettingsCopy.quietStartLabel, selection: $draft.quietModeStart)
-                timeRow(SettingsCopy.quietEndLabel, selection: $draft.quietModeEnd)
-            }
-        } header: {
-            Text(SettingsCopy.quietSection).saydoText(.sectionLabel)
-        } footer: {
-            Text(SettingsCopy.quietFootnote).saydoText(.status)
+            Text(SettingsCopy.roundTimesFootnote).saydoText(.status)
         }
         .listRowBackground(SaydoTheme.Palette.chipFill)
     }
@@ -286,32 +180,11 @@ struct SettingsView: View {
     private var developerSection: some View {
         Section {
             if let stats, !stats.isEmpty {
-                if let rate = stats.completionRate {
-                    statRow(
-                        SettingsCopy.sessionCompletionLabel,
-                        value: SettingsCopy.percent(rate),
-                        detail: SettingsCopy.fraction(stats.completedSessionCount, of: stats.sessionCount)
-                    )
-                }
-                ForEach(SessionType.allCases, id: \.self) { type in
-                    if let median = stats.medianDurationByType[type] {
-                        statRow(
-                            type.displayName,
-                            value: SettingsCopy.duration(seconds: median),
-                            detail: SettingsCopy.sessionDurationLabel
-                        )
-                    }
-                }
                 ForEach(CommitmentOutcome.allCases, id: \.self) { outcome in
                     if let count = stats.outcomeCounts[outcome], count > 0 {
                         statRow(outcome.displayName, value: SettingsCopy.count(count), detail: nil)
                     }
                 }
-                statRow(
-                    SettingsCopy.shrinkLabel,
-                    value: SettingsCopy.average(stats.averageShrinkCount),
-                    detail: nil
-                )
                 statRow(
                     SettingsCopy.voicelessLabel,
                     value: SettingsCopy.count(stats.voicelessCommitmentCount),
@@ -358,28 +231,21 @@ struct SettingsView: View {
         }
     }
 
-    // MARK: - 保存と再計画
+    // MARK: - 保存と再登録
 
     private func persist(_ draft: Draft) {
-        settings.notificationMode = draft.notificationMode
         settings.morningTime = TimeOfDay(date: draft.morningTime)
         settings.noonTime = TimeOfDay(date: draft.noonTime)
         settings.nightTime = TimeOfDay(date: draft.nightTime)
-        settings.weekendNotificationsEnabled = draft.weekendEnabled
-        settings.speechVoiceIdentifier = draft.speechVoiceIdentifier
-        settings.silenceThresholdSeconds = draft.silenceThresholdSeconds
-        settings.quietModeScheduleEnabled = draft.quietModeEnabled
-        settings.quietModeStart = TimeOfDay(date: draft.quietModeStart)
-        settings.quietModeEnd = TimeOfDay(date: draft.quietModeEnd)
     }
 
-    /// 時刻の輪を回している間は毎目盛りで値が変わる。最後の 1 回だけ計画し直す。
+    /// 時刻の輪を回している間は毎目盛りで値が変わる。最後の 1 回だけ登録し直す。
     private func scheduleReschedule() {
         rescheduleTask?.cancel()
         rescheduleTask = Task {
             try? await Task.sleep(for: .milliseconds(400))
             guard !Task.isCancelled else { return }
-            // 朝・昼・夜の時刻は、追う回の時刻。変えたらアラームを登録し直す（実装計画 §17.9）。
+            // 朝・昼・晩の時刻は、追う回の時刻。変えたらアラームを登録し直す（実装計画 §17.9）。
             await onTimesChanged()
         }
     }
@@ -404,7 +270,7 @@ struct SettingsView: View {
         let repository = Repository(modelContainer: modelContext.container)
         do {
             let summary = try await repository.deleteAll {
-                // 保留中の通知は `NotificationScheduler` の担当（`Repository` は
+                // 旧い版が登録した保留中の通知は `NotificationScheduler` の担当（`Repository` は
                 // `UserNotifications` を持たない）。@MainActor へ渡して取り消す。
                 Task { await NotificationScheduler.shared.removeAllManagedPending() }
             }

@@ -1,5 +1,7 @@
 # SAYDO プライバシーポリシー（掲載用全文 / Privacy Policy）
 
+> 要更新（2026-10: 作り直しにより実態と異なる）
+
 - 作成日: 2026-09-04
 - 対象タスク: task_020
 - 用途: この文書の §1（日本語）と §2（English）を、そのまま `non-turn.com` 配下の静的ページに掲載し、その URL を App Store Connect の「プライバシーポリシー URL」に登録する。
@@ -32,6 +34,8 @@ NonTurn LLC（以下「当社」）は、iPhone 向けアプリケーション�
 
 #### 3. 本アプリが端末内に保存する情報
 
+> 要更新（2026-10: 作り直しにより実態と異なる）
+
 本アプリは、利用者が本アプリを使う中で、次の情報を利用者の端末内に作成し保存します。いずれも当社へは送信されません。
 
 | 種類 | 内容 | 保存場所 |
@@ -57,6 +61,8 @@ NonTurn LLC（以下「当社」）は、iPhone 向けアプリケーション�
 本アプリにはネットワーク通信のプログラムが含まれていないため、これは運用上の方針ではなく、アプリの作りとして送信できない状態です。
 
 #### 5. マイクの利用について
+
+> 要更新（2026-10: 作り直しにより実態と異なる）
 
 本アプリはマイクを次の目的でのみ使用します。
 
@@ -89,6 +95,8 @@ Apple Intelligence が利用できる端末では、追加の質問や行動の�
 Apple Intelligence に対応していない端末では、この処理を行わず、あらかじめ用意された文面で同じ会話が進みます。機能の差については App Store の説明文に記載しています。
 
 #### 8. 通知について
+
+> 要更新（2026-10: 作り直しにより実態と異なる）
 
 本アプリの通知は、すべて端末内で予定されるローカル通知です。当社のサーバーから送るプッシュ通知ではありません。通知のために利用者の情報を外部へ送ることはありません。
 
@@ -163,6 +171,8 @@ The App contains no networking code. It includes no analytics SDK, no advertisin
 
 #### 3. What the App stores on your device
 
+> 要更新（2026-10: 作り直しにより実態と異なる）
+
 While you use the App, the following is created and stored on your device. None of it is transmitted to us.
 
 | Type | Contents | Where it is stored |
@@ -188,6 +198,8 @@ The App does **not** transmit your recordings, transcripts, session records, or 
 Because the App contains no networking code, this is not merely a policy commitment — the App is built without the ability to send this data anywhere.
 
 #### 5. Microphone use
+
+> 要更新（2026-10: 作り直しにより実態と異なる）
 
 The App uses the microphone only to:
 
@@ -220,6 +232,8 @@ When the App composes the weekly reflection sentence, it passes only aggregate c
 On devices without Apple Intelligence, this processing does not occur and the same conversation proceeds using prepared wording. The difference in features is described on the App Store product page.
 
 #### 8. Notifications
+
+> 要更新（2026-10: 作り直しにより実態と異なる）
 
 All notifications are local notifications scheduled on your device. They are not push notifications sent from a server of ours. No information leaves your device in order to deliver them.
 

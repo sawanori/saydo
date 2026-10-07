@@ -84,8 +84,6 @@ struct RootView: View {
                     TodayView(
                         viewModel: todayModel,
                         reloadToken: router.generation,
-                        // 朝の通知はアラームに置き換えたので、通知の掲示は出さない（§17.9 の 5）。
-                        notificationsDenied: false,
                         onOpenPromise: { router.openPromise() },
                         onOpenFollowUp: { commitment in router.openFollowUp(for: commitment) },
                         onOpenSettings: { isSettingsPresented = true }

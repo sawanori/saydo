@@ -3789,3 +3789,79 @@ done_definition との対応:
 ### 未確認
 
 集中モード中の鳴動、アプリを強制終了した後の鳴動、通常の時刻（10:00・14:00・19:00）での 1 日の通し、約束の無い朝の回。
+
+
+## task_057 — 旧い会話の撤去、設定の整理、原則の更新
+
+- 日時: 2026-10-08
+- 状態: done（コードとテストは完了。動きは変えていない。実機の再確認は未実施）
+- ブランチ / コミット: task/057-remove-old-session / `git log` の `task_057:` 行
+
+### 証拠
+
+| コマンド | exit | 全文ログ |
+|---|---|---|
+| `scripts/test-core.sh` | 0（`Executed 71 tests, with 0 failures`、lint-principles `OK`） | `docs/logs/task_057-1.txt`（3 本を 1 ファイルに連結） |
+| `scripts/test-ios.sh` | 0（`Executed 182 tests, with 0 failures`、lint-principles `OK`） | 同上 |
+| `scripts/build-ios.sh` | 0（`** BUILD SUCCEEDED **`、`warning:` 0 行） | 同上 |
+| 実機 | 未実行 | — |
+
+テスト件数の前後（同じ環境で作業前に実測）:
+
+| 対象 | 前 | 後 |
+|---|---|---|
+| SaydoCore（`swift test`） | 296 | 71 |
+| SaydoAI（`swift test`） | 33 | パッケージごと削除 |
+| iOS アプリ（`xcodebuild test`） | 320 | 182 |
+
+減った分は、削除した型だけを対象にしていたテスト。新しい画面・アラーム・今日・記録・週次・設定の書き出しと全削除のテスト本体は変えていない（例外は下の「変えたテスト」）。
+
+### 削除したもの
+
+- アプリ（`App/`）Swift 12 ファイル + `Saydo.entitlements`: `Features/Session/` の `SessionView` / `SessionViewModel` / `ChoiceChipsView` / `PlaybackCardView` / `ListenModeSheet` / `SessionCopy` / `PlaybackCopy`、`Audio/SpeechSynthesisService` / `Audio/SilenceDetector`、`Data/CopyHistoryStore`、`Notifications/DeepLink` / `Notifications/NotificationScheduler+SessionScheduling`、`Saydo.entitlements`（Time Sensitive 通知のエンタイトルメント。`project.yml` の `entitlements` も削除）。
+- `Packages/SaydoAI`（6 ファイル。`DialogueEngine` の Foundation Models 実装で、アプリからは `import` されていなかった。`DialogueEngine` を消すため単独では成り立たない。`project.yml` の依存と `scripts/test-core.sh` の実行行も削除）。
+- SaydoCore 14 ファイル: `Flows/`（`FlowMachine` / `MorningFlow` / `NoonFlow` / `NightFlow`）、`Dialogue/` の `DialogueCopy` / `DialogueEngine` / `TemplateDialogueEngine` / `ShrinkLadder` / `JapaneseTimeParser` / `PromiseTime`（時刻のチップ）、`Domain/` の `DialogueContext` / `ReasonClassification`、`Notifications/` の `NotificationPlan` / `NotificationCopy`。
+- テスト 13 ファイル: SaydoCoreTests の `MorningFlowTests` / `NoonFlowTests` / `NightFlowTests` / `DialogueCopyTests` / `JapaneseTimeParserTests` / `ShrinkLadderTests` / `TemplateDialogueEngineTests` / `PromiseTimeTests` / `NotificationPlanTests` / `NotificationCopyTests`、SaydoTests の `SessionViewModelTests` / `SilenceDetectorTests` / `DeepLinkTests`。
+
+### 移したもの・残したもの（理由つき）
+
+- `Session/WaveformView` は約束する画面が使うので `Features/Shared/` へ移した（波形のラベル `WaveformCopy` を分けた）。`Session/TextAnswerField` も約束する画面が使うので、`Features/Shared/TextAnswerField` + `TextAnswerCopy` として残した（最初の削除で約束する画面のビルドが落ちて気づいた）。
+- `RootCopy` はタブ名の 2 つだけにして `App/RootCopy.swift` へ移した。
+- `NotificationScheduler` は `removeAllManagedPending()`（起動・前面復帰のたびに、旧い版が登録した保留中の通知を取り消す）と `NotificationIdentifier.isManaged` だけにした。`AppDelegate` は旧い通知の本体のタップだけを `AppRouter.handleLegacyNotificationTap()` に渡す（`LegacyNotificationTap.isTap`）。「今日は休む」「今は話せない」のアクションと通知カテゴリの登録、前面での通知バナー（`willPresent`）、`DeepLink` は無くした（通知はもう登録しないため、これらは新しく生まれない）。
+- `Domain/FlowStep` と `SessionType` と `ReasonCategory` と `MicroAction` は残した。SwiftData のモデル（`SessionLog.lastStepRawValue`、`Commitment`、`VoiceEntry`）と書き出しが使うため。スキーマは変えない。
+- `Repository` の旧い会話用メソッド（`startSessionLog` / `finishSessionLog` / `shrink` / `replaceDeclaration` / `saveCarryover` / `carryover(for:)` / `updateAvoidanceStatus` ほか）は、アプリからは呼ばれなくなったが、`RepositoryTests` が対象にしていて型の削除ではないので残した（迷ったので残した）。
+- `AudioSessionController` の経路変更・割り込み・「イヤホンで聞く」の確認用の部分は、`VoicePlayer` と `PromiseViewModel` が受け口を使っているので残した（`AudioSessionFault` は使われていないので削除）。
+- `Spikes/`（fm-probe / SpeechSpike / AlarmSpike）は検証の記録として残した。
+
+### 設定画面に残した項目
+
+- 追いかける時刻（朝・昼・晩。見出しは「追いかける時刻」。3 行とも常に出す）。
+- データの書き出しと全削除。
+- 開発者向けの集計（約束のあとの答え、声を使わずに約束した回数、約束をしなかった日）。会話の完走率・所要時間・「もっと小さく」の平均は、会話の記録が増えなくなったので外した。この節は Debug ビルド限定ではなく、いまも常に出る（`#if DEBUG` で囲んでいない）。
+
+外した項目（値を読む箇所が残っていないことを grep で確かめた）: 固定の通知の本数、週末の通知、読み上げの声、話し終わりの間、「話せない時」の自動の時間帯。`AppSettings` の `notificationMode` / `NotificationMode` / `weekendNotificationsEnabled` / `aloneTime` / `silenceThreshold*` / `speechVoiceIdentifier` / `quietMode*` / `fixedNotificationTime` / `notificationSettings` と、Core の `TimeOfDay` への橋渡しを削除。保存キーの互換は考えていない（配布前）。
+
+### 文言・設定ファイル
+
+- `PromiseCopy`: 時刻のチップ（`chipsPrompt` / `chipLabel`）、「時間を変える」の 3 つ、追い始める前の 1 行（`chaseStarts`）を削除。`CopyLine` は `DialogueCopy.swift` に同居していたので `Dialogue/CopyLine.swift` に出した（差し込み位置の判定 `hasPlaceholder` は削除）。
+- `TodayView`: 常に false で渡していた「朝の通知が届かない」の掲示（`notificationsDenied`、`TodayCopy.notificationsStopped` / `openSystemSettings`）を削除。
+- `project.yml` / `Info.plist`: マイクの説明を「今日の約束と、最初にやることを、あなたの声で録音するために使います」、アラームの説明を「朝・昼・晩の時刻に、約束のあなたの声で追いかけるためにアラームを使います」に直した。通知の使用説明はもともと無い（`UNUserNotificationCenter` に Info.plist の項目は無い）。Time Sensitive のエンタイトルメントは通知を登録しなくなったので外した。
+- `docs/app-store/` の 4 文書: 該当する節の先頭に「要更新（2026-10: 作り直しにより実態と異なる）」を 1 行ずつ足しただけ（計 28 箇所）。書き直しはしていない。
+- `CLAUDE.md`: §1 を実際のディレクトリに、§3 の固定指示と §4 の原則 2〜8・10 を新しい体験に、冒頭の説明を後追いが本質と分かる文にした。原則 1・9 は変えていない。`AGENTS.md`（未追跡）は触っていない。
+
+### 変えたテスト
+
+- `PromiseViewModelTests`: 本体は変えず、`InMemorySessionStore` → `InMemoryPromiseStore` の名前だけ変えた。借りていたモック（保存・`Gate`・`MockTranscriber`）は `Tests/SaydoTests/PromiseTestSupport.swift` に移した（保存は `PromiseStore` の 2 操作だけに絞った）。
+- `AppRouterTests`: 旧い通知のタップの 2 件は `router.openFromLegacyNotification()` に呼び出しを替えた。「今日は休む」のリンクが何も開かない 1 件は、機能ごと無くしたので削除。
+- `AppSettingsTests`: 無くなった項目のテストを削除し、残った時刻・オンボーディング・全削除のテストにした。
+- `GuardrailsTests`: 消えた文言（`DialogueCopy` の全文言・チップ）を対象にしていた 5 件を削除。禁止語リストと `check` / `sanitize` / `isClean` のテストは変えていない。`testGuardrailsHaveNoEntryPointForUserTranscripts` は `FlowMachine` を使う後半（文字起こしがそのまま保存される確認）を外し、「責める言葉は `Guardrails` が弾く」前半だけ残した。
+- `PromiseCopyTests` / `DomainTests`: チップと `DialogueContext` / `ReasonClassification` の部分を外した（`MicroAction` の往復は足した）。
+- 足した: `LegacyNotificationTests`（旧い通知の識別子の見分けとタップの判定 6 件）。
+
+### 未解決・懸念
+
+1. 旧い通知の後始末（`removeAllManagedPending`）と本体のタップの受け口は残している。配布前の端末にしか旧い通知は無いはずなので、TestFlight の旧ビルドが入っていない状態になったら、`NotificationScheduler` と `AppDelegate` ごと消せる。
+2. 開発者向けの節が Debug 限定ではない（上記）。TestFlight でも見える。Debug 限定にするかは判断待ち。
+3. Time Sensitive のエンタイトルメントを外した。実機への入れ直しは自動署名で通る想定だが、未確認（インストールは統合担当）。
+4. `Repository` の旧い会話用メソッドと `SessionLog` / `Carryover` / `AvoidanceItem` のモデルは、スキーマを変えない約束なので残した。
+5. docs/implementation-plan.md の §7（旧い会話の設計）と task-list.json の task_014〜017 は、歴史の記録として手を入れていない。

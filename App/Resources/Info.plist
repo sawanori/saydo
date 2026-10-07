@@ -23,9 +23,9 @@
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>NSAlarmKitUsageDescription</key>
-	<string>約束の時刻から、あなたの声で追いかけるためにアラームを使います</string>
+	<string>朝・昼・晩の時刻に、約束のあなたの声で追いかけるためにアラームを使います</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>あなたの声を録音し、逃げたいことを言葉にするために使います</string>
+	<string>今日の約束と、最初にやることを、あなたの声で録音するために使います</string>
 	<key>UILaunchScreen</key>
 	<dict/>
 </dict>

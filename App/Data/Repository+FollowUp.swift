@@ -40,7 +40,7 @@ extension Repository {
 }
 
 /// 答える画面が結果を書く先。`Repository` は `@ModelActor` の具象アクターなので、
-/// テストで保存の失敗を起こせるようにこの契約を挟む（`SessionStore` と同じ理由）。
+/// テストで保存の失敗を起こせるようにこの契約を挟む（`PromiseStore` と同じ理由）。
 protocol FollowUpStore: Sendable {
     /// 結果を書く。やった = `.done`、少しやった = `.partial`、まだ・今日はやめる = `.notYet`。
     func saveOutcome(commitmentID: UUID, outcome: CommitmentOutcome) async throws

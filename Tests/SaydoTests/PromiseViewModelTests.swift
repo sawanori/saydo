@@ -9,10 +9,6 @@ import XCTest
 
 // MARK: - テスト用の部品
 
-/// `SessionViewModelTests` のインメモリの保存を、そのまま約束の保存にも使う
-/// （1 日 1 件の約束、つないだ声があれば宣言の `VoiceEntry` も作る、という規則が同じ）。
-extension InMemorySessionStore: PromiseStore {}
-
 /// テストが進める時計。
 private final class PromiseTestClock: Sendable {
     private let state: OSAllocatedUnfairLock<Date>
@@ -107,7 +103,7 @@ final class PromiseViewModelTests: XCTestCase {
 
     private var root: URL!
     private var audioFiles: AudioFileStore!
-    private var store: InMemorySessionStore!
+    private var store: InMemoryPromiseStore!
     private var capture: HeldVoiceCapture!
     private var alarms: RecordingRoundAlarms!
     private var settings: AppSettings!
@@ -118,7 +114,7 @@ final class PromiseViewModelTests: XCTestCase {
         root = FileManager.default.temporaryDirectory
             .appending(path: "PromiseViewModelTests-\(UUID().uuidString)", directoryHint: .isDirectory)
         audioFiles = AudioFileStore(rootDirectory: root)
-        store = InMemorySessionStore(calendar: Self.tokyo)
+        store = InMemoryPromiseStore(calendar: Self.tokyo)
         capture = HeldVoiceCapture()
         alarms = RecordingRoundAlarms(calendar: Self.tokyo)
         settings = AppSettings(defaults: try XCTUnwrap(UserDefaults(suiteName: "PromiseViewModelTests-\(UUID().uuidString)")))
@@ -127,7 +123,7 @@ final class PromiseViewModelTests: XCTestCase {
 
     /// 同じ試験の中で、1 から作り直す（時計を `date` に合わせる）。録音の置き場所は同じものを使う。
     private func setUpFreshStores(at date: Date) {
-        store = InMemorySessionStore(calendar: Self.tokyo)
+        store = InMemoryPromiseStore(calendar: Self.tokyo)
         capture = HeldVoiceCapture()
         alarms = RecordingRoundAlarms(calendar: Self.tokyo)
         settings = AppSettings(defaults: UserDefaults(suiteName: "PromiseViewModelTests-\(UUID().uuidString)")!)

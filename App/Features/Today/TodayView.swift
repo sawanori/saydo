@@ -1,6 +1,5 @@
 import SaydoCore
 import SwiftUI
-import UIKit
 
 /// 今日の画面（実装計画 §17.3「今日」）。
 ///
@@ -13,26 +12,21 @@ struct TodayView: View {
     private let viewModel: TodayViewModel
     /// 変わるたびに約束を読み直す（被せた画面を閉じたとき）。
     private let reloadToken: Int
-    /// 朝の通知が断られているか。断られているときだけ掲示を出す。
-    private let notificationsDenied: Bool
     private let onOpenPromise: @MainActor () -> Void
     private let onOpenFollowUp: @MainActor (CommitmentSnapshot) -> Void
     private let onOpenSettings: @MainActor () -> Void
 
-    @Environment(\.openURL) private var openURL
     @Environment(\.scenePhase) private var scenePhase
 
     init(
         viewModel: TodayViewModel,
         reloadToken: Int,
-        notificationsDenied: Bool,
         onOpenPromise: @escaping @MainActor () -> Void,
         onOpenFollowUp: @escaping @MainActor (CommitmentSnapshot) -> Void,
         onOpenSettings: @escaping @MainActor () -> Void
     ) {
         self.viewModel = viewModel
         self.reloadToken = reloadToken
-        self.notificationsDenied = notificationsDenied
         self.onOpenPromise = onOpenPromise
         self.onOpenFollowUp = onOpenFollowUp
         self.onOpenSettings = onOpenSettings
@@ -44,9 +38,6 @@ struct TodayView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
                     promise
-                    if notificationsDenied {
-                        notificationNotice
-                    }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.top, 44)
@@ -223,30 +214,6 @@ struct TodayView: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(viewModel.isPlayingVoice ? TodayCopy.stopDeclaration : TodayCopy.playDeclaration)
-    }
-
-    // MARK: 通知の再許可
-
-    /// 朝の通知を断っているときだけ出す。黙って壊れたままにしない（実装計画 §7.4）。
-    private var notificationNotice: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(TodayCopy.notificationsStopped)
-                .saydoText(.list)
-            Button(TodayCopy.openSystemSettings) {
-                guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
-                openURL(url)
-            }
-            .buttonStyle(.plain)
-            .font(.callout)
-            .foregroundStyle(SaydoTheme.Palette.accent)
-        }
-        .padding(.horizontal, 18)
-        .padding(.vertical, 14)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: SaydoTheme.Metric.chipCornerRadius, style: .continuous)
-                .fill(SaydoTheme.Palette.chipFill)
-        )
     }
 
     // MARK: 下部
