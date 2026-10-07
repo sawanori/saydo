@@ -127,7 +127,7 @@ struct WaveformView: View {
         .frame(maxWidth: style.width)
         .frame(height: style.height)
         .accessibilityElement()
-        .accessibilityLabel(SessionCopy.waveformLabel)
+        .accessibilityLabel(WaveformCopy.waveformLabel)
     }
 
     // MARK: 線

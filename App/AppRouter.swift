@@ -23,7 +23,7 @@ extension NotificationScheduler: PendingNotificationClearing {}
 /// （`cover`）と、その画面の頭脳の組み立てだけを持つ。
 @MainActor
 @Observable
-final class AppRouter: SessionLauncher {
+final class AppRouter: NotificationTapHandling {
 
     /// 判定の結果。
     enum Destination: Equatable {
@@ -216,18 +216,16 @@ final class AppRouter: SessionLauncher {
 
     // MARK: - 通知から開く
 
-    /// `AppDelegate` から来る起動要求（`SessionLauncher`）。旧い版が登録した通知のタップ。
+    /// `AppDelegate` から来るタップ（`NotificationTapHandling`）。旧い版が登録した通知の本体のタップ。
     ///
-    /// - `.open`（通知本体のタップ）だけが画面を開く。開くのは旧い会話ではなく、起動時と同じ判定
-    ///   （約束が無ければ約束する画面、答えがまだなら答える画面）。
-    /// - `.rest`（「今日は休む」）は `AppDelegate` が当日の保留通知を取り消し済みなので、何もしない。
-    func launch(_ link: DeepLink) {
-        Task { await open(link) }
+    /// 開くのは旧い会話ではなく、起動時と同じ判定（約束が無ければ約束する画面、答えがまだなら答える画面）。
+    func handleLegacyNotificationTap() {
+        Task { await openFromLegacyNotification() }
     }
 
-    /// `launch(_:)` の中身。テストから待てるように分けてある。
-    func open(_ link: DeepLink) async {
-        guard link.action == .open, hasCompletedOnboarding else { return }
+    /// `handleLegacyNotificationTap()` の中身。テストから待てるように分けてある。
+    func openFromLegacyNotification() async {
+        guard hasCompletedOnboarding else { return }
         await resolveEntry(ignoringDismissal: true)
     }
 

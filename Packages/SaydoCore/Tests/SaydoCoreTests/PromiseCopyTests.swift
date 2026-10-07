@@ -19,11 +19,8 @@ final class PromiseCopyTests: XCTestCase {
         }
     }
 
-    func testAllLinesCoverTheChipsAndTheReplies() {
+    func testAllLinesCoverTheReplies() {
         let texts = Set(PromiseCopy.allLines.map(\.text))
-        for chip in PromiseChip.allCases {
-            XCTAssertTrue(texts.contains(PromiseCopy.chipLabel(chip)), "\(chip)")
-        }
         for outcome in [CommitmentOutcome.done, .partial, .notYet] {
             XCTAssertTrue(texts.contains(PromiseCopy.reply(for: outcome) ?? ""), "\(outcome)")
         }
@@ -35,11 +32,6 @@ final class PromiseCopyTests: XCTestCase {
         XCTAssertEqual(PromiseCopy.firstActionQuestion, "そのために、最初にやることは？")
         XCTAssertTrue(Guardrails.isClean(PromiseCopy.promiseQuestion, form: .question))
         XCTAssertTrue(Guardrails.isClean(PromiseCopy.firstActionQuestion, form: .question))
-    }
-
-    func testChipLabelsAreDistinct() {
-        let labels = PromiseChip.allCases.map(PromiseCopy.chipLabel)
-        XCTAssertEqual(Set(labels).count, labels.count)
     }
 
     func testCompletionLineInsertsTheTime() {

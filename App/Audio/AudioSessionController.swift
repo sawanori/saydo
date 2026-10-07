@@ -43,11 +43,6 @@ enum AudioSessionEvent: Sendable {
     case outputVolumeChanged(Float)
 }
 
-enum AudioSessionFault: Error, Sendable {
-    case activationFailed
-    case routeOverrideFailed
-}
-
 // MARK: - プロトコル（後続の ViewModel がモックを差し込むための境界）
 
 @MainActor

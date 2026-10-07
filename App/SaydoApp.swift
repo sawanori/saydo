@@ -4,13 +4,13 @@ import SwiftUI
 
 @main
 struct SaydoApp: App {
-    /// 通知デリゲート（実装計画 §7.4）。朝の通知のタップを受けるので、起動時から必ず生かす。
+    /// 通知デリゲート。旧い版が登録した通知のタップを受けるので、起動時から必ず生かす。
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
     private static let logger = Logger(subsystem: "com.nonturn.saydo", category: "startup")
 
     private let modelContainer: ModelContainer
-    /// 開いたときに何を出すか。`AppDelegate` の起動要求（朝の通知のタップ）はここへ流す。
+    /// 開いたときに何を出すか。`AppDelegate` が受けた旧い通知のタップはここへ流す。
     private let router: AppRouter
 
     init() {
@@ -40,7 +40,7 @@ struct SaydoApp: App {
         .modelContainer(modelContainer)
     }
 
-    /// 保存先が開けない場合もアプリは立ち上げる。会話だけは始められる方が、
+    /// 保存先が開けない場合もアプリは立ち上げる。約束だけは声にできる方が、
     /// 起動できないより本人の役に立つ（記録はその起動の間だけ残る）。
     /// 戻り値の `isPersistent` は、永続ストアで開けたかどうか（メモリ内ストアなら false）。
     private static func makeModelContainer() -> (container: ModelContainer, isPersistent: Bool) {

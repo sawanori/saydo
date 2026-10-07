@@ -26,24 +26,11 @@ public enum PromiseCopy {
     /// 約束を保存してアラームを登録するボタン。
     public static let commit = "約束する"
 
-    /// 時刻のチップの見出し。
-    public static let chipsPrompt = "いつから追いかけますか？"
-
     /// 文字で入力する道のボタン。
     public static let textInputButton = "文字で入力"
 
     /// 文字で入力する道の案内。マイクが使えない端末ではこれが主になる。
     public static let textInputGuide = "声が出せないときは、文字で答えられます。"
-
-    /// チップの文言。
-    public static func chipLabel(_ chip: PromiseChip) -> String {
-        switch chip {
-        case .inThirtyMinutes: "30分後"
-        case .inOneHour: "1時間後"
-        case .noon: "昼 12:00"
-        case .evening: "夕方 18:00"
-        }
-    }
 
     /// 時刻の句。「16時」「16時30分」。秒は丸める。
     public static func timePhrase(for date: Date, calendar: Calendar = .current) -> String {
@@ -150,7 +137,6 @@ public enum PromiseCopy {
         CopyLine(whileHolding, .statement),
         CopyLine(redo, .statement),
         CopyLine(commit, .statement),
-        CopyLine(chipsPrompt, .question),
         CopyLine(textInputButton, .statement),
         CopyLine(textInputGuide, .statement),
         CopyLine(completionNotAuthorized, .statement),
@@ -171,8 +157,7 @@ public enum PromiseCopy {
         CopyLine(notTodayReply, .statement),
         CopyLine(alarmTitle, .statement),
     ]
-        + PromiseChip.allCases.map { CopyLine(chipLabel($0), .statement) }
-        + ["16時", "16時30分", "30分後", "夕方"].map { CopyLine(completion(timePhrase: $0), .statement) }
+        + ["16時", "16時30分"].map { CopyLine(completion(timePhrase: $0), .statement) }
         + ["16時", "16時30分"].map { CopyLine(completionWithoutVoice(timePhrase: $0), .statement) }
         + followUpLines
         + roundLines

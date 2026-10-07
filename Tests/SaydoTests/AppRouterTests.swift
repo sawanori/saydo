@@ -436,7 +436,7 @@ final class AppRouterTests: XCTestCase {
         await router.closePromise()
         XCTAssertNil(router.cover)
 
-        await router.open(DeepLink(sessionType: .morning, slot: .morning, copyKey: .morning, action: .open))
+        await router.openFromLegacyNotification()
 
         XCTAssertTrue(isPromise(router.cover))
     }
@@ -446,18 +446,9 @@ final class AppRouterTests: XCTestCase {
         let saved = try await makeCommitment(createdAt: try date(2026, 10, 6, 7))
         let router = makeRouter(now: try date(2026, 10, 6, 8))
 
-        await router.open(DeepLink(sessionType: .morning, slot: .morning, copyKey: .morning, action: .open))
+        await router.openFromLegacyNotification()
 
         XCTAssertEqual(router.cover, .followUp(saved))
-    }
-
-    /// 「今日は休む」は何も開かない。
-    func testRestLinkDoesNotOpenAnything() async throws {
-        let router = makeRouter(now: try date(2026, 10, 6, 8))
-
-        await router.open(DeepLink(sessionType: .morning, slot: .morning, action: .rest))
-
-        XCTAssertNil(router.cover)
     }
 
     // MARK: 答える画面
