@@ -9,8 +9,8 @@ extension Repository {
     /// 答えを待っている約束。無ければ nil（実装計画 §17.9）。
     ///
     /// その日の結果が「やった」でも「今日はやめる」でもなく、すでに始まっている回のうち、
-    /// まだ答えていない回がある約束。当日の約束を先に見る。深夜に約束すると追う回が翌日になるので、
-    /// 当日に無ければ前日の約束も見る（その回が今日始まったときだけ該当する）。
+    /// まだ答えていない回がある約束。当日の約束を先に見る。回は約束した日の時刻で決まり、最後の回を
+    /// 過ぎてからの約束には回が無い。前日の約束も見るが、今日始まる回があるときだけ該当する（通常は無い）。
     func commitmentAwaitingAnswer(asOf now: Date = .now, rules: ChaseRules) throws -> CommitmentSnapshot? {
         let calendar = rules.calendar
         var candidates: [CommitmentSnapshot] = []

@@ -11,7 +11,7 @@ struct RoundOverride: Sendable, Equatable {
     var interval: TimeInterval?
 }
 
-/// 朝・昼・晩の 3 回で追う規則（実装計画 §17.9）。
+/// 朝・昼・晩の 3 回まで追う規則（実装計画 §17.9 / §17.10）。
 ///
 /// 設定（回の時刻）と、どの回まで答えたかを写した値。`AppSettings` は MainActor の持ち物なので、
 /// `Repository`（別のアクター）や判定の関数へは、この値を渡す。計算は純粋。
@@ -96,7 +96,8 @@ struct ChaseRules: Sendable, Equatable {
             || awaiting.contains { calendar.isDate($0.start, inSameDayAs: now) }
     }
 
-    /// 前日に約束して、追う回が今日になった、まだ答えていない約束か（深夜の約束の、30 分後の 1 回）。
+    /// 前日に約束して、追う回が今日になった、まだ答えていない約束か。
+    /// 回は約束の日の時刻で決まるので、通常は false（追加の 1 回があった旧い版の名残。試験用の差し替えで日付をまたぐときだけ true になりうる）。
     func isCarriedIntoToday(_ commitment: CommitmentSnapshot, asOf now: Date) -> Bool {
         pendingRounds(for: commitment).contains { calendar.isDate($0.start, inSameDayAs: now) }
     }
@@ -121,7 +122,7 @@ struct ChaseRules: Sendable, Equatable {
 
     /// その日に登録しておく回（実装計画 §17.9 の 4〜6）。
     ///
-    /// - 約束のある日: まだ答えていない回。本人の声で鳴らす。
+    /// - 約束のある日: まだ答えていない回。約束の声（声で約束した日だけ）で鳴らし、題は「最初にやること」の文字。
     /// - 約束の無い日: 朝の回だけ。既定の音で約束を促す（「今日はやめる」と答えた日は無し）。
     func plan(for day: Date, commitment: CommitmentSnapshot?) -> [AlarmRoundRequest] {
         let interval = interval(on: day)
@@ -132,7 +133,8 @@ struct ChaseRules: Sendable, Equatable {
                     start: $0.start,
                     interval: interval,
                     voiceRelativePath: commitment.declarationAudioPath,
-                    purpose: .chase
+                    purpose: .chase,
+                    title: PromiseCopy.alarmTitle(firstAction: commitment.microAction.text)
                 )
             }
         }

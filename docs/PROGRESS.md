@@ -3708,3 +3708,56 @@ done_definition との対応:
 - 「まだ」「少しやった」でその回だけ止まり、次の回でまた鳴ること。「やった」「今日はやめる」で全部止まること。
 - 旧い版で登録済みのアラームが、起動後に鳴らないこと。
 - 約束する画面（チップ無し、小さい「今日はやめる」）と答える画面（3 つのボタンと小さい「今日はやめる」）の見た目。
+
+## task_059 — アラームの声は約束だけ、追う時刻は 10:00・14:00・19:00
+
+- 日時: 2026-10-07
+- 状態: needs-device（コードとテストは完了。アラームの題の見え方・鳴る声は実機でしか確かめられない）
+- ブランチ / コミット: task/059-promise-voice-only / `git log` の `task_059:` 行
+
+### 証拠
+
+| コマンド | exit | 全文ログ |
+|---|---|---|
+| `scripts/test-core.sh` | 0（`Executed 296 tests, with 0 failures` と `Executed 33 tests, with 0 failures`、lint-principles `OK`） | `docs/logs/task_059-1.txt`（2 本を 1 ファイルに連結） |
+| `scripts/test-ios.sh` | 0（`Executed 320 tests, with 0 failures`、`** TEST SUCCEEDED **`、lint-principles `OK`） | 同上 |
+| 実機 | 未実行（インストールは統合担当） | — |
+
+### 実装の要点
+
+- 変更 1（声は約束だけ）: 約束の録音だけを `declarationAudioPath`（アラームの音の元・返す声）にする。最初にやること（2 つ目の質問）は文字に起こした時点で録音ファイルを消す（`PromiseAnswer.audioPath` は nil）。2 つをつなぐ `VoiceJoiner` とそのテストは削除。約束を文字で入力した日は声なし（アラームは既定の音）。記録の行は 1 つだけ（声あり: `createCommitment` が作る宣言の行 / 文字だけ: 文字の宣言の行を 1 つ足す）。`Commitment.declarationTranscript` は約束の文字だけ（`PromiseCopy.declarationTranscript` は削除）。
+- アラームの題: `AlarmRoundRequest.title` を足し、`ChaseRules.plan` が `PromiseCopy.alarmTitle(firstAction:)`（40 文字まで。超えたら 39 文字 + 「…」。空なら従来の「今日の約束」）を入れる。`AlarmScheduler` は結果を聞く回でこの題を使い、約束を促す回は従来どおり固定の題。答える画面と今日の画面は、もともと「最初にやること」を文字で出していることをコードで確認（変更なし）。
+- 変更 2（時刻）: `AppSettings.Default` を 10:00 / 14:00 / 19:00 にした（この時刻の使い道は後追いの回と、旧い会話の通知計画 `notificationSettings` / `fixedNotificationTime` のみ。設定画面の時刻の項目はそのまま）。`AlarmRound.extra` と `AlarmPlan.extraRoundDelay` を削除。`AlarmPlan.rounds` は約束より後の回だけを返し、19:00 以降は空。旧い版の追加の 1 回の識別子（回の印 4）は `AlarmPlan.retiredExtraIdentifiers` として残し、`allIdentifiers`（日ごとの取り消し・登録し直しの先頭の取り消し）に含めた。保存済みの `answeredRounds` に回 4 が残っていても、読み込みで落とす（既存の `compactMap`）。
+- 完了の 1 行: 追う回が無い約束（19 時以降）は `PromiseCopy.completionRecordedOnly`「約束は残しました。今日は、ここまでで大丈夫です。」（権限の有無にかかわらず）。
+- 3 分おき・40 本、試験用の起動引数（`-saydoRoundsInMinutes` ほか）は変えていない。
+
+### 変えた既存のテストと理由
+
+- `PromiseViewModelTests`: 「2 つをつなぐ」前提のテスト（つないだ 1 本、つなぎの失敗、片方だけ声）を、約束の録音だけが残るテストに替えた。`VoiceJoinerTests`（実物の AVFoundation）と `StubVoiceJoiner` は削除（部品ごと無くしたため）。時刻の前提を既定の 10:00・14:00・19:00 に直した（9 時で 3 回、12 時で 2 回、15 時で 1 回、20 時で 0 回の表を足した）。22 時の「30 分後の 1 回」のテストは、20 時の「回なし・追いかけますと言わない」に替えた。「今日はやめる」の 2 件は朝の回が 10:00 になったので時計を 10:30 と 13:00 に動かした。追加: 題に最初にやることが入る・40 文字で切る、約束が文字でアクションだけ声の日。
+- `AlarmPlanTests`（SaydoCore）: `.extra` を前提にした 2 件を、「3 回とも過ぎたら空」と「旧い追加の 1 回の識別子も取り消せる（値を固定）」に替えた。回の時刻の例を 10/14/19 に直した。
+- `PromiseCopyTests`（SaydoCore）: `declarationTranscript` のテストを削除（関数ごと削除）。追加: 題の組み立て（短い・改行・空・ちょうど 40・長い）、`completionRecordedOnly`。
+- `AlarmSchedulerTests`: `.extra` の日またぎのテストを、旧い追加の 1 回の本が登録し直しと日ごとの取り消しで消えるテストに替えた。追加: 題をそのまま使う・無ければ固定の題。
+- `FollowUpViewModelTests`: 深夜の約束が `.extra` で取り消される 1 件を削除（その状況が無くなった）。「前夜の深夜の約束を拾う」を、「最後の回の後の約束は答える対象にならない」に替えた。
+- `AppRouterTests`: 「前夜の深夜の約束が今日に掛かる」を、「持ち越さず、新しい約束をする画面が出る」に替えた。
+- `AppSettingsTests` / `ChaseRulesTests`: 既定値と、既定の時刻から計算する回の時刻を 10:00・14:00・19:00 に直した。`ChaseRulesTests` に題の確認を足した。
+- `FollowUpViewModelTests` / `TodayViewModelTests` / `AppRouterTests`: 「どの回まで答えたか」を確かめる試験群なので、`ChaseTestSupport` の `useRoundTimesOfTheAnswerTests()` で時刻を 8:00・13:00・21:00 にそろえた（時刻の既定値は `AppSettingsTests` と `PromiseViewModelTests` が見る）。
+
+### 足した・変えた文言
+
+- `PromiseCopy`（`PromiseRoundCopy.swift`。Guardrails の検査に入れた）: 完了の 1 行「約束は残しました。今日は、ここまでで大丈夫です。」、アラームの題（最初にやることの文字。例と長い例と空の場合を `roundLines` に入れた）。
+- `OnboardingCopy.conceptDetail`: 「約束と、最初にやることを話します。朝・昼・晩の時刻に、約束の声のアラームが、アプリで答えるまで鳴ります。最初にやることは、文字で出ます。」（検査の対象外のファイル）。
+- 既存の文言（「自分の声を聞く」「約束の声を聞く」「…あなたの声で追いかけます。」）は、声が約束だけでも実態と合うので変えていない。
+
+### 未解決・懸念
+
+1. `ChaseRules.isCarriedIntoToday` と `Repository.commitmentInPlay` の前日の約束を見る分岐は、追加の 1 回が無くなったので通常は働かない（試験用の差し替えで日付をまたぐときだけ）。消すと範囲が広がるため残した。
+2. 19:00 を過ぎてからの約束の日、今日の画面は結果が未回答のまま「今日はここまで」になる（追う回が無いため）。表示の見直しは範囲外。
+3. 旧い版（task_054〜058）で保存した約束は、つないだ声のファイルと行が 3 つのまま残る。記録タブの束ね（`collapsingPromiseVoices`）はこの旧いデータのために残した。
+
+### 人間の確認待ち（実機）
+
+- 約束と最初にやることを両方話して保存し、アラームで鳴るのが約束の声だけであること。
+- アラームのアラートの題に「最初にやること」の文字が出ること（長い文は 40 文字で切れる）。声で約束していても文字で約束しても同じ。
+- 約束を文字で入力し、最初にやることだけ話した日は、既定の音で鳴り、記録タブに余計な行が出ないこと。
+- 19:00 を過ぎた時刻に約束すると、その日のアラームが登録されず、完了の 1 行が「約束は残しました。…」になること。
+- 朝・昼・晩が 10:00・14:00・19:00 で鳴ること（設定で時刻を変えた端末では、その時刻）。

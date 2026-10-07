@@ -86,6 +86,7 @@ final class FollowUpViewModelTests: XCTestCase {
         )
         // 旧い識別子の後始末（最初の 1 回の全取り消し）は、ここでは見ない。
         settings.legacyAlarmsCleared = true
+        settings.useRoundTimesOfTheAnswerTests()
         clock = ChaseTestClock(try date(6, 13, 10))
         player = HoldingPlayer()
         closeCount = 0
@@ -113,7 +114,7 @@ final class FollowUpViewModelTests: XCTestCase {
     }
 
     /// 約束を 1 件作る。`withVoice` のときは声のファイルも置く。
-    /// 追う回は約束の時刻で決まる（既定の時刻は 朝 8:00・昼 13:00・晩 21:00）。
+    /// 追う回は約束の時刻で決まる（この試験群の時刻は 朝 8:00・昼 13:00・晩 21:00）。
     private func makeCommitment(
         createdAt: Date,
         withVoice: Bool = false
@@ -340,19 +341,6 @@ final class FollowUpViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.phase, .answered(reply: reply))
     }
 
-    /// 23:45 に約束した日。追うのは 30 分後の 1 回（翌日の 0:15）。取り消しは約束の日で行う。
-    func testTheExtraRoundIsCancelledByThePromiseDayEvenWhenItRingsTheNextDay() async throws {
-        let commitment = try await makeCommitment(createdAt: try date(6, 23, 45))
-        clock.set(try date(7, 0, 20))
-        let viewModel = makeViewModel(commitment)
-
-        await viewModel.answer(.notYet)
-
-        let events = await alarms.events
-        XCTAssertEqual(events.first, .cancelRound(dayKey: dayKey(try date(6, 12)), round: .extra))
-        XCTAssertEqual(viewModel.phase, .answered(reply: PromiseCopy.notYetReply))
-    }
-
     // MARK: 保存の失敗
 
     func testAFailedSaveDoesNotCancelTheChain() async throws {
@@ -492,12 +480,15 @@ final class FollowUpViewModelTests: XCTestCase {
         XCTAssertNil(awaiting)
     }
 
-    func testAwaitingAnswerFindsAPromiseMadeLateTheNightBefore() async throws {
-        let commitment = try await makeCommitment(createdAt: try date(6, 23, 45))
+    /// 晩の回（21:00）を過ぎてからの約束は、その日は追わない（§17.10 の 2）。答える回が無いので、翌日にも出さない。
+    func testAPromiseMadeAfterTheLastRoundIsNeverAwaited() async throws {
+        _ = try await makeCommitment(createdAt: try date(6, 23, 45))
 
-        let awaiting = try await repository.commitmentAwaitingAnswer(asOf: try date(7, 0, 20), rules: rules)
+        let sameNight = try await repository.commitmentAwaitingAnswer(asOf: try date(6, 23, 50), rules: rules)
+        let nextMorning = try await repository.commitmentAwaitingAnswer(asOf: try date(7, 0, 20), rules: rules)
 
-        XCTAssertEqual(awaiting?.id, commitment.id)
+        XCTAssertNil(sameNight)
+        XCTAssertNil(nextMorning)
     }
 
     func testYesterdaysUnansweredPromiseIsNotBroughtBack() async throws {

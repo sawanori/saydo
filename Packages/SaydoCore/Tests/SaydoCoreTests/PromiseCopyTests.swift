@@ -87,23 +87,23 @@ final class PromiseCopyTests: XCTestCase {
     }
 
     func testCompletionLineNamesTheRoundsStillToCome() {
-        let noon = tokyo.date(from: DateComponents(year: 2026, month: 10, day: 6, hour: 13))!
-        let evening = tokyo.date(from: DateComponents(year: 2026, month: 10, day: 6, hour: 21))!
+        let noon = tokyo.date(from: DateComponents(year: 2026, month: 10, day: 6, hour: 14))!
+        let evening = tokyo.date(from: DateComponents(year: 2026, month: 10, day: 6, hour: 19))!
         XCTAssertEqual(
             PromiseCopy.completion(roundsAt: [noon, evening], calendar: tokyo),
-            "13時と21時に、あなたの声で追いかけます。"
+            "14時と19時に、あなたの声で追いかけます。"
         )
-        XCTAssertEqual(PromiseCopy.completion(roundsAt: [evening], calendar: tokyo), "21時に、あなたの声で追いかけます。")
+        XCTAssertEqual(PromiseCopy.completion(roundsAt: [evening], calendar: tokyo), "19時に、あなたの声で追いかけます。")
         let withoutVoice = PromiseCopy.completionWithoutVoice(roundsAt: [noon, evening], calendar: tokyo)
-        XCTAssertEqual(withoutVoice, "13時と21時に、アラームで追いかけます。")
+        XCTAssertEqual(withoutVoice, "14時と19時に、アラームで追いかけます。")
         XCTAssertFalse(withoutVoice.contains("あなたの声"))
     }
 
     func testRepliesTellTheNextRoundOnlyWhenThereIsOne() {
-        let evening = tokyo.date(from: DateComponents(year: 2026, month: 10, day: 6, hour: 21))!
+        let evening = tokyo.date(from: DateComponents(year: 2026, month: 10, day: 6, hour: 19))!
         for answer in [FollowUpAnswer.partial, .notYet] {
             let withNext = PromiseCopy.reply(for: answer, nextRoundAt: evening, calendar: tokyo)
-            XCTAssertTrue(withNext.contains("次は21時に"), withNext)
+            XCTAssertTrue(withNext.contains("次は19時に"), withNext)
             XCTAssertFalse(PromiseCopy.reply(for: answer, nextRoundAt: nil, calendar: tokyo).contains("次は"))
         }
         // その日の後追いを終える答えは、次の回を言わない。
@@ -126,8 +126,36 @@ final class PromiseCopyTests: XCTestCase {
         XCTAssertEqual(FollowUpAnswer.allCases.filter(\.endsTheDay), [.done, .stopToday])
     }
 
-    func testDeclarationTranscriptJoinsPromiseAndAction() {
-        XCTAssertEqual(PromiseCopy.declarationTranscript(promise: "企画書を出す", action: "資料を開く"), "企画書を出す。資料を開く")
-        XCTAssertEqual(PromiseCopy.declarationTranscript(promise: "企画書を出す。", action: " 資料を開く。 "), "企画書を出す。資料を開く")
+    // MARK: 声は約束だけ、題は最初にやること（task_059）
+
+    func testAlarmTitleShowsTheFirstActionAsText() {
+        XCTAssertEqual(PromiseCopy.alarmTitle(firstAction: "資料を開く"), "資料を開く")
+        XCTAssertEqual(PromiseCopy.alarmTitle(firstAction: "  資料を開く \n"), "資料を開く", "前後の空白と改行は落とす")
+        XCTAssertEqual(PromiseCopy.alarmTitle(firstAction: "資料を\n開く"), "資料を 開く", "途中の改行は 1 行にする")
+    }
+
+    func testAlarmTitleFallsBackWhenTheActionIsEmpty() {
+        XCTAssertEqual(PromiseCopy.alarmTitle(firstAction: nil), PromiseCopy.alarmTitle)
+        XCTAssertEqual(PromiseCopy.alarmTitle(firstAction: ""), PromiseCopy.alarmTitle)
+        XCTAssertEqual(PromiseCopy.alarmTitle(firstAction: " \n "), PromiseCopy.alarmTitle)
+    }
+
+    func testAlarmTitleIsCutAtFortyCharacters() {
+        let exactly = String(repeating: "あ", count: PromiseCopy.alarmTitleLimit)
+        XCTAssertEqual(PromiseCopy.alarmTitle(firstAction: exactly), exactly, "ちょうど 40 文字は切らない")
+
+        let long = String(repeating: "い", count: PromiseCopy.alarmTitleLimit + 25)
+        let cut = PromiseCopy.alarmTitle(firstAction: long)
+        XCTAssertEqual(cut.count, PromiseCopy.alarmTitleLimit)
+        XCTAssertTrue(cut.hasSuffix("…"))
+        XCTAssertTrue(cut.hasPrefix(String(long.prefix(PromiseCopy.alarmTitleLimit - 1))))
+    }
+
+    func testCompletionWhenNoRoundIsLeftOnlySaysThePromiseWasKept() {
+        let line = PromiseCopy.completionRecordedOnly
+        XCTAssertFalse(line.contains("追いかけます"))
+        XCTAssertTrue(line.contains("約束は残しました"))
+        XCTAssertTrue(Guardrails.isClean(line, form: .statement), line)
+        XCTAssertTrue(PromiseCopy.allLines.map(\.text).contains(line))
     }
 }

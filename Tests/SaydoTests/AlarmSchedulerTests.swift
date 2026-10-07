@@ -135,8 +135,13 @@ final class AlarmSchedulerTests: XCTestCase {
         return (store, audioFiles)
     }
 
-    private func chase(_ round: AlarmRound, at start: Date, voice: String? = nil) -> AlarmRoundRequest {
-        AlarmRoundRequest(round: round, start: start, voiceRelativePath: voice, purpose: .chase)
+    private func chase(
+        _ round: AlarmRound,
+        at start: Date,
+        voice: String? = nil,
+        title: String? = nil
+    ) -> AlarmRoundRequest {
+        AlarmRoundRequest(round: round, start: start, voiceRelativePath: voice, purpose: .chase, title: title)
     }
 
     // MARK: 登録
@@ -267,24 +272,26 @@ final class AlarmSchedulerTests: XCTestCase {
         XCTAssertEqual(registered.count, 38)
     }
 
-    /// 23:45 の約束の、30 分後の 1 回。鳴るのは翌日でも、識別子は約束の日のもの。
-    func testTheExtraRoundThatCrossesMidnightUsesThePromiseDaysIdentifiers() async throws {
+    /// 旧い版（task_058）が登録した「追加の 1 回」の本が端末に残っていても、登録し直しと日ごとの取り消しで消える。
+    func testRetiredExtraRoundAlarmsAreStillCancelled() async throws {
         let promiseDay = try date(6, 23, 45)
         let backend = RecordingAlarmBackend()
-        let scheduler = makeScheduler(backend: backend, now: promiseDay)
+        let retired = AlarmPlan.retiredExtraIdentifiers(on: promiseDay, calendar: tokyo)
+        XCTAssertEqual(retired.count, 40)
+        await backend.seed(retired)
+        let scheduler = makeScheduler(backend: backend, now: try date(6, 9))
 
-        _ = await scheduler.scheduleRounds([chase(.extra, at: try date(7, 0, 15))], on: promiseDay)
-        let scheduled = await backend.scheduled
-        XCTAssertEqual(scheduled.map(\.id), AlarmPlan.identifiers(on: promiseDay, round: .extra, calendar: tokyo))
-        XCTAssertEqual(scheduled.last?.fireDate, try date(7, 2, 12))
+        // その日を登録し直すと、旧い追加の 1 回は消え、新しい回だけが残る。
+        _ = await scheduler.scheduleRounds([chase(.evening, at: try date(6, 19))], on: promiseDay)
+        let registered = await backend.registered
+        XCTAssertTrue(registered.isDisjoint(with: Set(retired)))
+        XCTAssertEqual(registered, Set(AlarmPlan.identifiers(on: promiseDay, round: .evening, calendar: tokyo)))
 
-        // 取り消しも約束の日で行う。翌日の日付では 1 本も消えない。
-        await scheduler.cancelDay(try date(7, 1))
-        var registered = await backend.registered
-        XCTAssertEqual(registered.count, 40)
+        // その日の全部の取り消しでも、旧い追加の 1 回が残らない。
+        await backend.seed(retired)
         await scheduler.cancelDay(promiseDay)
-        registered = await backend.registered
-        XCTAssertTrue(registered.isEmpty)
+        let afterCancel = await backend.registered
+        XCTAssertTrue(afterCancel.isEmpty)
     }
 
     // MARK: 権限
@@ -427,6 +434,30 @@ final class AlarmSchedulerTests: XCTestCase {
     }
 
     // MARK: 音と題
+
+    /// 結果を聞く回の題は、渡された「最初にやること」の文字。無ければ従来の題。約束を促す回は常に固定の題。
+    func testChaseRoundsUseTheTitleTheyCarryAndFallBackToTheFixedOne() async throws {
+        let day = try date(6, 7)
+        let backend = RecordingAlarmBackend()
+        let scheduler = makeScheduler(backend: backend, now: day)
+
+        _ = await scheduler.scheduleRounds(
+            [
+                AlarmRoundRequest(
+                    round: .morning, start: try date(6, 8), voiceRelativePath: nil, purpose: .prompt, title: "資料を開く"
+                ),
+                chase(.noon, at: try date(6, 13), title: "資料を開く"),
+                chase(.evening, at: try date(6, 21)),
+            ],
+            on: day
+        )
+
+        let scheduled = await backend.scheduled
+        XCTAssertEqual(scheduled.count, 120)
+        XCTAssertTrue(scheduled.prefix(40).allSatisfy { $0.title == PromiseCopy.alarmPromptTitle })
+        XCTAssertTrue(scheduled.dropFirst(40).prefix(40).allSatisfy { $0.title == "資料を開く" })
+        XCTAssertTrue(scheduled.suffix(40).allSatisfy { $0.title == PromiseCopy.alarmTitle })
+    }
 
     func testChaseRoundsUseTheExportedVoiceAndThePromptRoundUsesTheDefaultSound() async throws {
         let (soundStore, audioFiles) = makeSoundStore()
