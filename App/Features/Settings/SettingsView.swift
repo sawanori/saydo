@@ -80,7 +80,9 @@ struct SettingsView: View {
             List {
                 roundTimesSection
                 dataSection
+                #if DEBUG
                 developerSection
+                #endif
             }
             .listStyle(.insetGrouped)
             .scrollContentBackground(.hidden)
