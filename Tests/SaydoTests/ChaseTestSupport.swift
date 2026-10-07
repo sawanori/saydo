@@ -92,3 +92,16 @@ final class ChaseTestClock: Sendable {
         state.withLock { $0 = date }
     }
 }
+
+extension AppSettings {
+    /// 回の時刻を、答え方・段階の判定の試験が前提にしている 朝 8:00・昼 13:00・晩 21:00 にそろえる。
+    ///
+    /// アプリの既定は 10:00・14:00・19:00（実装計画 §17.10）。この試験群は「どの回まで答えたか」の
+    /// 扱いを確かめるもので、時刻の既定値は `AppSettingsTests` と `PromiseViewModelTests` が見る。
+    @MainActor
+    func useRoundTimesOfTheAnswerTests() {
+        morningTime = TimeOfDay(hour: 8, minute: 0)
+        noonTime = TimeOfDay(hour: 13, minute: 0)
+        nightTime = TimeOfDay(hour: 21, minute: 0)
+    }
+}

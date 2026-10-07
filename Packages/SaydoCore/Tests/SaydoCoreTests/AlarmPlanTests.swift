@@ -73,16 +73,23 @@ final class AlarmPlanTests: XCTestCase {
         }
     }
 
-    func testAllIdentifiersOfTheDayCoverThreeRoundsAndTheExtraOne() {
+    /// 回は朝・昼・晩の 3 つだけ。旧い版の「追加の 1 回」は、取り消しの対象にだけ残る。
+    func testAllIdentifiersOfTheDayCoverThreeRoundsAndTheRetiredExtraOne() {
+        XCTAssertEqual(AlarmRound.allCases, [.morning, .noon, .evening])
         let day = date(2026, 10, 6, 12, 0)
         let all = AlarmPlan.allIdentifiers(on: day, calendar: tokyo)
         XCTAssertEqual(all.count, 3 * 40 + 40)
         XCTAssertEqual(Set(all).count, all.count)
-        for round in [AlarmRound.morning, .noon, .evening, .extra] {
+        for round in AlarmRound.allCases {
             let ids = AlarmPlan.identifiers(on: day, round: round, calendar: tokyo)
             XCTAssertEqual(ids.count, 40)
             XCTAssertTrue(Set(all).isSuperset(of: ids), "\(round)")
         }
+        let retired = AlarmPlan.retiredExtraIdentifiers(on: day, calendar: tokyo)
+        XCTAssertEqual(retired.count, 40)
+        XCTAssertTrue(Set(all).isSuperset(of: retired), "旧い版が登録した追加の 1 回も取り消せる")
+        // task_058 の版が追加の 1 回に使っていた値（日付 + 回 4 + 連番 1）。値そのものを固定する。
+        XCTAssertEqual(retired[1].uuidString, "0135288E-0001-8004-8053-4159444F414C")
     }
 
     func testDifferentDaysGiveDifferentIdentifiers() {
@@ -124,30 +131,32 @@ final class AlarmPlanTests: XCTestCase {
     private func rounds(promisedAt: Date) -> [AlarmRoundStart] {
         AlarmPlan.rounds(
             promisedAt: promisedAt,
-            morning: date(2026, 10, 6, 8, 0),
-            noon: date(2026, 10, 6, 13, 0),
-            evening: date(2026, 10, 6, 21, 0)
+            morning: date(2026, 10, 6, 10, 0),
+            noon: date(2026, 10, 6, 14, 0),
+            evening: date(2026, 10, 6, 19, 0)
         )
     }
 
     func testAPromiseBeforeTheMorningRoundIsChasedThreeTimes() {
-        XCTAssertEqual(rounds(promisedAt: date(2026, 10, 6, 7, 0)), [
-            AlarmRoundStart(round: .morning, start: date(2026, 10, 6, 8, 0)),
-            AlarmRoundStart(round: .noon, start: date(2026, 10, 6, 13, 0)),
-            AlarmRoundStart(round: .evening, start: date(2026, 10, 6, 21, 0)),
+        XCTAssertEqual(rounds(promisedAt: date(2026, 10, 6, 9, 0)), [
+            AlarmRoundStart(round: .morning, start: date(2026, 10, 6, 10, 0)),
+            AlarmRoundStart(round: .noon, start: date(2026, 10, 6, 14, 0)),
+            AlarmRoundStart(round: .evening, start: date(2026, 10, 6, 19, 0)),
         ])
     }
 
     func testRoundsBeforeThePromiseAreSkipped() {
-        XCTAssertEqual(rounds(promisedAt: date(2026, 10, 6, 10, 0)).map(\.round), [.noon, .evening])
-        XCTAssertEqual(rounds(promisedAt: date(2026, 10, 6, 13, 0)).map(\.round), [.evening])
-        XCTAssertEqual(rounds(promisedAt: date(2026, 10, 6, 13, 5)).map(\.round), [.evening])
+        XCTAssertEqual(rounds(promisedAt: date(2026, 10, 6, 12, 0)).map(\.round), [.noon, .evening])
+        XCTAssertEqual(rounds(promisedAt: date(2026, 10, 6, 15, 0)).map(\.round), [.evening])
+        // 回の時刻ちょうどの約束は、その回を飛ばす。
+        XCTAssertEqual(rounds(promisedAt: date(2026, 10, 6, 14, 0)).map(\.round), [.evening])
+        XCTAssertEqual(rounds(promisedAt: date(2026, 10, 6, 14, 5)).map(\.round), [.evening])
     }
 
-    func testAPromiseAfterAllThreeRoundsIsChasedOnceThirtyMinutesLater() {
-        XCTAssertEqual(rounds(promisedAt: date(2026, 10, 6, 22, 0)), [
-            AlarmRoundStart(round: .extra, start: date(2026, 10, 6, 22, 30)),
-        ])
-        XCTAssertEqual(AlarmPlan.extraRoundDelay, 1800)
+    /// 3 回とも過ぎていたら、その日は追わない（追加の 1 回は無い）。
+    func testAPromiseAfterAllThreeRoundsIsNotChasedThatDay() {
+        XCTAssertEqual(rounds(promisedAt: date(2026, 10, 6, 20, 0)), [])
+        XCTAssertEqual(rounds(promisedAt: date(2026, 10, 6, 19, 0)), [])
+        XCTAssertEqual(rounds(promisedAt: date(2026, 10, 6, 23, 45)), [])
     }
 }

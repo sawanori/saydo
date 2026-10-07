@@ -29,6 +29,9 @@ struct AlarmRoundRequest: Sendable, Equatable {
     /// 本人の声（`AudioFileStore` の相対パス）。nil なら既定の音で鳴らす。
     var voiceRelativePath: String?
     var purpose: AlarmPurpose = .chase
+    /// アラームの題。結果を聞く回では、その日の「最初にやること」の文字（実装計画 §17.10 の 1）。
+    /// nil なら固定の題（約束を促す回は常に固定の題）。
+    var title: String?
 }
 
 /// 約束の後追いに使うアラームの入口（実装計画 §17.4 / §17.9）。

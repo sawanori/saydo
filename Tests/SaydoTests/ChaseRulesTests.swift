@@ -59,9 +59,9 @@ final class ChaseRulesTests: XCTestCase {
     func testRoundTimesComeFromTheSettings() throws {
         var rules = settings.chaseRules(calendar: calendar)
         var times = rules.times(on: try date(6, 15))
-        XCTAssertEqual(times.morning, try date(6, 8))
-        XCTAssertEqual(times.noon, try date(6, 13))
-        XCTAssertEqual(times.evening, try date(6, 21))
+        XCTAssertEqual(times.morning, try date(6, 10), "既定は 10:00・14:00・19:00")
+        XCTAssertEqual(times.noon, try date(6, 14))
+        XCTAssertEqual(times.evening, try date(6, 19))
         XCTAssertEqual(rules.interval(on: try date(6, 15)), 180)
 
         settings.noonTime = TimeOfDay(hour: 12, minute: 30)
@@ -79,23 +79,25 @@ final class ChaseRulesTests: XCTestCase {
 
         XCTAssertEqual(plan.map(\.round), [.noon, .evening])
         XCTAssertTrue(plan.allSatisfy { $0.purpose == .chase && $0.voiceRelativePath == "2026/10/voice.m4a" })
+        // アラームの題は「最初にやること」の文字（実装計画 §17.10）。
+        XCTAssertTrue(plan.allSatisfy { $0.title == "open" })
         XCTAssertEqual(rules.plan(for: try date(6, 12), commitment: commitment(createdAt: try date(6, 7), outcome: .done)), [])
     }
 
     func testPlanForADayWithoutAPromiseIsTheMorningPromptUnlessStopped() throws {
         var rules = settings.chaseRules(calendar: calendar)
         XCTAssertEqual(rules.plan(for: try date(6, 12), commitment: nil), [
-            AlarmRoundRequest(round: .morning, start: try date(6, 8), voiceRelativePath: nil, purpose: .prompt),
+            AlarmRoundRequest(round: .morning, start: try date(6, 10), voiceRelativePath: nil, purpose: .prompt),
         ])
-        XCTAssertFalse(rules.isMorningPromptDue(asOf: try date(6, 7, 59)))
-        XCTAssertTrue(rules.isMorningPromptDue(asOf: try date(6, 8)))
-        XCTAssertTrue(rules.canStopMorningPrompt(asOf: try date(6, 7)))
-        XCTAssertFalse(rules.canStopMorningPrompt(asOf: try date(6, 10)), "朝の回（2 時間）が鳴り終えた後は出さない")
+        XCTAssertFalse(rules.isMorningPromptDue(asOf: try date(6, 9, 59)))
+        XCTAssertTrue(rules.isMorningPromptDue(asOf: try date(6, 10)))
+        XCTAssertTrue(rules.canStopMorningPrompt(asOf: try date(6, 9)))
+        XCTAssertFalse(rules.canStopMorningPrompt(asOf: try date(6, 12)), "朝の回（2 時間）が鳴り終えた後は出さない")
 
         settings.morningPromptStoppedDayKey = DayKey.make(from: try date(6, 9), calendar: calendar)
         rules = settings.chaseRules(calendar: calendar)
         XCTAssertEqual(rules.plan(for: try date(6, 12), commitment: nil), [])
-        XCTAssertFalse(rules.isMorningPromptDue(asOf: try date(6, 9)))
+        XCTAssertFalse(rules.isMorningPromptDue(asOf: try date(6, 11)))
         // 翌日の朝の回には効かない。
         XCTAssertEqual(rules.plan(for: try date(7, 12), commitment: nil).map(\.round), [.morning])
     }
@@ -134,8 +136,8 @@ final class ChaseRulesTests: XCTestCase {
         XCTAssertEqual(rules.interval(on: launch), 60)
 
         // 設定の時刻は書き換えない。翌日は通常の時刻と間隔。
-        XCTAssertEqual(settings.morningTime, TimeOfDay(hour: 8, minute: 0))
-        XCTAssertEqual(rules.times(on: try date(7, 12)).morning, try date(7, 8))
+        XCTAssertEqual(settings.morningTime, TimeOfDay(hour: 10, minute: 0))
+        XCTAssertEqual(rules.times(on: try date(7, 12)).morning, try date(7, 10))
         XCTAssertEqual(rules.interval(on: try date(7, 12)), 180)
 
         // 約束は、差し替えた時刻で追う。
@@ -165,7 +167,7 @@ final class ChaseRulesTests: XCTestCase {
             ["Saydo", "-saydoRoundsReset"], defaults: defaults, now: launch.addingTimeInterval(300), calendar: calendar
         )
         XCTAssertNil(settings.roundOverride)
-        XCTAssertEqual(settings.chaseRules(calendar: calendar).times(on: launch).morning, try date(6, 8))
+        XCTAssertEqual(settings.chaseRules(calendar: calendar).times(on: launch).morning, try date(6, 10))
     }
 
     func testMalformedArgumentsAreIgnored() throws {

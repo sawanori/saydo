@@ -59,9 +59,9 @@ final class AppSettings {
 
     /// 既定値（実装計画 §6-5、fix-decisions P1.4）。
     enum Default {
-        static let morningTime = TimeOfDay(hour: 8, minute: 0)
-        static let noonTime = TimeOfDay(hour: 13, minute: 0)
-        static let nightTime = TimeOfDay(hour: 21, minute: 0)
+        static let morningTime = TimeOfDay(hour: 10, minute: 0)
+        static let noonTime = TimeOfDay(hour: 14, minute: 0)
+        static let nightTime = TimeOfDay(hour: 19, minute: 0)
         /// 無音がこの秒数続いたら発話終了（実装計画 §7.3）。
         static let silenceThresholdSeconds = 1.5
         static let notificationMode = NotificationMode.twoPerDay
@@ -111,19 +111,19 @@ final class AppSettings {
 
     // MARK: 通知
 
-    /// 朝の固定通知の時刻。既定 8:00。
+    /// 朝の回（約束を追う 1 回目）の時刻。既定 10:00。
     var morningTime: TimeOfDay {
         get { time(forKey: Key.morningTime) ?? Default.morningTime }
         set { setTime(newValue, forKey: Key.morningTime) }
     }
 
-    /// 昼の固定通知の時刻。既定 13:00（`threePerDay` のときだけ使う）。
+    /// 昼の回の時刻。既定 14:00。
     var noonTime: TimeOfDay {
         get { time(forKey: Key.noonTime) ?? Default.noonTime }
         set { setTime(newValue, forKey: Key.noonTime) }
     }
 
-    /// 夜の固定通知の時刻。既定 21:00（`threePerDay` のときだけ使う）。
+    /// 夜の回の時刻。既定 19:00。
     var nightTime: TimeOfDay {
         get { time(forKey: Key.nightTime) ?? Default.nightTime }
         set { setTime(newValue, forKey: Key.nightTime) }

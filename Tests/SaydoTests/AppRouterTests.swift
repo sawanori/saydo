@@ -36,6 +36,7 @@ final class AppRouterTests: XCTestCase {
         let suiteName = "AppRouterTests-\(UUID().uuidString)"
         defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
         settings = AppSettings(defaults: defaults)
+        settings.useRoundTimesOfTheAnswerTests()
         notifications = FakePendingNotifications()
         alarms = RecordingRoundAlarms()
         audioRoot = FileManager.default.temporaryDirectory
@@ -206,18 +207,15 @@ final class AppRouterTests: XCTestCase {
         XCTAssertEqual(eveningDestination, .followUp(answered))
     }
 
-    /// 前日の深夜に約束して、追う回（30 分後の 1 回）が今日になった約束。回が始まる前は今日の画面
-    /// （約束する画面を出して 2 件目を作らせない）、始まった後は答える画面。
-    func testPromiseMadeLateLastNightIsStillInPlay() async throws {
-        let saved = try await makeCommitment(createdAt: try date(2026, 10, 5, 23, 45))
+    /// 前日の深夜（最後の回を過ぎた後）に約束した日は、追う回が無い。答える画面には出ず、翌日は新しい約束になる。
+    func testPromiseMadeLateLastNightIsNotCarriedIntoToday() async throws {
+        try await makeCommitment(createdAt: try date(2026, 10, 5, 23, 45))
 
-        let before = makeRouter(now: try date(2026, 10, 6, 0, 10))
-        let beforeDestination = await before.resolveEntry()
-        XCTAssertEqual(beforeDestination, .today)
-
-        let after = makeRouter(now: try date(2026, 10, 6, 0, 40))
-        let afterDestination = await after.resolveEntry()
-        XCTAssertEqual(afterDestination, .followUp(saved))
+        for (hour, minute) in [(0, 40), (8, 30)] {
+            let router = makeRouter(now: try date(2026, 10, 6, hour, minute))
+            let destination = await router.resolveEntry()
+            XCTAssertEqual(destination, .promise, "\(hour):\(minute) は新しい約束をする画面（昨夜の約束の答えは求めない）")
+        }
     }
 
     /// 昨日のうちに追い終えた約束（答えないまま日付が変わった）は、翌日に蒸し返さない。

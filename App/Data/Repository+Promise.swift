@@ -1,12 +1,12 @@
 import Foundation
 import SaydoCore
 
-/// 約束する画面（`PromiseViewModel`）が使う保存操作だけを切り出した契約（実装計画 §17.4）。
+/// 約束する画面（`PromiseViewModel`）が使う保存操作だけを切り出した契約（実装計画 §17.4 / §17.10）。
 ///
 /// `Repository.swift` 本体には足さない（別のタスクが同じファイルを触っているため）。
 /// `Repository` は `@ModelActor` の具象アクターなので、テストで差し替えるためにこの契約を挟む。
 protocol PromiseStore: Sendable {
-    /// その日の約束を作る。つないだ声（`declarationAudioPath`）があれば、同じファイルを指す
+    /// その日の約束を作る。約束の声（`declarationAudioPath`。約束の録音だけ）があれば、同じファイルを指す
     /// 宣言の `VoiceEntry` も同時に作られる。
     func createCommitment(_ draft: CommitmentDraft) async throws -> CommitmentSnapshot
     func appendVoiceEntry(_ draft: VoiceEntryDraft) async throws -> VoiceEntrySnapshot

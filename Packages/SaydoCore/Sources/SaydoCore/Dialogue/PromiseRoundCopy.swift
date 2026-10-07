@@ -32,19 +32,19 @@ public enum FollowUpAnswer: Sendable, Hashable, CaseIterable {
     }
 }
 
-/// 朝・昼・晩の 3 回で追う形（実装計画 §17.9、task_058）の文言。
+/// 朝・昼・晩の 3 回で追う形（実装計画 §17.9 / §17.10、task_058・task_059）の文言。
 ///
 /// `PromiseCopy` の続き。`PromiseCopy.allLines` に連結してあるので、`Guardrails` の検査は同じ経路を通る。
 extension PromiseCopy {
 
     // MARK: - 約束する画面
 
-    /// 時刻の句をつなぐ。「13時と21時」。
+    /// 時刻の句をつなぐ。「14時と19時」。
     public static func joinedTimePhrases(_ phrases: [String]) -> String {
         phrases.joined(separator: "と")
     }
 
-    /// 完了の 1 行。これから追う回の時刻を言う。例「13時と21時に、あなたの声で追いかけます。」
+    /// 完了の 1 行。これから追う回の時刻を言う。例「14時と19時に、あなたの声で追いかけます。」
     public static func completion(roundsAt dates: [Date], calendar: Calendar = .current) -> String {
         completion(roundPhrases: dates.map { timePhrase(for: $0, calendar: calendar) })
     }
@@ -63,6 +63,9 @@ extension PromiseCopy {
     public static func completionWithoutVoice(roundPhrases: [String]) -> String {
         "\(joinedTimePhrases(roundPhrases))に、アラームで追いかけます。"
     }
+
+    /// 完了の 1 行（その日に追う回が無い）。19 時を過ぎてからの約束。追いかけるとは言わず、約束は残したことだけを伝える。
+    public static let completionRecordedOnly = "約束は残しました。今日は、ここまでで大丈夫です。"
 
     // MARK: - 答える画面
 
@@ -105,7 +108,7 @@ extension PromiseCopy {
 
     // MARK: - 今日の画面
 
-    /// これから追う回がある日の 1 行。例「次は 13時に追いかけます」。
+    /// これから追う回がある日の 1 行。例「次は 14時に追いかけます」。
     public static func nextChase(at date: Date, calendar: Calendar = .current) -> String {
         nextChase(timePhrase: timePhrase(for: date, calendar: calendar))
     }
@@ -120,6 +123,22 @@ extension PromiseCopy {
     /// 約束がまだの朝に鳴らすアラームの題。
     public static let alarmPromptTitle = "今日の約束をしよう"
 
+    /// 結果を聞くアラームの題に使う「最初にやること」の最大の文字数（切ったときの「…」を含む）。
+    public static let alarmTitleLimit = 40
+
+    /// 結果を聞くアラームの題。その日の「最初にやること」の文字を出す。
+    /// 長いときは `alarmTitleLimit` 文字に切り、空なら従来の題（`alarmTitle`）。
+    public static func alarmTitle(firstAction: String?) -> String {
+        let text = (firstAction ?? "")
+            .split(whereSeparator: \.isNewline)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
+        guard !text.isEmpty else { return alarmTitle }
+        guard text.count > alarmTitleLimit else { return text }
+        return String(text.prefix(alarmTitleLimit - 1)) + "…"
+    }
+
     // MARK: - 検査用
 
     /// このファイルの全文言。時刻を差し込む行は例の時刻で埋めてある。
@@ -127,14 +146,18 @@ extension PromiseCopy {
         CopyLine(notYetButton, .statement),
         CopyLine(notYetReply, .statement),
         CopyLine(alarmPromptTitle, .statement),
+        CopyLine(completionRecordedOnly, .statement),
+        CopyLine(alarmTitle(firstAction: "資料を開く"), .statement),
+        CopyLine(alarmTitle(firstAction: String(repeating: "あ", count: alarmTitleLimit + 10)), .statement),
+        CopyLine(alarmTitle(firstAction: nil), .statement),
     ]
-        + [["21時"], ["13時", "21時"], ["8時", "13時", "21時"], ["22時30分"]].flatMap { phrases in
+        + [["19時"], ["14時", "19時"], ["10時", "14時", "19時"], ["19時30分"]].flatMap { phrases in
             [
                 CopyLine(completion(roundPhrases: phrases), .statement),
                 CopyLine(completionWithoutVoice(roundPhrases: phrases), .statement),
             ]
         }
-        + ["21時", "13時30分"].flatMap { phrase in
+        + ["19時", "14時30分"].flatMap { phrase in
             [
                 CopyLine(partialReply(nextPhrase: phrase), .statement),
                 CopyLine(notYetReply(nextPhrase: phrase), .statement),

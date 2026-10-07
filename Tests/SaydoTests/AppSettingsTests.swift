@@ -20,9 +20,10 @@ final class AppSettingsTests: XCTestCase {
     @MainActor
     func testDefaultsMatchThePlan() throws {
         try withSettings { settings, _ in
-            XCTAssertEqual(settings.morningTime, TimeOfDay(hour: 8, minute: 0))
-            XCTAssertEqual(settings.noonTime, TimeOfDay(hour: 13, minute: 0))
-            XCTAssertEqual(settings.nightTime, TimeOfDay(hour: 21, minute: 0))
+            // 追う回の時刻（実装計画 §17.10）。1 日に追うのはこの 3 回まで。
+            XCTAssertEqual(settings.morningTime, TimeOfDay(hour: 10, minute: 0))
+            XCTAssertEqual(settings.noonTime, TimeOfDay(hour: 14, minute: 0))
+            XCTAssertEqual(settings.nightTime, TimeOfDay(hour: 19, minute: 0))
             XCTAssertEqual(settings.silenceThresholdSeconds, 1.5, accuracy: 0.0001)
             XCTAssertNil(settings.speechVoiceIdentifier)
             XCTAssertEqual(settings.notificationMode, .twoPerDay)
@@ -37,15 +38,15 @@ final class AppSettingsTests: XCTestCase {
     func testNotificationModeDecidesWhichFixedNotificationsFire() throws {
         try withSettings { settings, _ in
             XCTAssertEqual(settings.notificationMode.fixedSessionTypes, [.morning])
-            XCTAssertEqual(settings.fixedNotificationTime(for: .morning), TimeOfDay(hour: 8, minute: 0))
+            XCTAssertEqual(settings.fixedNotificationTime(for: .morning), TimeOfDay(hour: 10, minute: 0))
             XCTAssertNil(settings.fixedNotificationTime(for: .noon))
             XCTAssertNil(settings.fixedNotificationTime(for: .night))
 
             settings.notificationMode = .threePerDay
 
             XCTAssertEqual(settings.notificationMode.fixedSessionTypes, [.morning, .noon, .night])
-            XCTAssertEqual(settings.fixedNotificationTime(for: .noon), TimeOfDay(hour: 13, minute: 0))
-            XCTAssertEqual(settings.fixedNotificationTime(for: .night), TimeOfDay(hour: 21, minute: 0))
+            XCTAssertEqual(settings.fixedNotificationTime(for: .noon), TimeOfDay(hour: 14, minute: 0))
+            XCTAssertEqual(settings.fixedNotificationTime(for: .night), TimeOfDay(hour: 19, minute: 0))
             XCTAssertNil(settings.fixedNotificationTime(for: .adhoc))
         }
     }
@@ -103,7 +104,7 @@ final class AppSettingsTests: XCTestCase {
 
             settings.reset()
 
-            XCTAssertEqual(settings.morningTime, TimeOfDay(hour: 8, minute: 0))
+            XCTAssertEqual(settings.morningTime, TimeOfDay(hour: 10, minute: 0))
             XCTAssertEqual(settings.notificationMode, .twoPerDay)
             XCTAssertFalse(settings.hasCompletedOnboarding)
         }
@@ -189,7 +190,7 @@ final class AppSettingsTests: XCTestCase {
     func testNotificationSettingsBridgeCarriesTheChosenValues() throws {
         try withSettings { settings, _ in
             XCTAssertEqual(settings.notificationSettings.mode, SaydoCore.NotificationMode.twice)
-            XCTAssertEqual(settings.notificationSettings.morning, SaydoCore.TimeOfDay(hour: 8, minute: 0))
+            XCTAssertEqual(settings.notificationSettings.morning, SaydoCore.TimeOfDay(hour: 10, minute: 0))
             XCTAssertTrue(settings.notificationSettings.weekendEnabled)
 
             settings.notificationMode = .threePerDay

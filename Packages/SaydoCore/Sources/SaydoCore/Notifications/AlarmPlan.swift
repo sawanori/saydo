@@ -1,13 +1,11 @@
 import Foundation
 
-/// 1 日のうちの「回」（実装計画 §17.9）。1 つの約束を、朝・昼・晩の 3 回追う。
-/// 約束の時点で 3 回とも過ぎていた日は、30 分後に追加の 1 回だけ追う。
+/// 1 日のうちの「回」（実装計画 §17.9 / §17.10）。1 つの約束を、朝・昼・晩の 3 回まで追う。
+/// 約束の時点で 3 回とも過ぎていた日は、その日は追わない。
 public enum AlarmRound: Int, Sendable, Hashable, CaseIterable, Codable, Comparable {
     case morning = 1
     case noon = 2
     case evening = 3
-    /// 3 回とも過ぎた後に約束した日の、追加の 1 回。
-    case extra = 4
 
     public static func < (lhs: AlarmRound, rhs: AlarmRound) -> Bool {
         lhs.rawValue < rhs.rawValue
@@ -53,7 +51,7 @@ public struct AlarmSlot: Sendable, Hashable {
 /// 開始時刻を覚えていなくても再計算できる。取り消しは `identifiers(on:round:...)`（1 回分）か
 /// `allIdentifiers(on:...)`（その日の全部）で行う。
 ///
-/// 日付は **約束の日** で決める。追加の 1 回が日付をまたいでも、識別子は約束の日のものに揃う。
+/// 日付は **約束の日** で決める。
 public enum AlarmPlan {
 
     /// 既定の間隔（3 分）。
@@ -62,18 +60,15 @@ public enum AlarmPlan {
     /// 1 回あたりの既定の本数（40 本 = 2 時間）。
     public static let defaultCount = 40
 
-    /// 3 回とも過ぎた後に約束したとき、追加の 1 回を始めるまでの時間（30 分）。
-    public static let extraRoundDelay: TimeInterval = 30 * 60
-
     /// 連番に使えるのは 16 ビットまで。
     public static let maxCount = Int(UInt16.max) + 1
 
     // MARK: - どの回で追うか
 
-    /// 約束した時刻から、その日に追う回を決める（実装計画 §17.9 の 4）。
+    /// 約束した時刻から、その日に追う回を決める（実装計画 §17.9 の 4、§17.10 の 2）。
     ///
     /// 約束より後に始まる回だけを残す（約束より前の回、約束と同時刻の回は飛ばす）。
-    /// 3 回とも過ぎていたら、30 分後に追加の 1 回だけ追う。開始時刻の昇順で返す。
+    /// 3 回とも過ぎていたら空（その日は追わない）。開始時刻の昇順で返す。
     public static func rounds(
         promisedAt: Date,
         morning: Date,
@@ -85,11 +80,9 @@ public enum AlarmPlan {
             AlarmRoundStart(round: .noon, start: noon),
             AlarmRoundStart(round: .evening, start: evening),
         ]
-        let upcoming = fixed
+        return fixed
             .filter { $0.start > promisedAt }
             .sorted { $0.start < $1.start }
-        guard upcoming.isEmpty else { return upcoming }
-        return [AlarmRoundStart(round: .extra, start: promisedAt.addingTimeInterval(extraRoundDelay))]
     }
 
     // MARK: - 本の並び
@@ -131,13 +124,31 @@ public enum AlarmPlan {
         (0..<clamp(count)).map { identifier(on: day, round: round, index: $0, calendar: calendar) }
     }
 
-    /// その日の全識別子（朝・昼・晩の 3 回と、追加の 1 回）。
+    /// その日の全識別子（朝・昼・晩の 3 回と、旧い版が登録した追加の 1 回）。
+    ///
+    /// 追加の 1 回（`retiredExtraRoundByte`）は今の版では登録しないが、旧い版で登録した本が
+    /// 端末に残っているかもしれないので、取り消しの対象には含める。
     public static func allIdentifiers(
         on day: Date,
         count: Int = defaultCount,
         calendar: Calendar = .current
     ) -> [UUID] {
         AlarmRound.allCases.flatMap { identifiers(on: day, round: $0, count: count, calendar: calendar) }
+            + retiredExtraIdentifiers(on: day, count: count, calendar: calendar)
+    }
+
+    /// 旧い版（task_058）が「3 回とも過ぎた後の追加の 1 回」に使っていた回の印。
+    public static let retiredExtraRoundByte: UInt8 = 4
+
+    /// 旧い版が登録した、追加の 1 回の識別子。取り消しにだけ使う。
+    public static func retiredExtraIdentifiers(
+        on day: Date,
+        count: Int = defaultCount,
+        calendar: Calendar = .current
+    ) -> [UUID] {
+        (0..<clamp(count)).map {
+            makeIdentifier(on: day, roundByte: retiredExtraRoundByte, index: $0, calendar: calendar)
+        }
     }
 
     /// 日付・回・連番から決まる識別子（UUID バージョン 8、独自の決定的な値）。
@@ -145,7 +156,7 @@ public enum AlarmPlan {
     /// 並び（16 バイト）:
     /// - 0〜3: `yyyyMMdd` を 32 ビット整数にしたもの（ビッグエンディアン）
     /// - 4〜5: 連番（ビッグエンディアン）
-    /// - 6: バージョン（8）  7: 回（1〜4。旧い識別子は 0）
+    /// - 6: バージョン（8）  7: 回（1〜3。旧い識別子は 0、旧い追加の 1 回は 4）
     /// - 8: バリアント  9〜15: 固定の印（ASCII の `SAYDOAL`）
     public static func identifier(
         on day: Date,

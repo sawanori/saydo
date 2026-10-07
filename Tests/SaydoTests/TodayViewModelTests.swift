@@ -15,7 +15,7 @@ private final class SilentPlayer: Playing {
 }
 
 /// 今日の画面の段階と、これから追う回の時刻（実装計画 §17.3「今日」/ §17.9、task_058）。
-/// 回の時刻は既定（朝 8:00・昼 13:00・晩 21:00）。
+/// 回の時刻は 朝 8:00・昼 13:00・晩 21:00 にそろえてある（`useRoundTimesOfTheAnswerTests`）。
 @MainActor
 final class TodayViewModelTests: XCTestCase {
 
@@ -29,6 +29,7 @@ final class TodayViewModelTests: XCTestCase {
         settings = AppSettings(
             defaults: try XCTUnwrap(UserDefaults(suiteName: "TodayViewModelTests-\(UUID().uuidString)"))
         )
+        settings.useRoundTimesOfTheAnswerTests()
     }
 
     override func tearDown() async throws {

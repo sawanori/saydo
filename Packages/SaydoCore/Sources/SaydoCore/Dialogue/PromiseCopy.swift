@@ -102,16 +102,6 @@ public enum PromiseCopy {
         "\(seconds)秒"
     }
 
-    /// 約束とアクションをつないだ文（`Commitment.declarationTranscript`）。「約束。アクション」の形にする。
-    public static func declarationTranscript(promise: String, action: String) -> String {
-        let period: Character = "。"
-        let parts = [promise, action]
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .map { $0.last == period ? String($0.dropLast()) : $0 }
-            .filter { !$0.isEmpty }
-        return parts.joined(separator: String(period))
-    }
-
     // MARK: - 答える画面
 
     /// 答える画面の見出し。

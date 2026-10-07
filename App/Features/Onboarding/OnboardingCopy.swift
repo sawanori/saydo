@@ -16,7 +16,7 @@ enum OnboardingCopy {
 
     static let conceptTitle = "SAYDO"
     static let conceptBody = "今日の約束を声にして、やるまで追いかけてもらう。"
-    static let conceptDetail = "約束と、最初にやることを話します。朝・昼・晩の時刻に、アプリで答えるまでアラームが鳴ります。"
+    static let conceptDetail = "約束と、最初にやることを話します。朝・昼・晩の時刻に、約束の声のアラームが、アプリで答えるまで鳴ります。最初にやることは、文字で出ます。"
 
     // MARK: - マイク
 

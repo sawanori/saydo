@@ -171,7 +171,7 @@ struct AlarmScheduler: AlarmScheduling {
         }
         .filter { !$0.slots.isEmpty }
 
-        // 本人の声は、結果を聞く回だけに使う。その日の音のファイルは 1 つ。
+        // 本人の声（約束の録音）は、結果を聞く回だけに使う。その日の音のファイルは 1 つ。
         let voicePath = planned
             .first { $0.request.purpose == .chase && $0.request.voiceRelativePath != nil }?
             .request.voiceRelativePath
@@ -186,7 +186,9 @@ struct AlarmScheduler: AlarmScheduling {
         var scheduled = 0
         for (request, slots) in planned {
             let usesVoice = request.purpose == .chase && request.voiceRelativePath != nil
-            let title = request.purpose == .prompt ? PromiseCopy.alarmPromptTitle : PromiseCopy.alarmTitle
+            let title = request.purpose == .prompt
+                ? PromiseCopy.alarmPromptTitle
+                : request.title ?? PromiseCopy.alarmTitle
             for slot in slots {
                 do {
                     try await backend.schedule(

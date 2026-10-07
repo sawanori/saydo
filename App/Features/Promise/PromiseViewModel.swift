@@ -70,8 +70,10 @@ enum PromiseNotice: Sendable, Equatable {
 
 // MARK: - ViewModel
 
-/// 約束する画面の頭脳（実装計画 §17.4）。`FlowMachine` は通さず、2 つの録音と 1 回のタップを直接持つ。
+/// 約束する画面の頭脳（実装計画 §17.4 / §17.10）。`FlowMachine` は通さず、2 つの録音と 1 回のタップを直接持つ。
 ///
+/// - 声として残すのは「約束」（1 つ目の質問）の録音だけ。アラームで鳴るのも、あとで返すのもこの声。
+///   「最初にやること」（2 つ目）は聞き取った文字だけを残し、録音ファイルはその場で消す。
 /// - 録音は、ボタンを押している間だけ動く。離した瞬間に止める。無音の判定は使わない。
 /// - 質問は読み上げない（読み上げの部品を持たない）。
 /// - 文言は持たない。画面に出す言葉はすべて `PromiseCopy` から来る。
@@ -148,7 +150,6 @@ final class PromiseViewModel {
     private let capture: any VoiceCapturing
     private let transcriber: any Transcribing
     private let chase: ChaseCoordinator
-    private let joiner: any VoiceJoining
     private let audioFiles: AudioFileStore
     private let audioSession: (any AudioSessionControlling)?
     private let calendar: Calendar
@@ -182,7 +183,6 @@ final class PromiseViewModel {
         chase: ChaseCoordinator,
         audioFiles: AudioFileStore,
         audioSession: (any AudioSessionControlling)? = nil,
-        joiner: any VoiceJoining = VoiceJoiner(),
         calendar: Calendar = .current,
         now: @escaping @Sendable () -> Date = { .now }
     ) {
@@ -192,7 +192,6 @@ final class PromiseViewModel {
         self.chase = chase
         self.audioFiles = audioFiles
         self.audioSession = audioSession
-        self.joiner = joiner
         self.calendar = calendar
         self.now = now
     }
@@ -359,10 +358,19 @@ final class PromiseViewModel {
         }
         self.take = nil
         takeGeneration += 1
-        try? audioFiles.applyProtection(toRelativePath: take.relativePath)
+        // 声として残すのは約束の録音だけ。最初にやることは文字にしたら、録音は消す（アラームでも再生でも使わない）。
+        let keptPath: String?
+        switch take.question {
+        case .promise:
+            try? audioFiles.applyProtection(toRelativePath: take.relativePath)
+            keptPath = take.relativePath
+        case .action:
+            deleteAudio(take.relativePath)
+            keptPath = nil
+        }
         logger.info("take accepted chars=\(heard.count, privacy: .public) held=\(held, privacy: .public)s")
         accept(
-            PromiseAnswer(text: heard, audioPath: take.relativePath, durationSec: held, recordedAt: take.startedAt),
+            PromiseAnswer(text: heard, audioPath: keptPath, durationSec: held, recordedAt: take.startedAt),
             for: take.question
         )
     }
@@ -478,7 +486,7 @@ final class PromiseViewModel {
         let authorized = await chase.alarms.requestAuthorization()
 
         let moment = now()
-        // 追う回は、約束した時刻で決まる（約束より前の回は飛ばす。3 回とも過ぎていたら 30 分後に 1 回）。
+        // 追う回は、約束した時刻で決まる（約束より前の回は飛ばす。3 回とも過ぎていたら、その日は追わない）。
         let rules = chase.rules
         let times = rules.times(on: moment)
         let rounds = AlarmPlan.rounds(
@@ -487,18 +495,19 @@ final class PromiseViewModel {
             noon: times.noon,
             evening: times.evening
         )
-        let voice = await joinedVoice(promise: promise, action: action, at: moment)
 
+        // 声は約束の録音だけ。約束を文字で入力した日は、声の無い約束（アラームは既定の音）。
+        let voicePath = promise.audioPath
         var draft = CommitmentDraft(
             avoidanceTitle: promise.text,
             microAction: MicroAction(text: action.text)
         )
         // 最初に追う回の時刻。
         draft.plannedAt = rounds.first?.start
-        draft.declarationAudioPath = voice?.relativePath
-        draft.declarationTranscript = PromiseCopy.declarationTranscript(promise: promise.text, action: action.text)
-        draft.declarationDurationSec = voice?.durationSec ?? 0
-        draft.isVoiceless = voice == nil
+        draft.declarationAudioPath = voicePath
+        draft.declarationTranscript = promise.text
+        draft.declarationDurationSec = voicePath == nil ? 0 : promise.durationSec
+        draft.isVoiceless = voicePath == nil
         draft.createdAt = moment
 
         let saved: CommitmentSnapshot
@@ -506,25 +515,22 @@ final class PromiseViewModel {
             saved = try await store.createCommitment(draft)
         } catch {
             logger.error("promise save failed: \(error.localizedDescription, privacy: .public)")
-            if let voice, voice.isJoinedFile {
-                deleteAudio(voice.relativePath)
-            }
             isSaving = false
             notice = .saveUnavailable
             return
         }
         commitment = saved
 
-        // 約束とアクション、それぞれの言葉と録音を残す。ここで失敗しても約束は成立している。
-        let entries: [(PromiseAnswer, VoiceEntryKind)] = [(promise, .avoidance), (action, .declaration)]
-        for (answer, kind) in entries {
+        // 声で約束した日は、`createCommitment` が約束の録音を指す宣言の行を 1 つ作る。
+        // 文字で約束した日だけ、記録に残す行（文字だけ）をここで 1 つ足す。ここで失敗しても約束は成立している。
+        if voicePath == nil {
             let entry = VoiceEntryDraft(
-                recordedAt: answer.recordedAt,
+                recordedAt: promise.recordedAt,
                 sessionType: draft.sessionType,
-                kind: kind,
-                audioPath: answer.audioPath,
-                transcript: answer.text,
-                durationSec: answer.durationSec,
+                kind: .declaration,
+                audioPath: nil,
+                transcript: promise.text,
+                durationSec: 0,
                 commitmentID: saved.id
             )
             do {
@@ -535,12 +541,12 @@ final class PromiseViewModel {
         }
 
         let outcome = await chase.promiseSaved(saved)
-        logger.info("promise saved authorized=\(authorized, privacy: .public) alarm=\(String(describing: outcome), privacy: .public) voice=\(voice != nil, privacy: .public)")
+        logger.info("promise saved authorized=\(authorized, privacy: .public) alarm=\(String(describing: outcome), privacy: .public) voice=\(voicePath != nil, privacy: .public)")
         alarmOutcome = outcome
         completionLine = Self.completionLine(
             for: outcome,
             rounds: rounds.map(\.start),
-            hasVoice: voice != nil,
+            hasVoice: voicePath != nil,
             calendar: calendar
         )
         stage = .done
@@ -549,52 +555,23 @@ final class PromiseViewModel {
     }
 
     /// 完了の 1 行。これから追う回の時刻を言う。追えないときは「追いかけます」と言わず、約束は残したことを伝える。
+    /// その日に追う回が無い（19 時を過ぎてからの約束）ときも同じ。
     static func completionLine(
         for outcome: AlarmScheduleOutcome,
         rounds: [Date],
         hasVoice: Bool,
         calendar: Calendar
     ) -> String {
+        guard !rounds.isEmpty else { return PromiseCopy.completionRecordedOnly }
         switch outcome {
-        case .scheduled(let count) where count > 0 && !rounds.isEmpty:
-            hasVoice
+        case .scheduled(let count) where count > 0:
+            return hasVoice
                 ? PromiseCopy.completion(roundsAt: rounds, calendar: calendar)
                 : PromiseCopy.completionWithoutVoice(roundsAt: rounds, calendar: calendar)
         case .notAuthorized:
-            PromiseCopy.completionNotAuthorized
+            return PromiseCopy.completionNotAuthorized
         case .scheduled, .failed:
-            PromiseCopy.completionAlarmUnavailable
-        }
-    }
-
-    private struct JoinedVoice {
-        var relativePath: String
-        var durationSec: Double
-        /// つないで新しく作ったファイルか（片方だけ声のときは、その録音をそのまま使う）。
-        var isJoinedFile: Bool
-    }
-
-    /// 約束、アクションの順に 1 つの音声ファイルにする。声が片方だけなら、ある方だけを使う。
-    private func joinedVoice(promise: PromiseAnswer, action: PromiseAnswer, at moment: Date) async -> JoinedVoice? {
-        let voiced = [promise, action].compactMap { answer in
-            answer.audioPath.map { JoinedVoice(relativePath: $0, durationSec: answer.durationSec, isJoinedFile: false) }
-        }
-        guard let first = voiced.first else { return nil }
-        guard voiced.count > 1 else { return first }
-
-        var allocatedPath: String?
-        do {
-            let allocation = try audioFiles.allocate(recordedAt: moment, calendar: calendar)
-            allocatedPath = allocation.relativePath
-            let sources = voiced.map { audioFiles.url(forRelativePath: $0.relativePath) }
-            let duration = try await joiner.join(sources, into: allocation.url)
-            try? audioFiles.applyProtection(toRelativePath: allocation.relativePath)
-            return JoinedVoice(relativePath: allocation.relativePath, durationSec: duration, isJoinedFile: true)
-        } catch {
-            // つなげなくても約束は残す。声は約束の録音だけを使う。
-            logger.error("voice join failed: \(error.localizedDescription, privacy: .public)")
-            deleteAudio(allocatedPath)
-            return first
+            return PromiseCopy.completionAlarmUnavailable
         }
     }
 
