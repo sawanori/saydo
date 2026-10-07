@@ -3021,6 +3021,49 @@
         "scripts/test-ios.sh"
       ],
       "risk_level": "high"
+    },
+    {
+      "task_id": "task_059",
+      "title": "アラームの声は約束だけにし、追う時刻を 10:00・14:00・19:00 にする",
+      "goal": "アラームで聞くのは約束だけ。最初にやることは文字で見る。追うのは決まった 3 回まで",
+      "scope": [
+        "実装計画 §17.10 の 1〜3"
+      ],
+      "non_scope": [
+        "回の中の間隔と本数の変更",
+        "スキーマの変更"
+      ],
+      "files_to_read": [
+        "docs/implementation-plan.md（§17.9、§17.10）",
+        "docs/PROGRESS.md 末尾の task_058"
+      ],
+      "files_to_create": [],
+      "files_to_modify": [
+        "App/Features/Promise/PromiseViewModel.swift",
+        "App/Alarms/AlarmScheduler.swift",
+        "App/Data/AppSettings.swift",
+        "Packages/SaydoCore/Sources/SaydoCore/Notifications/AlarmPlan.swift"
+      ],
+      "dependencies": [
+        "task_058"
+      ],
+      "implementation_steps": [
+        "§17.10 を読む",
+        "実装し、対応するテストを直す",
+        "両スクリプトを実行し、ログを 1 本残す",
+        "PROGRESS に追記してコミットする"
+      ],
+      "done_definition": [
+        "約束の声のパスが、約束の録音だけを指す（テスト）",
+        "アラームの表示に、最初にやることの文字が入る（テスト）",
+        "既定の時刻が 10:00・14:00・19:00 で、19:00 を過ぎた約束では回が登録されない（テスト）",
+        "scripts/test-core.sh と scripts/test-ios.sh が exit 0"
+      ],
+      "verify_commands": [
+        "scripts/test-core.sh",
+        "scripts/test-ios.sh"
+      ],
+      "risk_level": "medium"
     }
   ]
 }
